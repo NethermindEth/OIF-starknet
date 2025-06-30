@@ -11,19 +11,23 @@ pub fn selector(ba: ByteArray) -> felt252 {
         .unwrap()
 }
 
-#[test]
-fn test_keccak_byte_array() {
-    assert_eq!(selector(""), selector!(""));
-    assert_eq!(selector("0123456789abedef"), selector!("0123456789abedef"));
-    assert_eq!(selector("hello-world"), selector!("hello-world"));
+#[cfg(test)]
+pub mod selector_tests {
+    use super::selector;
+
+    fn test_keccak_byte_array() {
+        assert_eq!(selector(""), selector!(""));
+        assert_eq!(selector("0123456789abedef"), selector!("0123456789abedef"));
+        assert_eq!(selector("hello-world"), selector!("hello-world"));
+    }
+
+    fn test_keccak_byte_array_vars() {
+        let a: ByteArray = "";
+        let b: ByteArray = "0123456789abedef";
+        let c: ByteArray = "hello-world";
+        assert_eq!(selector(a), selector!(""));
+        assert_eq!(selector(b), selector!("0123456789abedef"));
+        assert_eq!(selector(c), selector!("hello-world"));
+    }
 }
 
-#[test]
-fn test_keccak_byte_array_vars() {
-    let a: ByteArray = "";
-    let b: ByteArray = "0123456789abedef";
-    let c: ByteArray = "hello-world";
-    assert_eq!(selector(a), selector!(""));
-    assert_eq!(selector(b), selector!("0123456789abedef"));
-    assert_eq!(selector(c), selector!("hello-world"));
-}
