@@ -118,6 +118,7 @@ pub trait ISignatureTransfer<TState> {
     /// @param owner The owner of the tokens to transfer
     /// @param transferDetails The spender's requested transfer details for the permitted token
     /// @param witness Extra data to include when checking the user signature
+    /// @NOTE: witness is struct hash of witness data,
     /// @param witnessTypeString The EIP-712 type definition for remaining string stub of the
     /// typehash
     /// @param signature The signature to verify
