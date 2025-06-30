@@ -9,10 +9,6 @@ pub mod errors {
     pub const InvalidNonce: felt252 = 'AT: invalid nonce';
     pub const InvalidSignature: felt252 = 'AT: invalid signature';
     pub const ExcessiveNonceDelta: felt252 = 'AT: excessive nonce delta';
-    //    pub const InvalidSignature: felt252 = 'AT: invalid signature';
-//    pub const NonceTooHigh: felt252 = 'AT: nonce too high';
-//    pub const NonceTooLow: felt252 = 'AT: nonce too low';
-//    pub const TooManyNoncesInvalidated: felt252 = 'AT: too many nonces invalidated';
 }
 
 /// EVENTS ///
@@ -167,7 +163,6 @@ pub struct AllowanceTransferDetails {
 
 /// INTERFACE ///
 
-/// Implements IEIP712
 #[starknet::interface]
 pub trait IAllowanceTransfer<TState> {
     /// Reads ///
