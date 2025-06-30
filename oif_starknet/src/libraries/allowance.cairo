@@ -1,5 +1,5 @@
-use oif_starknet::permit2::allowance_transfer::interface::Allowance;
 use starknet::storage::{Mutable, StoragePath, StoragePointerReadAccess, StoragePointerWriteAccess};
+use oif_starknet::permit2::allowance_transfer::interface::Allowance;
 
 pub trait AllowanceTrait {
     const BLOCK_TIMESTAMP_EXPIRATION: u64;
