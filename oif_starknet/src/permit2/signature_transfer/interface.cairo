@@ -9,25 +9,6 @@ pub mod errors {
     pub const InvalidAmount: felt252 = 'ST: invalid amount';
 }
 
-/// EVENTS ///
-
-pub mod events {
-    #[event]
-    #[derive(starknet::Event, Drop)]
-    pub enum SignatureTransferEvent {
-        UnorderedNonceInvalidation: UnorderedNonceInvalidation,
-    }
-
-    /// @notice Emits an event when the owner successfully invalidates an unordered nonce.
-    #[derive(Drop, starknet::Event)]
-    pub struct UnorderedNonceInvalidation {
-        #[key]
-        owner: starknet::ContractAddress,
-        word: u256,
-        mask: u256,
-    }
-}
-
 /// STRUCTS ///
 
 /// @notice The token and amount details for a transfer signed in the permit transfer signature

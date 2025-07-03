@@ -4,14 +4,16 @@ pub mod SignatureTransferComponent {
         OffchainMessageHashWitnessTrait, PermitBatchStructHash, PermitSingleStructHash,
         StructHashPermitBatchTransferFrom, StructHashPermitTransferFrom,
         StructHashWitnessPermitBatchTransferFrom, StructHashWitnessPermitTransferFrom,
-        StructHashWitnessTrait, TokenPermissionsStructHash,
+        TokenPermissionsStructHash,
     };
     use oif_starknet::permit2::signature_transfer::interface::{
         ISignatureTransfer, PermitBatchTransferFrom, PermitTransferFrom, SignatureTransferDetails,
-        errors, events,
+        errors,
     };
     use oif_starknet::permit2::unordered_nonces::unordered_nonces::UnorderedNoncesComponent;
-    use oif_starknet::permit2::unordered_nonces::unordered_nonces::UnorderedNoncesComponent::InternalTrait as NoncesInternalTrait;
+    use oif_starknet::permit2::unordered_nonces::unordered_nonces::UnorderedNoncesComponent::{
+        InternalTrait as NoncesInternalTrait, UnorderedNoncesImpl,
+    };
     use openzeppelin_account::interface::{ISRC6Dispatcher, ISRC6DispatcherTrait};
     use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use openzeppelin_utils::cryptography::snip12::{OffchainMessageHash, SNIP12Metadata};
@@ -21,15 +23,6 @@ pub mod SignatureTransferComponent {
 
     #[storage]
     pub struct Storage {}
-
-    /// EVENTS ///
-
-    #[event]
-    #[derive(Drop, starknet::Event)]
-    pub enum Event {
-        #[flat]
-        SignatureTransferEvent: events::SignatureTransferEvent,
-    }
 
     /// PUBLIC ///
 
@@ -143,10 +136,8 @@ pub mod SignatureTransferComponent {
 
             // Validate signature
             let src6_dispatcher = ISRC6Dispatcher { contract_address: owner };
-            assert(
-                src6_dispatcher.is_valid_signature(data_hash, signature) == starknet::VALIDATED,
-                errors::InvalidSignature,
-            );
+            let is_valid = src6_dispatcher.is_valid_signature(data_hash, signature);
+            assert(is_valid == starknet::VALIDATED, errors::InvalidSignature);
 
             // Transfer tokens
             /// TODO: Assert return value
@@ -178,10 +169,8 @@ pub mod SignatureTransferComponent {
 
             // Validate signature
             let src6_dispatcher = ISRC6Dispatcher { contract_address: owner };
-            assert(
-                src6_dispatcher.is_valid_signature(data_hash, signature) == starknet::VALIDATED,
-                errors::InvalidSignature,
-            );
+            let is_valid = src6_dispatcher.is_valid_signature(data_hash, signature);
+            assert(is_valid == starknet::VALIDATED, errors::InvalidSignature);
 
             // Iterate over each permitted token and transfer detail
             for (permitted, transfer_detail) in permit.permitted.into_iter().zip(transfer_details) {
