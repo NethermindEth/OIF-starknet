@@ -45,7 +45,7 @@ pub impl FeltBitmapTraitImpl of BitmapTrait<felt252> {
 }
 
 /// Bitmap packing implementation for felt252.
-impl FeltBitmapPackingTraitImpl of BitmapPackingTrait<felt252> {
+pub impl FeltBitmapPackingTraitImpl of BitmapPackingTrait<felt252> {
     fn pack_nonce(nonce_space: felt252, bit_pos: u8) -> felt252 {
         let nonce_space_u256: u256 = nonce_space.into();
         ((nonce_space_u256 * SHIFT_8) + bit_pos.into())
