@@ -16,49 +16,49 @@ use starknet::{ContractAddress, get_caller_address, get_tx_info};
 pub const _U256_TYPE_HASH: felt252 = selector!("\"u256\"(\"low\":\"u128\",\"high\":\"u128\")");
 
 // @dev There's no u8 in SNIP-12, we use u128
-pub const _PERMIT_DETAILS_TYPEHASH: felt252 = selector!(
+pub const _PERMIT_DETAILS_TYPE_HASH: felt252 = selector!(
     "\"PermitDetails\"(\"token\":\"ContractAddress\",\"amount\":\"u256\",\"expiration\":\"u128\",\"nonce\":\"u128\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
 );
 
-pub const _PERMIT_SINGLE_TYPEHASH: felt252 = selector!(
+pub const _PERMIT_SINGLE_TYPE_HASH: felt252 = selector!(
     "\"PermitSingle\"(\"details\":\"PermitDetails\",\"spender\":\"ContractAddress\",\"sig_deadline\":\"u256\")\"PermitDetails\"(\"token\":\"ContractAddress\",\"amount\":\"u256\",\"expiration\":\"u128\",\"nonce\":\"u128\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
 );
 
-pub const _PERMIT_BATCH_TYPEHASH: felt252 = selector!(
+pub const _PERMIT_BATCH_TYPE_HASH: felt252 = selector!(
     "\"PermitBatch\"(\"details\":\"PermitDetails*\",\"spender\":\"ContractAddress\",\"sig_deadline\":\"u256\")\"PermitDetails\"(\"token\":\"ContractAddress\",\"amount\":\"u256\",\"expiration\":\"u128\",\"nonce\":\"u128\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
 );
 
-pub const _TOKEN_PERMISSIONS_TYPEHASH: felt252 = selector!(
+pub const _TOKEN_PERMISSIONS_TYPE_HASH: felt252 = selector!(
     "\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
 );
 
-pub const _PERMIT_TRANSFER_FROM_TYPEHASH: felt252 = selector!(
+pub const _PERMIT_TRANSFER_FROM_TYPE_HASH: felt252 = selector!(
     "\"PermitTransferFrom\"(\"permitted\":\"TokenPermissions\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\")\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
 );
 
-pub const _PERMIT_BATCH_TRANSFER_FROM_TYPEHASH: felt252 = selector!(
+pub const _PERMIT_BATCH_TRANSFER_FROM_TYPE_HASH: felt252 = selector!(
     "\"PermitBatchTransferFrom\"(\"permitted\":\"TokenPermissions*\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\")\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
 );
 
-pub fn _TOKEN_PERMISSIONS_TYPESTRING() -> ByteArray {
+pub fn _TOKEN_PERMISSIONS_TYPE_STRING() -> ByteArray {
     "\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")"
 }
 
-pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPEHASH_STUB() -> ByteArray {
-    "\"PermitWitnessTransferFrom\"(\"permitted\":\"TokenPermissions\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\")"
+pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH_STUB() -> ByteArray {
+    "\"PermitWitnessTransferFrom\"(\"permitted\":\"TokenPermissions\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\","
 }
 
-pub fn _PERMIT_WITNESS_BATCH_TRANSFER_FROM_TYPEHASH_STUB() -> ByteArray {
-    "\"PermitWitnessTransferFrom\"(\"permitted\":\"TokenPermissions*\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\")"
+pub fn _PERMIT_WITNESS_BATCH_TRANSFER_FROM_TYPE_HASH_STUB() -> ByteArray {
+    "\"PermitWitnessBatchTransferFrom\"(\"permitted\":\"TokenPermissions*\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\","
 }
 
-pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPEHASH(witness_type_string: ByteArray) -> felt252 {
-    let stub = _PERMIT_WITNESS_TRANSFER_FROM_TYPEHASH_STUB();
+pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string: ByteArray) -> felt252 {
+    let stub = _PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH_STUB();
     selector(format!("{stub}{witness_type_string}"))
 }
 
-pub fn _PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPEHASH(witness_type_string: ByteArray) -> felt252 {
-    let stub = _PERMIT_WITNESS_BATCH_TRANSFER_FROM_TYPEHASH_STUB();
+pub fn _PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string: ByteArray) -> felt252 {
+    let stub = _PERMIT_WITNESS_BATCH_TRANSFER_FROM_TYPE_HASH_STUB();
     selector(format!("{stub}{witness_type_string}"))
 }
 
@@ -73,7 +73,7 @@ pub impl U256StructHash of StructHash<u256> {
 pub impl PermitSingleStructHash of StructHash<PermitSingle> {
     fn hash_struct(self: @PermitSingle) -> felt252 {
         PoseidonTrait::new()
-            .update_with(_PERMIT_SINGLE_TYPEHASH)
+            .update_with(_PERMIT_SINGLE_TYPE_HASH)
             .update_with(self.details.hash_struct())
             .update_with(*self.spender)
             .update_with(self.sig_deadline.hash_struct())
@@ -91,7 +91,7 @@ pub impl PermitBatchStructHash of StructHash<PermitBatch> {
             .span();
 
         PoseidonTrait::new()
-            .update_with(_PERMIT_BATCH_TYPEHASH)
+            .update_with(_PERMIT_BATCH_TYPE_HASH)
             .update_with(hashed_details)
             .update_with(*self.spender)
             .update_with(self.sig_deadline.hash_struct())
@@ -102,7 +102,7 @@ pub impl PermitBatchStructHash of StructHash<PermitBatch> {
 pub impl StructHashPermitTransferFrom of StructHash<PermitTransferFrom> {
     fn hash_struct(self: @PermitTransferFrom) -> felt252 {
         PoseidonTrait::new()
-            .update_with(_PERMIT_TRANSFER_FROM_TYPEHASH)
+            .update_with(_PERMIT_TRANSFER_FROM_TYPE_HASH)
             .update_with(self.permitted.hash_struct())
             .update_with(get_caller_address())
             .update_with(*self.nonce)
@@ -121,7 +121,7 @@ pub impl StructHashPermitBatchTransferFrom of StructHash<PermitBatchTransferFrom
             .span();
 
         PoseidonTrait::new()
-            .update_with(_PERMIT_BATCH_TRANSFER_FROM_TYPEHASH)
+            .update_with(_PERMIT_BATCH_TRANSFER_FROM_TYPE_HASH)
             .update_with(hashed_permissions)
             .update_with(get_caller_address())
             .update_with(*self.nonce)
@@ -139,7 +139,7 @@ pub impl StructHashWitnessPermitTransferFrom of StructHashWitnessTrait<PermitTra
         self: @PermitTransferFrom, witness: felt252, witness_type_string: ByteArray,
     ) -> felt252 {
         PoseidonTrait::new()
-            .update_with(_PERMIT_WITNESS_TRANSFER_FROM_TYPEHASH(witness_type_string))
+            .update_with(_PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string))
             .update_with(self.permitted.hash_struct())
             .update_with(get_caller_address())
             .update_with(*self.nonce)
@@ -163,7 +163,7 @@ pub impl StructHashWitnessPermitBatchTransferFrom of StructHashWitnessTrait<
             .span();
 
         PoseidonTrait::new()
-            .update_with(_PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPEHASH(witness_type_string))
+            .update_with(_PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string))
             .update_with(hashed_permissions)
             .update_with(get_caller_address())
             .update_with(*self.nonce)
@@ -176,7 +176,7 @@ pub impl StructHashWitnessPermitBatchTransferFrom of StructHashWitnessTrait<
 pub impl PermitDetailsStructHash of StructHash<PermitDetails> {
     fn hash_struct(self: @PermitDetails) -> felt252 {
         PoseidonTrait::new()
-            .update_with(_PERMIT_DETAILS_TYPEHASH)
+            .update_with(_PERMIT_DETAILS_TYPE_HASH)
             .update_with(*self.token)
             .update_with(self.amount.hash_struct())
             .update_with(*self.expiration)
@@ -188,7 +188,7 @@ pub impl PermitDetailsStructHash of StructHash<PermitDetails> {
 pub impl TokenPermissionsStructHash of StructHash<TokenPermissions> {
     fn hash_struct(self: @TokenPermissions) -> felt252 {
         PoseidonTrait::new()
-            .update_with(_TOKEN_PERMISSIONS_TYPEHASH)
+            .update_with(_TOKEN_PERMISSIONS_TYPE_HASH)
             .update_with(*self.token)
             .update_with(self.amount.hash_struct())
             .finalize()
@@ -225,7 +225,7 @@ pub impl OffChainMessageHashWitnessPermitTransferFrom<
             // Account
             .update_with(signer)
             // Message
-            .update_with(_PERMIT_WITNESS_TRANSFER_FROM_TYPEHASH(witness_type_string))
+            .update_with(_PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string))
             .update_with(self.permitted.hash_struct())
             .update_with(get_caller_address())
             .update_with(*self.nonce)
@@ -264,7 +264,7 @@ pub impl OffChainMessageHashWitnessPermitBatchTransferFrom<
             // Account
             .update_with(signer)
             // Message
-            .update_with(_PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPEHASH(witness_type_string))
+            .update_with(_PERMIT_BATCH_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string))
             .update_with(hashed_permissions)
             .update_with(get_caller_address())
             .update_with(*self.nonce)
@@ -282,7 +282,7 @@ pub impl OffChainMessageHashWitnessPermitBatchTransferFrom<
 //            // Account
 //            .update_with(signer)
 //            // Message
-//            .update_with(_TOKEN_PERMISSIONS_TYPEHASH)
+//            .update_with(_TOKEN_PERMISSIONS_TYPE_HASH)
 //            .update_with(self.permitted.hash_struct())
 //            .update_with(get_caller_address())
 //            .update_with(*self.nonce)
