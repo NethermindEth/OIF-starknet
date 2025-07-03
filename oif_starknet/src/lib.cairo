@@ -18,6 +18,7 @@ pub mod permit2 {
 
 pub mod libraries {
     pub mod allowance;
+    pub mod bitmap;
     pub mod permit_hash;
     pub mod utils;
     pub mod mocks {
