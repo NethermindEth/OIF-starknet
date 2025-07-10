@@ -12,48 +12,40 @@ use openzeppelin_utils::cryptography::snip12::{
 };
 use starknet::{ContractAddress, get_caller_address, get_tx_info};
 
-/// TYPE_HASHES & TYPE_STRINGS
-pub const _U256_TYPE_HASH: felt252 = selector!("\"u256\"(\"low\":\"u128\",\"high\":\"u128\")");
+/// TYPE HASHES
+// @dev See tests/permit_hash_test.cairo
+pub const _U256_TYPE_HASH: felt252 =
+    0x3b143be38b811560b45593fb2a071ec4ddd0a020e10782be62ffe6f39e0e82c;
 
-// @dev There's no u8 in SNIP-12, we use u128
-pub const _PERMIT_DETAILS_TYPE_HASH: felt252 = selector!(
-    "\"PermitDetails\"(\"token\":\"ContractAddress\",\"amount\":\"u256\",\"expiration\":\"u128\",\"nonce\":\"u128\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
-);
+pub const _PERMIT_DETAILS_TYPE_HASH: felt252 =
+    0x39e80620ca03cbe1e7b789ce8f2316b9c8b6c51f3fd1f9fcfcf625e0f575e41;
 
-pub const _PERMIT_SINGLE_TYPE_HASH: felt252 = selector!(
-    "\"PermitSingle\"(\"details\":\"PermitDetails\",\"spender\":\"ContractAddress\",\"sig_deadline\":\"u256\")\"PermitDetails\"(\"token\":\"ContractAddress\",\"amount\":\"u256\",\"expiration\":\"u128\",\"nonce\":\"u128\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
-);
+pub const _PERMIT_SINGLE_TYPE_HASH: felt252 =
+    0x3ba9155c2accbec95e96bd8b3a44001b999bcab5f60ac9190d52971e5e326d5;
 
-pub const _PERMIT_BATCH_TYPE_HASH: felt252 = selector!(
-    "\"PermitBatch\"(\"details\":\"PermitDetails*\",\"spender\":\"ContractAddress\",\"sig_deadline\":\"u256\")\"PermitDetails\"(\"token\":\"ContractAddress\",\"amount\":\"u256\",\"expiration\":\"u128\",\"nonce\":\"u128\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
-);
+pub const _PERMIT_BATCH_TYPE_HASH: felt252 =
+    0x325274b0d8a3efb6f007445f02f582f1f1c1963a8f1ee25042907f932ff6dc6;
 
-pub const _TOKEN_PERMISSIONS_TYPE_HASH: felt252 = selector!(
-    "\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
-);
+pub const _TOKEN_PERMISSIONS_TYPE_HASH: felt252 =
+    0x361e49d30187edb379e9bf5a4352ec40a086ce44736d4f3827151e294f3636;
 
-pub const _PERMIT_TRANSFER_FROM_TYPE_HASH: felt252 = selector!(
-    "\"PermitTransferFrom\"(\"permitted\":\"TokenPermissions\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\")\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
-);
+pub const _PERMIT_TRANSFER_FROM_TYPE_HASH: felt252 =
+    0x91e237c508a467f4245435f0b4189c6ceea461866fc9f2d60e56044478423e;
 
-pub const _PERMIT_BATCH_TRANSFER_FROM_TYPE_HASH: felt252 = selector!(
-    "\"PermitBatchTransferFrom\"(\"permitted\":\"TokenPermissions*\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\")\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")",
-);
+pub const _PERMIT_BATCH_TRANSFER_FROM_TYPE_HASH: felt252 =
+    0x4f4267c104a99f0b5310ca334394282d7676cf8b881c005b9ec165451d5fa0;
 
-pub fn _TOKEN_PERMISSIONS_TYPE_STRING() -> ByteArray {
-    "\"TokenPermissions\"(\"token\":\"ContractAddress\",\"amount\":\"u256\")\"u256\"(\"low\":\"u128\",\"high\":\"u128\")"
-}
-
-pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH_STUB() -> ByteArray {
-    "\"PermitWitnessTransferFrom\"(\"permitted\":\"TokenPermissions\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\","
+/// TYPE STRINGS
+pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPE_STRING_STUB() -> ByteArray {
+    "\"Permit Witness Transfer From\"(\"Permitted\":\"TokenPermissions\",\"Spender\":\"ContractAddress\",\"Nonce\":\"felt\",\"Deadline\":\"u256\","
 }
 
 pub fn _PERMIT_WITNESS_BATCH_TRANSFER_FROM_TYPE_HASH_STUB() -> ByteArray {
-    "\"PermitWitnessBatchTransferFrom\"(\"permitted\":\"TokenPermissions*\",\"spender\":\"ContractAddress\",\"nonce\":\"felt\",\"deadline\":\"u256\","
+    "\"Permit Witness Batch Transfer From\"(\"Permitted\":\"Token Permissions*\",\"Spender\":\"ContractAddress\",\"Nonce\":\"felt\",\"Deadline\":\"u256\","
 }
 
 pub fn _PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH(witness_type_string: ByteArray) -> felt252 {
-    let stub = _PERMIT_WITNESS_TRANSFER_FROM_TYPE_HASH_STUB();
+    let stub = _PERMIT_WITNESS_TRANSFER_FROM_TYPE_STRING_STUB();
     selector(format!("{stub}{witness_type_string}"))
 }
 
@@ -99,19 +91,19 @@ pub impl PermitBatchStructHash of StructHash<PermitBatch> {
     }
 }
 
-pub impl StructHashPermitTransferFrom of StructHash<PermitTransferFrom> {
+pub impl PermitTransferFromStructHash of StructHash<PermitTransferFrom> {
     fn hash_struct(self: @PermitTransferFrom) -> felt252 {
         PoseidonTrait::new()
             .update_with(_PERMIT_TRANSFER_FROM_TYPE_HASH)
             .update_with(self.permitted.hash_struct())
-            .update_with(get_caller_address())
+            .update_with(get_caller_address()) // Spender
             .update_with(*self.nonce)
             .update_with(self.deadline.hash_struct())
             .finalize()
     }
 }
 
-pub impl StructHashPermitBatchTransferFrom of StructHash<PermitBatchTransferFrom> {
+pub impl PermitBatchTransferFromStructHash of StructHash<PermitBatchTransferFrom> {
     fn hash_struct(self: @PermitBatchTransferFrom) -> felt252 {
         let hashed_permissions = self
             .permitted
@@ -134,7 +126,7 @@ pub trait StructHashWitnessTrait<T> {
     fn hash_with_witness(self: @T, witness: felt252, witness_type_string: ByteArray) -> felt252;
 }
 
-pub impl StructHashWitnessPermitTransferFrom of StructHashWitnessTrait<PermitTransferFrom> {
+pub impl PermitTransferFromStructHashWitness of StructHashWitnessTrait<PermitTransferFrom> {
     fn hash_with_witness(
         self: @PermitTransferFrom, witness: felt252, witness_type_string: ByteArray,
     ) -> felt252 {
@@ -149,7 +141,7 @@ pub impl StructHashWitnessPermitTransferFrom of StructHashWitnessTrait<PermitTra
     }
 }
 
-pub impl StructHashWitnessPermitBatchTransferFrom of StructHashWitnessTrait<
+pub impl PermitBatchTransferFromStructHashWitness of StructHashWitnessTrait<
     PermitBatchTransferFrom,
 > {
     fn hash_with_witness(
@@ -203,7 +195,7 @@ pub trait OffchainMessageHashWitnessTrait<T> {
     ) -> felt252;
 }
 
-pub impl OffChainMessageHashWitnessPermitTransferFrom<
+pub impl PermitTransferFromOffChainMessageHashWitness<
     impl metadata: SNIP12Metadata,
 > of OffchainMessageHashWitnessTrait<PermitTransferFrom> {
     fn get_message_hash_with_witness(
@@ -235,7 +227,7 @@ pub impl OffChainMessageHashWitnessPermitTransferFrom<
     }
 }
 
-pub impl OffChainMessageHashWitnessPermitBatchTransferFrom<
+pub impl PermitBatchTransferFromOffChainMessageHashWitness<
     impl metadata: SNIP12Metadata,
 > of OffchainMessageHashWitnessTrait<PermitBatchTransferFrom> {
     fn get_message_hash_with_witness(

@@ -716,7 +716,7 @@ fn test_permit_batch_allowance_transfer_different_tokens() {
 #[should_panic(expected: 'AT: invalid signature')]
 fn test_permit_with_invalid_signature_should_fail() {
     let setup = setup();
-    let default_expiration = starknet::get_block_timestamp() + 5;
+    let default_expiration = get_block_timestamp() + 5;
 
     let details = PermitDetails {
         token: setup.token0.contract_address,
