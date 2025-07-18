@@ -189,7 +189,7 @@ pub struct Output {
 pub struct FillInstruction {
     pub destination_chain_id: u256,
     pub destination_settler: ContractAddress,
-    pub origin_data: Array<felt252>,
+    pub origin_data: ByteArray,
 }
 
 /// Represents data for an order that has been filled.
