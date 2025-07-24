@@ -8,10 +8,11 @@ pub trait IBasicSwap7683<TState> {}
 /// @dev This is a component, intended to be injected into a third contract that will function as
 /// the messaging layer.
 #[starknet::component]
-pub mod BasicSwap7683 {
+pub mod BasicSwap7683Component {
+    use alexandria_bytes::{Bytes, BytesStore};
     use core::num::traits::{Bounded, Zero};
     use oif_starknet::base7683::Base7683Component;
-    use oif_starknet::base7683::Base7683Component::{Base7683Virtual, OPENED};
+    use oif_starknet::base7683::Base7683Component::{OPENED, Virtual};
     use oif_starknet::erc7683::interface::{
         FillInstruction, GaslessCrossChainOrder, OnchainCrossChainOrder, Output,
         ResolvedCrossChainOrder,
@@ -38,18 +39,12 @@ pub mod BasicSwap7683 {
 
     /// STORAGE ///
     #[storage]
-    pub struct Storage {
-        permit2_address: ContractAddress,
-        //used_nonces: Map<(ContractAddress, felt252), bool>,
-    //open_orders: Map<felt252, ByteArray>,
-    //filled_orders: Map<felt252, FilledOrder>,
-    //order_status: Map<felt252, felt252>,
-    }
+    pub struct Storage {}
 
     /// EVENTS ///
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         Settled: Settled,
         Refunded: Refunded,
     }
@@ -73,51 +68,13 @@ pub mod BasicSwap7683 {
         receiver: ContractAddress,
     }
 
-    /// PUBLIC ///
-    #[embeddable_as(BasicSwap7683Impl)]
-    impl BasicSwap7683<
-        TContractState,
-        +HasComponent<TContractState>,
-        +Drop<TContractState>,
-        impl Virtual: Base7683Component::HasComponent<TContractState>,
-    > of super::IBasicSwap7683<ComponentState<TContractState>> {}
-
     /// VIRTUAL ///
-    pub trait BasicSwap7683VirtualExtended<
+    pub trait BasicSwapVirtual<
         TContractState,
-    > { /// @dev Should be implemented by the messaging layer for dispatching a settlement
-        /// instruction the remote domain where the orders where created.
-        ///
-        /// Parameters:
-        /// - `origin_domain`: The origin domain of the orders.
-        /// - `order_ids`: The IDs of the orders to settle.
-        /// - `orders_filler_data`: The filler data for the orders.
-        fn _dispatch_settle(
-            ref self: ComponentState<TContractState>,
-            origin_domain: u256,
-            order_ids: @Array<felt252>,
-            orders_filler_data: @Array<ByteArray>,
-        ) {}
-
-        /// @dev Should be implemented by the messaging layer for dispatching a refunding
-        /// instruction the remote domain where the orders where created.
-        ///
-        /// Parameters:
-        /// - `origin_domain`: The origin domain of the orders.
-        /// - `order_ids`: The IDs of the orders to refund.
-        fn _dispatch_refund(
-            ref self: ComponentState<TContractState>,
-            origin_domain: u256,
-            order_ids: @Array<felt252>,
-        ) {}
-    }
-
-    /// VIRTUAL ///
-    pub trait BasicSwap7683Virtual<
-        TContractState,
+        +Virtual<TContractState>,
+        //+BasicSwap7683Virtual2<TContractState>,
         impl Base7683: Base7683Component::HasComponent<TContractState>,
         +HasComponent<TContractState>,
-        +Base7683Virtual<TContractState>,
         +Drop<TContractState>,
     > {
         /// @dev Handles settling an individual order, should be called by the inheriting contract
@@ -130,28 +87,11 @@ pub mod BasicSwap7683 {
         /// -`receiver`: The receiver address.
         fn _handle_settle_order(
             ref self: ComponentState<TContractState>,
-            message_origin: u256,
+            message_origin: u64,
             message_sender: ContractAddress,
             order_id: felt252,
             receiver: ContractAddress,
-        ) {
-            let (is_elgible, order_data) = Self::_check_order_elgibility(
-                @self, message_origin, message_sender, order_id,
-            );
-
-            if (!is_elgible) {
-                return;
-            }
-
-            let mut base7683_component = get_dep_component_mut!(ref self, Base7683);
-            base7683_component.order_status.entry(order_id).write(SETTLED);
-
-            Self::_transfer_token_out(
-                ref self, order_data.input_token, receiver, order_data.amount_in,
-            );
-
-            self.emit(Settled { order_id, receiver });
-        }
+        );
 
         /// @dev Handles refunding an individual order, should be called by the inheriting contract
         /// when receiving a refunding instruction from a remote chain.
@@ -161,13 +101,87 @@ pub mod BasicSwap7683 {
         /// - `order_id`: The ID of the order to refund.
         fn _handle_refund_order(
             ref self: ComponentState<TContractState>,
-            message_origin: u256,
+            message_origin: u64,
+            message_sender: ContractAddress,
+            order_id: felt252,
+        );
+
+        /// @dev Should be implemented by the messaging layer for dispatching a settlement
+        /// instruction the remote domain where the orders where created.
+        ///
+        /// Parameters:
+        /// - `origin_domain`: The origin domain of the orders.
+        /// - `order_ids`: The IDs of the orders to settle.
+        /// - `orders_filler_data`: The filler data for the orders.
+        fn _dispatch_settle(
+            ref self: ComponentState<TContractState>,
+            origin_domain: u64,
+            order_ids: @Array<felt252>,
+            orders_filler_data: @Array<Bytes>,
+        );
+
+        /// @dev Should be implemented by the messaging layer for dispatching a refunding
+        /// instruction the remote domain where the orders where created.
+        ///
+        /// Parameters:
+        /// - `origin_domain`: The origin domain of the orders.
+        /// - `order_ids`: The IDs of the orders to refund.
+        fn _dispatch_refund(
+            ref self: ComponentState<TContractState>,
+            origin_domain: u64,
+            order_ids: @Array<felt252>,
+        );
+    }
+
+    /// INTERNAL ///
+    #[generate_trait]
+    pub impl InternalImpl<
+        TContractState,
+        impl Base7683: Base7683Component::HasComponent<TContractState>,
+        impl BasicSwap7683: HasComponent<TContractState>,
+        +Virtual<TContractState>,
+        +Drop<TContractState>,
+        +BasicSwapVirtual<TContractState>,
+    > of InternalTrait<TContractState> {
+        /// This is the default implementation of BasicSwapVirtual::_handle_settle_order
+        /// @dev Due to virtual components not being able to call internal functions, the
+        /// implementing contract will need to either override the virtual function with custom
+        /// logic or call this function directly.
+        fn _handle_settle_order(
+            ref self: ComponentState<TContractState>,
+            message_origin: u64,
+            message_sender: ContractAddress,
+            order_id: felt252,
+            receiver: ContractAddress,
+        ) {
+            // self._initialize('asdf'.try_into().unwrap());
+            let (is_elgible, order_data) = self
+                ._check_order_elgibility(message_origin, message_sender, order_id);
+
+            if (!is_elgible) {
+                return;
+            }
+
+            let mut base7683_component = get_dep_component_mut!(ref self, Base7683);
+            base7683_component.order_status.entry(order_id).write(SETTLED);
+
+            self._transfer_token_out(order_data.input_token, receiver, order_data.amount_in);
+
+            self.emit(Settled { order_id, receiver });
+        }
+
+        /// This is the default implementation of BasicSwapVirtual::_handle_refund_order
+        /// @dev Due to virtual components not being able to call internal functions, the
+        /// implementing contract will need to either override the virtual function with custom
+        /// logic or call this function directly.
+        fn _handle_refund_order(
+            ref self: ComponentState<TContractState>,
+            message_origin: u64,
             message_sender: ContractAddress,
             order_id: felt252,
         ) {
-            let (is_elgible, order_data) = Self::_check_order_elgibility(
-                @self, message_origin, message_sender, order_id,
-            );
+            let (is_elgible, order_data) = self
+                ._check_order_elgibility(message_origin, message_sender, order_id);
 
             if (!is_elgible) {
                 return;
@@ -176,12 +190,17 @@ pub mod BasicSwap7683 {
             let mut base7683_component = get_dep_component_mut!(ref self, Base7683);
             base7683_component.order_status.entry(order_id).write(REFUNDED);
 
-            Self::_transfer_token_out(
-                ref self, order_data.input_token, order_data.sender, order_data.amount_in,
-            );
+            self
+                ._transfer_token_out(
+                    order_data.input_token, order_data.sender, order_data.amount_in,
+                );
 
             self.emit(Settled { order_id, receiver: order_data.sender });
         }
+
+
+        /// Internal
+
         /// Checks if order is eligible for settlement or refund .
         /// @dev Order must be OPENED and the message was sent from the appropriated chain and
         /// contract.
@@ -194,26 +213,21 @@ pub mod BasicSwap7683 {
         /// Returns: A boolean indicating if the order is valid, and the decoded OrderData
         /// structure.
         fn _check_order_elgibility(
-            self: @ComponentState<TContractState>,
-            message_origin: u256,
+            ref self: ComponentState<TContractState>,
+            message_origin: u64,
             message_sender: ContractAddress,
             order_id: felt252,
-        ) -> (
-            bool, OrderData,
-        ) {
+        ) -> (bool, OrderData) {
             let mut order: OrderData = Default::default();
 
-            let mut base7683_component = get_dep_component!(self, Base7683);
+            let mut base7683_component = get_dep_component_mut!(ref self, Base7683);
             let order_status = base7683_component.order_status.entry(order_id).read();
             if (order_status != OPENED) {
                 return (false, order);
             }
 
-            let open_order_details: ByteArray = base7683_component
-                .open_orders
-                .entry(order_id)
-                .read();
-            let (_, order_data): (felt252, ByteArray) = open_order_details.decode();
+            let open_order_details: Bytes = base7683_component.open_orders.entry(order_id).read();
+            let (_, order_data): (felt252, Bytes) = open_order_details.decode();
 
             order = OrderEncoder::decode(@order_data);
 
@@ -232,96 +246,13 @@ pub mod BasicSwap7683 {
         /// - `token`: The address of the token to transfer (use address(0) for ETH).
         /// - `to`: The recipient address.
         /// - `amount`: The amount of tokens or ETH to transfer.
-
         fn _transfer_token_out(
             ref self: ComponentState<TContractState>,
             token: ContractAddress,
             to: ContractAddress,
             amount: u256,
         ) {
-            //if (token == ContractAddress::zero()) {
-            //    // Transfer ETH
-            //    starknet::transfer(to, amount);
-            //} else {
-            // Transfer ERC20 token
             IERC20Dispatcher { contract_address: token }.transfer(to, amount);
-            //}
-        }
-
-        fn _get_gasless_order_id(
-            ref self: ComponentState<TContractState>, order: @GaslessCrossChainOrder,
-        ) -> felt252 {
-            selector((*order.order_data_type, order.order_data).encode())
-        }
-
-        fn _get_onchain_order_id(
-            ref self: ComponentState<TContractState>, order: @GaslessCrossChainOrder,
-        ) -> felt252 {
-            selector((*order.order_data_type, order.order_data).encode())
-        }
-
-        fn _get_order_id(
-            ref self: ComponentState<TContractState>,
-            order_data_type: felt252,
-            order_data: ByteArray,
-        ) -> felt252 {
-            assert(
-                order_data_type == OrderEncoder::ORDER_DATA_TYPE_HASH, Errors::INVALID_ORDER_TYPE,
-            );
-
-            let order: OrderData = OrderEncoder::decode(@order_data);
-            OrderEncoder::id(@order)
-        }
-
-        /// @dev Resolves a GaslessCrossChainOrder.
-        ///
-        /// Parameters:
-        /// - `_order`: The GaslessCrossChainOrder to resolve.
-        /// - `origin_filler_data` (NOT USED): Any filler-defined data required by the settler
-        ///
-        /// Returns: A tuple containing:
-        /// - A ResolvedCrossChainOrder structure.
-        /// - The order ID.
-        /// - The order nonce.
-        fn _resolve_gasless_order(
-            self: @ComponentState<TContractState>,
-            order: @GaslessCrossChainOrder,
-            origin_filler_data: @ByteArray,
-        ) -> (
-            ResolvedCrossChainOrder, felt252, felt252,
-        ) {
-            Self::_resolved_order(
-                self,
-                *order.order_data_type,
-                *order.user,
-                *order.open_deadline,
-                *order.fill_deadline,
-                order.order_data,
-            )
-        }
-
-        /// @dev Resolves a OnchainCrossChainOrder.
-        ///
-        /// Parameters:
-        /// - `_order`: The OnchainCrossChainOrder to resolve.
-        ///
-        /// Returns: A tuple containing:
-        /// - A ResolvedCrossChainOrder structure.
-        /// - The order ID.
-        /// - The order nonce.
-        fn _resolve_onchain_order(
-            self: @ComponentState<TContractState>, order: @GaslessCrossChainOrder,
-        ) -> (
-            ResolvedCrossChainOrder, felt252, felt252,
-        ) {
-            Self::_resolved_order(
-                self,
-                *order.order_data_type,
-                get_caller_address(),
-                Bounded::<u64>::MAX,
-                *order.fill_deadline,
-                order.order_data,
-            )
         }
 
         /// @dev Resolves an order into a ResolvedCrossChainOrder structure.
@@ -338,23 +269,23 @@ pub mod BasicSwap7683 {
         /// - The order ID.
         /// - The order nonce.
         fn _resolved_order(
-            self: @ComponentState<TContractState>,
+            self: @Base7683Component::ComponentState<TContractState>,
             order_data_type: felt252,
             sender: ContractAddress,
             open_deadline: u64,
             fill_deadline: u64,
-            order_data: @ByteArray,
-        ) -> (
-            ResolvedCrossChainOrder, felt252, felt252,
-        ) {
+            order_data: @Bytes,
+        ) -> (ResolvedCrossChainOrder, felt252, felt252) {
             assert(
                 order_data_type == OrderEncoder::ORDER_DATA_TYPE_HASH, Errors::INVALID_ORDER_TYPE,
             );
 
             let mut order = OrderEncoder::decode(order_data);
 
-            let mut base7683_component = get_dep_component!(self, Base7683);
-            let local_domain = base7683_component._local_domain();
+            //let c = self.get_contract();
+            //let cc = BasicSwap7683::get_component(c);
+            //let mut basic_swap7683_component = get_dep_component!(cc, BasicSwap7683);
+            let local_domain = Virtual::_local_domain(self);
             assert(order.origin_domain == local_domain, Errors::INVALID_ORIGIN_DOMAIN);
 
             order.fill_deadline = fill_deadline;
@@ -402,28 +333,70 @@ pub mod BasicSwap7683 {
 
             return (resolved_order, order_id, nonce);
         }
-    }
 
 
-    /// INTERNAL ///
-    #[generate_trait]
-    pub impl InternalImpl<
-        TContractState,
-        impl Base7683: Base7683Component::HasComponent<TContractState>,
-        +HasComponent<TContractState>,
-        +Base7683Virtual<TContractState>,
-        +BasicSwap7683VirtualExtended<TContractState>,
-        +Drop<TContractState>,
-    > of InternalTrait<TContractState> {
-        fn _initialize(ref self: ComponentState<TContractState>, permit2_address: ContractAddress) {
-            self.permit2_address.write(permit2_address);
-        }
         /// OVERRIDES ///
 
+        /// @dev Computes the ID of an order given its type and data.
+        ///
+        /// Parameters
+        /// - `order_type`: The type of the order.
+        /// - `order_data`: The data of the order.
+        ///
+        /// Returns: The computed order ID.
+        fn _get_order_id(
+            ref self: ComponentState<TContractState>, order_data_type: felt252, order_data: Bytes,
+        ) -> felt252 {
+            assert(
+                order_data_type == OrderEncoder::ORDER_DATA_TYPE_HASH, Errors::INVALID_ORDER_TYPE,
+            );
+            let order: OrderData = OrderEncoder::decode(@order_data);
+            OrderEncoder::id(@order)
+        }
+
+
+        /// Gets the ID of a GaslessCrossChainOrder
+        fn _get_gasless_order_id(
+            self: @ComponentState<TContractState>, order: @GaslessCrossChainOrder,
+        ) -> felt252 {
+            selector((*order.order_data_type, order.order_data).encode().into())
+        }
+
+        /// Gets the ID of an OnchainCrossChainOrder
+        fn _get_onchain_order_id(
+            self: @ComponentState<TContractState>, order: @OnchainCrossChainOrder,
+        ) -> felt252 {
+            selector((*order.order_data_type, order.order_data).encode().into())
+        }
+
+
+        /// @dev Fills an order on the current domain.
+        ///
+        /// Parameters:
+        ///
+        /// - `order_id`:  The ID of the order to fill.
+        /// - `origin_data`: The origin data of the order.
+        fn _fill_order(
+            ref self: Base7683Component::ComponentState<TContractState>,
+            order_id: felt252,
+            origin_data: @Bytes,
+            filler_data: @Bytes,
+        ) {
+            let order = OrderEncoder::decode(origin_data);
+
+            assert(order_id == OrderEncoder::id(@order), Errors::INVALID_ORDER_ID);
+            assert(get_block_timestamp() < order.fill_deadline, Errors::ORDER_FILL_EXPIRED);
+            assert(order.destination_domain == self._local_domain(), Errors::INVALID_ORDER_DOMAIN);
+
+            IERC20Dispatcher { contract_address: order.output_token }
+                .transfer_from(get_caller_address(), order.recipient, order.amount_out);
+        }
+
+        /// OVERRIDES (ACTUAL) ///
         /// @dev Settles multiple orders by dispatching the settlement instructions.
         /// The proper status of all the orders (filled) is validated on the Base7683 before calling
-        /// this function. It assumes that all orders were originated in the same originDomain so it
-        /// uses the the one from the first one for dispatching the message, but if some order
+        /// this function. It assumes that all orders were originated in the same originDomain so
+        /// it uses the the one from the first one for dispatching the message, but if some order
         /// differs on the originDomain it can be re-settle later.
         ///
         /// Paramters:
@@ -433,8 +406,8 @@ pub mod BasicSwap7683 {
         fn _settle_orders(
             ref self: ComponentState<TContractState>,
             order_ids: @Array<felt252>,
-            orders_origin_data: @Array<ByteArray>,
-            orders_filler_data: @Array<ByteArray>,
+            orders_origin_data: @Array<Bytes>,
+            orders_filler_data: @Array<Bytes>,
         ) {
             self
                 ._dispatch_settle(
@@ -477,32 +450,56 @@ pub mod BasicSwap7683 {
             ref self: ComponentState<TContractState>,
             orders: @Array<GaslessCrossChainOrder>,
             order_ids: @Array<felt252>,
-        ) {
-            self
-                ._dispatch_refund(
-                    OrderEncoder::decode(orders.at(0).order_data).origin_domain, order_ids,
-                );
+        ) { // TODO: This should be implemented by the messaging layer
+        // The implementing contract should override this through BasicSwapVirtual trait
         }
 
-        /// @dev Fills an order on the current domain.
+        /// @dev Resolves a GaslessCrossChainOrder.
         ///
         /// Parameters:
+        /// - `_order`: The GaslessCrossChainOrder to resolve.
+        /// - `origin_filler_data` (NOT USED): Any filler-defined data required by the settler
         ///
-        /// - `order_id`:  The ID of the order to fill.
-        /// - `origin_data`: The origin data of the order.
-        fn _fill_order(
-            ref self: ComponentState<TContractState>, order_id: felt252, origin_data: ByteArray,
-        ) {
-            let order = OrderEncoder::decode(@origin_data);
+        /// Returns: A tuple containing:
+        /// - A ResolvedCrossChainOrder structure.
+        /// - The order ID.
+        /// - The order nonce.
+        fn _resolve_gasless_order(
+            self: @Base7683Component::ComponentState<TContractState>,
+            order: @GaslessCrossChainOrder,
+            origin_filler_data: @Bytes,
+        ) -> (ResolvedCrossChainOrder, felt252, felt252) {
+            self
+                ._resolved_order(
+                    *order.order_data_type,
+                    *order.user,
+                    *order.open_deadline,
+                    *order.fill_deadline,
+                    order.order_data,
+                )
+        }
 
-            assert(order_id == OrderEncoder::id(@order), Errors::INVALID_ORDER_ID);
-            assert(get_block_timestamp() < order.fill_deadline, Errors::ORDER_FILL_EXPIRED);
-            let mut base7683_component = get_dep_component_mut!(ref self, Base7683);
-            let local_domain = base7683_component._local_domain();
-            assert(order.destination_domain == local_domain, Errors::INVALID_ORDER_DOMAIN);
-
-            IERC20Dispatcher { contract_address: order.output_token }
-                .transfer_from(get_caller_address(), order.recipient, order.amount_out);
+        /// @dev Resolves a OnchainCrossChainOrder.
+        ///
+        /// Parameters:
+        /// - `_order`: The OnchainCrossChainOrder to resolve.
+        ///
+        /// Returns: A tuple containing:
+        /// - A ResolvedCrossChainOrder structure.
+        /// - The order ID.
+        /// - The order nonce.
+        fn _resolve_onchain_order(
+            self: @Base7683Component::ComponentState<TContractState>,
+            order: @OnchainCrossChainOrder,
+        ) -> (ResolvedCrossChainOrder, felt252, felt252) {
+            self
+                ._resolved_order(
+                    *order.order_data_type,
+                    get_caller_address(),
+                    Bounded::<u64>::MAX,
+                    *order.fill_deadline,
+                    order.order_data,
+                )
         }
     }
 }
