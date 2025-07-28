@@ -2,9 +2,7 @@
 pub mod Hyperlane7683 {
     use oif_starknet::libraries::hyperlane7683_message::Hyperlane7683Message;
     use contracts::client::gas_router_component::GasRouterComponent;
-    use contracts::client::mailboxclient_component::{
-        MailboxclientComponent, MailboxclientComponent::MailboxClientInternalImpl,
-    };
+    use contracts::client::mailboxclient_component::{MailboxclientComponent};
     use contracts::client::router_component::RouterComponent;
     use contracts::client::router_component::RouterComponent::{IMessageRecipientInternalHookTrait};
     use openzeppelin_access::ownable::OwnableComponent;
@@ -49,7 +47,7 @@ pub mod Hyperlane7683 {
     #[abi(embed_v0)]
     impl MailboxClientImpl =
         MailboxclientComponent::MailboxClientImpl<ContractState>;
-    impl MailboxClientInternalImpll =
+    impl MailboxClientInternalImpl =
         MailboxclientComponent::MailboxClientInternalImpl<ContractState>;
 
     /// Router
@@ -115,50 +113,7 @@ pub mod Hyperlane7683 {
         MailboxClientEvent: MailboxclientComponent::Event,
     }
 
-    impl MessageRecipientInternalHookImpl of IMessageRecipientInternalHookTrait<ContractState> {
-        fn _handle(
-            ref self: RouterComponent::ComponentState<ContractState>,
-            origin: u32,
-            sender: u256,
-            message: Bytes,
-        ) {
-            let mut contract_state = self.get_contract_mut();
-            let (settle, order_ids, orders_filler_data) = Hyperlane7683Message::decode(message);
-            let sender: ContractAddress = TryInto::<u256, felt252>::try_into(sender)
-                .expect('Failed to cast u256 -> felt252')
-                .try_into()
-                .expect('Failed to cast felt252 -> Addr');
-
-            for i in 0..order_ids.len() {
-                match settle {
-                    true => {
-                        let (_, receiver) = orders_filler_data
-                            .get(i)
-                            .unwrap()
-                            .unbox()
-                            .read_address(0);
-
-                        BasicSwapVirtualImpl::_handle_settle_order(
-                            ref contract_state.basic_swap7683,
-                            origin.try_into().unwrap(),
-                            sender.try_into().unwrap(),
-                            *order_ids.at(i),
-                            receiver,
-                        );
-                    },
-                    false => {
-                        BasicSwapVirtualImpl::_handle_refund_order(
-                            ref contract_state.basic_swap7683,
-                            origin.try_into().unwrap(),
-                            sender.try_into().unwrap(),
-                            *order_ids.at(i),
-                        );
-                    },
-                };
-            }
-        }
-    }
-
+    /// BASE OVERRIDES ///
     pub impl Base7686VirtualImpl of Base7683Component::Virtual<ContractState> {
         fn _fill_order(
             ref self: Base7683Component::ComponentState<ContractState>,
@@ -221,9 +176,8 @@ pub mod Hyperlane7683 {
             );
         }
 
-
         fn _local_domain(self: @Base7683Component::ComponentState<ContractState>) -> u32 {
-            MailboxClientImpl::get_local_domain(self.get_contract()).into()
+            MailboxClientImpl::get_local_domain(self.get_contract())
         }
 
         fn _get_gasless_order_id(
@@ -241,6 +195,7 @@ pub mod Hyperlane7683 {
         }
     }
 
+    /// BASIC SWAP OVERRIDES ///
     impl BasicSwapVirtualImpl of BasicSwap7683Component::BasicSwapVirtual<ContractState> {
         /// Dispatches a settlement message to the specified domain.
         /// @dev Encodes the settle message using Hyperlane7683Message and dispatches it via the
@@ -261,11 +216,11 @@ pub mod Hyperlane7683 {
                 .gas_router
                 ._Gas_router_dispatch(
                     origin_domain.try_into().unwrap(),
-                    0,
+                    0, // confusion here
                     Hyperlane7683Message::encode_settle(
                         order_ids.span(), orders_filler_data.span(),
                     ),
-                    starknet::get_caller_address(),
+                    contract_state.mailbox_client.get_hook(),
                 );
         }
 
@@ -286,9 +241,9 @@ pub mod Hyperlane7683 {
                 .gas_router
                 ._Gas_router_dispatch(
                     origin_domain.try_into().unwrap(),
-                    0,
+                    0, // confusion here
                     Hyperlane7683Message::encode_refund(order_ids.span()),
-                    starknet::get_caller_address(),
+                    contract_state.mailbox_client.get_hook(),
                 );
         }
 
@@ -320,6 +275,51 @@ pub mod Hyperlane7683 {
             BasicSwapInternalImpl::_handle_refund_order(
                 ref contract_state.basic_swap7683, message_origin, message_sender, order_id,
             );
+        }
+    }
+
+    /// MESSAGE RECIPIENT INTERNAL OVERRIDES ///
+    impl MessageRecipientInternalHookImpl of IMessageRecipientInternalHookTrait<ContractState> {
+        fn _handle(
+            ref self: RouterComponent::ComponentState<ContractState>,
+            origin: u32,
+            sender: u256,
+            message: Bytes,
+        ) {
+            let mut contract_state = self.get_contract_mut();
+            let (settle, order_ids, orders_filler_data) = Hyperlane7683Message::decode(message);
+            let sender: ContractAddress = TryInto::<u256, felt252>::try_into(sender)
+                .expect('Err casting u256 -> felt252')
+                .try_into()
+                .expect('Err casting felt252 -> Address');
+
+            for i in 0..order_ids.len() {
+                match settle {
+                    true => {
+                        let (_, receiver) = orders_filler_data
+                            .get(i)
+                            .unwrap()
+                            .unbox()
+                            .read_address(0);
+
+                        BasicSwapVirtualImpl::_handle_settle_order(
+                            ref contract_state.basic_swap7683,
+                            origin.try_into().unwrap(),
+                            sender.try_into().unwrap(),
+                            *order_ids.at(i),
+                            receiver,
+                        );
+                    },
+                    false => {
+                        BasicSwapVirtualImpl::_handle_refund_order(
+                            ref contract_state.basic_swap7683,
+                            origin.try_into().unwrap(),
+                            sender.try_into().unwrap(),
+                            *order_ids.at(i),
+                        );
+                    },
+                };
+            }
         }
     }
 }
