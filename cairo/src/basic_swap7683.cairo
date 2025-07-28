@@ -413,12 +413,14 @@ pub mod BasicSwap7683Component {
             order_ids: @Array<u256>,
             orders_origin_data: @Array<Bytes>,
             orders_filler_data: @Array<Bytes>,
+            value: u256,
         ) {
             self
                 ._dispatch_settle(
                     OrderEncoder::decode(orders_origin_data.at(0)).origin_domain,
                     order_ids,
                     orders_filler_data,
+                    value,
                 );
         }
 
@@ -435,10 +437,11 @@ pub mod BasicSwap7683Component {
             ref self: ComponentState<TContractState>,
             orders: @Array<OnchainCrossChainOrder>,
             order_ids: @Array<u256>,
+            value: u256,
         ) {
             self
                 ._dispatch_refund(
-                    OrderEncoder::decode(orders.at(0).order_data).origin_domain, order_ids,
+                    OrderEncoder::decode(orders.at(0).order_data).origin_domain, order_ids, value,
                 );
         }
 
@@ -455,8 +458,12 @@ pub mod BasicSwap7683Component {
             ref self: ComponentState<TContractState>,
             orders: @Array<GaslessCrossChainOrder>,
             order_ids: @Array<u256>,
-        ) { // TODO: This should be implemented by the messaging layer
-        // The implementing contract should override this through BasicSwapVirtual trait
+            value: u256,
+        ) {
+            self
+                ._dispatch_refund(
+                    OrderEncoder::decode(orders.at(0).order_data).origin_domain, order_ids, value,
+                );
         }
 
         /// @dev Resolves a GaslessCrossChainOrder.

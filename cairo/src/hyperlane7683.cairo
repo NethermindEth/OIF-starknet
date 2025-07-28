@@ -143,6 +143,7 @@ pub mod Hyperlane7683 {
             order_ids: @Array<u256>,
             orders_origin_data: @Array<Bytes>,
             orders_filler_data: @Array<Bytes>,
+            value: u256,
         ) {
             let mut contract_state = self.get_contract_mut();
             BasicSwapInternalImpl::_settle_orders(
@@ -150,6 +151,7 @@ pub mod Hyperlane7683 {
                 order_ids,
                 orders_origin_data,
                 orders_filler_data,
+                value,
             );
         }
 
@@ -158,10 +160,11 @@ pub mod Hyperlane7683 {
             ref self: Base7683Component::ComponentState<ContractState>,
             orders: @Array<OnchainCrossChainOrder>,
             order_ids: @Array<u256>,
+            value: u256,
         ) {
             let mut contract_state = self.get_contract_mut();
             BasicSwapInternalImpl::_refund_onchain_orders(
-                ref contract_state.basic_swap7683, orders, order_ids,
+                ref contract_state.basic_swap7683, orders, order_ids, value,
             );
         }
 
@@ -169,10 +172,11 @@ pub mod Hyperlane7683 {
             ref self: Base7683Component::ComponentState<ContractState>,
             orders: @Array<GaslessCrossChainOrder>,
             order_ids: @Array<u256>,
+            value: u256,
         ) {
             let mut contract_state = self.get_contract_mut();
             BasicSwapInternalImpl::_refund_gasless_orders(
-                ref contract_state.basic_swap7683, orders, order_ids,
+                ref contract_state.basic_swap7683, orders, order_ids, value,
             );
         }
 

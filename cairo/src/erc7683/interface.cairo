@@ -104,7 +104,7 @@ pub trait IERC7683Extra<TState> {
     ///
     /// Parameters:
     /// - `order_ids`: An array of IDs for the orders to settle.
-    fn settle(ref self: TState, order_ids: Array<u256>);
+    fn settle(ref self: TState, order_ids: Array<u256>, value: u256);
 
     /// Refunds a batch of expired GaslessCrossChainOrders on the chain where the orders were
     /// opened. The refunded status should not be changed here but rather on the origin chain. To
@@ -113,7 +113,9 @@ pub trait IERC7683Extra<TState> {
     ///
     /// Parameters:
     /// - `orders`: An array of GaslessCrossChainOrders to refund.
-    fn refund_gasless_cross_chain_order(ref self: TState, orders: Array<GaslessCrossChainOrder>);
+    fn refund_gasless_cross_chain_order(
+        ref self: TState, orders: Array<GaslessCrossChainOrder>, value: u256,
+    );
 
 
     /// Refunds a batch of expired OnchainCrossChainOrder on the chain where the orders were opened.
@@ -123,7 +125,9 @@ pub trait IERC7683Extra<TState> {
     ///
     /// Parameters:
     /// - `orders`: An array of GaslessCrossChainOrders to refund.
-    fn refund_onchain_cross_chain_order(ref self: TState, orders: Array<OnchainCrossChainOrder>);
+    fn refund_onchain_cross_chain_order(
+        ref self: TState, orders: Array<OnchainCrossChainOrder>, value: u256,
+    );
 
     /// Invalidates a nonce for the user calling the function.
     ///

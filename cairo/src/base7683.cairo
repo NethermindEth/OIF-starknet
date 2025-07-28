@@ -249,7 +249,9 @@ pub mod Base7683Component {
 
         /// WRITES ///
 
-        fn settle(ref self: ComponentState<TContractState>, mut order_ids: Array<u256>) {
+        fn settle(
+            ref self: ComponentState<TContractState>, mut order_ids: Array<u256>, value: u256,
+        ) {
             let mut orders_origin_data: Array<Bytes> = array![];
             let mut orders_filler_data: Array<Bytes> = array![];
 
@@ -263,13 +265,15 @@ pub mod Base7683Component {
                 orders_filler_data.append(self.filled_orders.entry(*order_id).read().filler_data);
             };
 
-            self._settle_orders(@order_ids, @orders_origin_data, @orders_filler_data);
+            self._settle_orders(@order_ids, @orders_origin_data, @orders_filler_data, value);
 
             self.emit(Settle { order_ids, orders_filler_data });
         }
 
         fn refund_gasless_cross_chain_order(
-            ref self: ComponentState<TContractState>, orders: Array<GaslessCrossChainOrder>,
+            ref self: ComponentState<TContractState>,
+            orders: Array<GaslessCrossChainOrder>,
+            value: u256,
         ) {
             let mut order_ids: Array<u256> = array![];
             for order in orders.span() {
@@ -286,13 +290,15 @@ pub mod Base7683Component {
                 );
             };
 
-            self._refund_gasless_orders(@orders, @order_ids);
+            self._refund_gasless_orders(@orders, @order_ids, value);
 
             self.emit(Refund { order_ids });
         }
 
         fn refund_onchain_cross_chain_order(
-            ref self: ComponentState<TContractState>, orders: Array<OnchainCrossChainOrder>,
+            ref self: ComponentState<TContractState>,
+            orders: Array<OnchainCrossChainOrder>,
+            value: u256,
         ) {
             let mut order_ids: Array<u256> = array![];
 
@@ -310,7 +316,7 @@ pub mod Base7683Component {
                 );
             };
 
-            self._refund_onchain_orders(@orders, @order_ids);
+            self._refund_onchain_orders(@orders, @order_ids, value);
 
             self.emit(Refund { order_ids });
         }
@@ -393,6 +399,7 @@ pub mod Base7683Component {
             order_ids: @Array<u256>,
             orders_origin_data: @Array<Bytes>,
             orders_filler_data: @Array<Bytes>,
+            value: u256,
         );
 
         /// Refunds a batch of GaslessCrossChainOrders.
@@ -405,6 +412,7 @@ pub mod Base7683Component {
             ref self: ComponentState<TContractState>,
             orders: @Array<GaslessCrossChainOrder>,
             order_ids: @Array<u256>,
+            value: u256,
         );
 
         /// Refunds a batch of OnchainCrossChainOrders.
@@ -417,6 +425,7 @@ pub mod Base7683Component {
             ref self: ComponentState<TContractState>,
             orders: @Array<OnchainCrossChainOrder>,
             order_ids: @Array<u256>,
+            value: u256,
         );
 
 
