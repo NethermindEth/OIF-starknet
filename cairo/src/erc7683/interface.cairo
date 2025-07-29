@@ -79,6 +79,9 @@ pub trait IDestinationSettler<TState> {
 #[starknet::interface]
 pub trait IERC7683Extra<TState> {
     /// READS ///
+    fn UNKNOWN(self: @TState) -> felt252;
+    fn OPENED(self: @TState) -> felt252;
+    fn FILLED(self: @TState) -> felt252;
 
     fn witness_hash(self: @TState, resolved_order: ResolvedCrossChainOrder) -> felt252;
     fn used_nonces(self: @TState, user: ContractAddress, nonce: felt252) -> bool;

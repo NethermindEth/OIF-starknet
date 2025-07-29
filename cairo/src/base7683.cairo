@@ -223,6 +223,18 @@ pub mod Base7683Component {
     > of IERC7683Extra<ComponentState<TContractState>> {
         /// READS ///
 
+        fn UNKNOWN(self: @ComponentState<TContractState>) -> felt252 {
+            UNKNOWN
+        }
+
+        fn OPENED(self: @ComponentState<TContractState>) -> felt252 {
+            OPENED
+        }
+
+        fn FILLED(self: @ComponentState<TContractState>) -> felt252 {
+            FILLED
+        }
+
         fn witness_hash(
             self: @ComponentState<TContractState>, resolved_order: ResolvedCrossChainOrder,
         ) -> felt252 {
