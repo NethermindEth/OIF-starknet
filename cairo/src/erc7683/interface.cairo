@@ -1,11 +1,11 @@
+use alexandria_bytes::{Bytes, BytesTrait, BytesStore};
 use starknet::ContractAddress;
-use alexandria_bytes::{Bytes, BytesStore};
 
 /// Signals that an order has been opened
 /// @param order_id: A unique order identifier within this settlement system
 /// @param resolved_order: Resolved order that would be returned by resolve if called instead of
 /// Open
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, starknet::Event, Default, PartialEq)]
 pub struct Open {
     #[key]
     pub order_id: u256,
@@ -140,6 +140,42 @@ pub trait IERC7683Extra<TState> {
     fn invalidate_nonces(ref self: TState, nonce: felt252);
 }
 
+#[starknet::interface]
+pub trait Base7683ABI<TState> {
+    fn open_for(
+        ref self: TState,
+        order: GaslessCrossChainOrder,
+        signature: Array<felt252>,
+        origin_filler_data: Bytes,
+    );
+    fn open(ref self: TState, order: OnchainCrossChainOrder);
+    fn resolve_for(
+        self: @TState, order: GaslessCrossChainOrder, origin_filler_data: Bytes,
+    ) -> ResolvedCrossChainOrder;
+    fn resolve(self: @TState, order: OnchainCrossChainOrder) -> ResolvedCrossChainOrder;
+    fn fill(ref self: TState, order_id: u256, origin_data: Bytes, filler_data: Bytes);
+
+    fn UNKNOWN(self: @TState) -> felt252;
+    fn OPENED(self: @TState) -> felt252;
+    fn FILLED(self: @TState) -> felt252;
+
+    fn witness_hash(self: @TState, resolved_order: ResolvedCrossChainOrder) -> felt252;
+    fn used_nonces(self: @TState, user: ContractAddress, nonce: felt252) -> bool;
+    fn open_orders(self: @TState, order_id: u256) -> Bytes;
+    fn filled_orders(self: @TState, order_id: u256) -> FilledOrder;
+    fn order_status(self: @TState, order_id: u256) -> felt252;
+    fn is_valid_nonce(self: @TState, from: ContractAddress, nonce: felt252) -> bool;
+    fn settle(ref self: TState, order_ids: Array<u256>, value: u256);
+    fn refund_gasless_cross_chain_order(
+        ref self: TState, orders: Array<GaslessCrossChainOrder>, value: u256,
+    );
+    fn refund_onchain_cross_chain_order(
+        ref self: TState, orders: Array<OnchainCrossChainOrder>, value: u256,
+    );
+    fn invalidate_nonces(ref self: TState, nonce: felt252);
+}
+
+
 /// Standard order struct to be signed by users, disseminated to fillers, and submitted to origin
 /// settler contracts by fillers
 #[derive(Serde, Drop, Clone)]
@@ -168,7 +204,7 @@ pub struct OnchainCrossChainOrder {
 /// orderData.
 /// @dev Intended to improve integration generalization by allowing fillers to compute the exact
 /// input and output information of any order
-#[derive(Serde, Drop)]
+#[derive(Serde, Drop, Default, PartialEq)]
 pub struct ResolvedCrossChainOrder {
     pub user: ContractAddress,
     pub origin_chain_id: u32,
@@ -181,7 +217,7 @@ pub struct ResolvedCrossChainOrder {
 }
 
 /// Tokens that must be received for a valid order fulfillment
-#[derive(Serde, Clone, Drop)]
+#[derive(Serde, Clone, Drop, Default, PartialEq)]
 pub struct Output {
     pub token: ContractAddress,
     pub amount: u256,
@@ -190,7 +226,7 @@ pub struct Output {
 }
 
 /// Instructions to parameterize each leg of the fill
-#[derive(Serde, Drop)]
+#[derive(Serde, Drop, Default, PartialEq)]
 pub struct FillInstruction {
     pub destination_chain_id: u32,
     pub destination_settler: ContractAddress,
@@ -202,5 +238,17 @@ pub struct FillInstruction {
 pub struct FilledOrder {
     pub origin_data: Bytes,
     pub filler_data: Bytes,
+}
+
+pub impl ContractAddressDefault of Default<ContractAddress> {
+    fn default() -> ContractAddress {
+        0.try_into().unwrap()
+    }
+}
+
+pub impl BytesDefault of Default<Bytes> {
+    fn default() -> Bytes {
+        BytesTrait::new_empty()
+    }
 }
 
