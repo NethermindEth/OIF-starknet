@@ -1,9 +1,18 @@
+use starknet::ContractAddress;
+use alexandria_bytes::{Bytes, BytesTrait};
 #[starknet::interface]
 pub trait IMockBase7683<TState> {
     fn set_native(ref self: TState, is_native: bool);
-    fn set_counter_part_ba(ref self: TState, counter_part: starknet::ContractAddress);
+    fn set_counterpart(ref self: TState, counterpart: starknet::ContractAddress);
     fn local_domain(self: @TState) -> u32;
-    fn counter_part_ba(self: @TState) -> starknet::ContractAddress;
+    fn counterpart(self: @TState) -> starknet::ContractAddress;
+    fn filled_id(self: @TState) -> u256;
+    fn filled_origin_data(self: @TState) -> Bytes;
+    fn filled_filler_data(self: @TState) -> Bytes;
+    fn settled_order_ids(self: @TState) -> Array<u256>;
+    fn settled_orders_origin_data(self: @TState) -> Array<Bytes>;
+    fn settled_orders_filler_data(self: @TState) -> Array<Bytes>;
+    fn refunded_order_ids(self: @TState) -> Array<u256>;
 }
 
 #[starknet::contract]
@@ -50,10 +59,9 @@ pub mod MockBase7683 {
     #[storage]
     pub struct Storage {
         native: bool,
-        counter_part_ba: ContractAddress,
         input_token: ContractAddress,
         output_token: ContractAddress,
-        counterpart_ba: ContractAddress,
+        counterpart: ContractAddress,
         origin: u32,
         destination: u32,
         filled_id: u256,
@@ -104,20 +112,64 @@ pub mod MockBase7683 {
     /// EXTRA PUBLIC ///
     #[abi(embed_v0)]
     pub impl MockBase7683Impl of super::IMockBase7683<ContractState> {
-        fn counter_part_ba(self: @ContractState) -> ContractAddress {
-            self.counter_part_ba.read()
+        fn counterpart(self: @ContractState) -> ContractAddress {
+            self.counterpart.read()
         }
 
         fn set_native(ref self: ContractState, is_native: bool) {
             self.set_native(is_native);
         }
 
-        fn set_counter_part_ba(ref self: ContractState, counter_part: ContractAddress) {
-            self.counter_part_ba.write(counter_part);
+        fn set_counterpart(ref self: ContractState, counterpart: ContractAddress) {
+            self.counterpart.write(counterpart);
         }
 
         fn local_domain(self: @ContractState) -> u32 {
             self.origin.read()
+        }
+
+        fn filled_id(self: @ContractState) -> u256 {
+            self.filled_id.read()
+        }
+
+        fn filled_origin_data(self: @ContractState) -> Bytes {
+            self.filled_origin_data.read()
+        }
+
+        fn filled_filler_data(self: @ContractState) -> Bytes {
+            self.filled_filler_data.read()
+        }
+
+        fn settled_order_ids(self: @ContractState) -> Array<u256> {
+            let mut order_ids: Array<u256> = array![];
+            for i in 0..self.settled_order_ids_len.read() {
+                order_ids.append(self.settled_order_ids.entry(i).read());
+            };
+            order_ids
+        }
+
+        fn settled_orders_origin_data(self: @ContractState) -> Array<Bytes> {
+            let mut orders_origin_data: Array<Bytes> = array![];
+            for i in 0..self.settled_orders_origin_data_len.read() {
+                orders_origin_data.append(self.settled_orders_origin_data.entry(i).read());
+            };
+            orders_origin_data
+        }
+
+        fn settled_orders_filler_data(self: @ContractState) -> Array<Bytes> {
+            let mut orders_filler_data: Array<Bytes> = array![];
+            for i in 0..self.settled_orders_filler_data_len.read() {
+                orders_filler_data.append(self.settled_orders_filler_data.entry(i).read());
+            };
+            orders_filler_data
+        }
+
+        fn refunded_order_ids(self: @ContractState) -> Array<u256> {
+            let mut order_ids: Array<u256> = array![];
+            for i in 0..self.refunded_order_ids_len.read() {
+                order_ids.append(self.refunded_order_ids.entry(i).read());
+            };
+            order_ids
         }
     }
 
@@ -137,7 +189,7 @@ pub mod MockBase7683 {
                 Output {
                     token: self.output_token.read(),
                     amount: 100,
-                    recipient: self.counter_part_ba.read(),
+                    recipient: self.counterpart.read(),
                     chain_id: self.destination.read(),
                 },
             ];
@@ -154,12 +206,12 @@ pub mod MockBase7683 {
             let fill_instructions = array![
                 FillInstruction {
                     destination_chain_id: self.destination.read(),
-                    destination_settler: self.counter_part_ba.read(),
+                    destination_settler: self.counterpart.read(),
                     origin_data: order_data,
                 },
             ];
 
-            let order_id: u256 = 123456789;
+            let order_id: u256 = 'someId'.into();
 
             (
                 ResolvedCrossChainOrder {
