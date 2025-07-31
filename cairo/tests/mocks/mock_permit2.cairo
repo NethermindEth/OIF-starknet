@@ -26,13 +26,33 @@ pub trait IMockPermit2<TState> {
 
 #[starknet::contract]
 mod MockPermit2 {
+    use permit2::components::allowance_transfer::AllowanceTransferComponent;
+    use permit2::components::signature_transfer::SignatureTransferComponent;
     use permit2::components::unordered_nonces::UnorderedNoncesComponent;
-    use permit2::libraries::allowance::{Allowance, AllowanceImpl, AllowanceTrait};
-    use starknet::ContractAddress;
-    use starknet::storage::{Map, StoragePathEntry};
+    use openzeppelin_utils::cryptography::snip12::{
+        StarknetDomain, SNIP12Metadata, StructHash, StructHashStarknetDomainImpl,
+    };
+    use crate::mocks::interfaces::IDS;
 
 
+    component!(
+        path: AllowanceTransferComponent, storage: allowed_transfer, event: AllowedTransferEvent,
+    );
     component!(path: UnorderedNoncesComponent, storage: nonces, event: UnorderedNoncesEvent);
+    component!(
+        path: SignatureTransferComponent,
+        storage: signature_transfer,
+        event: SignatureTransferEvent,
+    );
+
+
+    #[abi(embed_v0)]
+    impl AllowedTransferImpl =
+        AllowanceTransferComponent::AllowanceTransferImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl SignatureTransferImpl =
+        SignatureTransferComponent::SignatureTransferImpl<ContractState>;
 
     #[abi(embed_v0)]
     impl UnorderedNoncesImpl =
@@ -41,8 +61,11 @@ mod MockPermit2 {
 
 
     #[storage]
-    struct Storage {
-        allowance: Map<(ContractAddress, ContractAddress, ContractAddress), Allowance>,
+    pub struct Storage {
+        #[substorage(v0)]
+        allowed_transfer: AllowanceTransferComponent::Storage,
+        #[substorage(v0)]
+        signature_transfer: SignatureTransferComponent::Storage,
         #[substorage(v0)]
         nonces: UnorderedNoncesComponent::Storage,
     }
@@ -51,39 +74,36 @@ mod MockPermit2 {
     #[derive(Drop, starknet::Event)]
     enum Event {
         #[flat]
+        AllowedTransferEvent: AllowanceTransferComponent::Event,
+        #[flat]
         UnorderedNoncesEvent: UnorderedNoncesComponent::Event,
+        #[flat]
+        SignatureTransferEvent: SignatureTransferComponent::Event,
+    }
+
+    pub impl SNIP12MetadataImpl of SNIP12Metadata {
+        /// Returns the name of the SNIP-12 metadata.
+        fn name() -> felt252 {
+            'Permit2'
+        }
+
+        /// Returns the version of the SNIP-12 metadata.
+        fn version() -> felt252 {
+            'v1'
+        }
     }
 
     #[abi(embed_v0)]
-    impl MockPermit2Impl of super::IMockPermit2<ContractState> {
-        fn mock_update_amount_and_expiration(
-            ref self: ContractState,
-            from: ContractAddress,
-            token: ContractAddress,
-            spender: ContractAddress,
-            amount: u256,
-            expiration: u64,
-        ) {
-            let mut s_allowance = self.allowance.entry((from, token, spender));
-            s_allowance.update_amount_and_expiration(amount, expiration);
-        }
+    pub impl IDomainSeparator<impl metadata: SNIP12Metadata> of IDS<ContractState> {
+        fn DOMAIN_SEPARATOR(self: @ContractState) -> felt252 {
+            let domain = StarknetDomain {
+                name: metadata::name(),
+                version: metadata::version(),
+                chain_id: starknet::get_tx_info().unbox().chain_id,
+                revision: 1,
+            };
 
-        fn mock_update_all(
-            ref self: ContractState,
-            from: ContractAddress,
-            token: ContractAddress,
-            spender: ContractAddress,
-            amount: u256,
-            expiration: u64,
-            nonce: u64,
-        ) {
-            let mut s_allowance = self.allowance.entry((from, token, spender));
-
-            s_allowance.update_all(amount, expiration, nonce);
-        }
-
-        fn use_unordered_nonce(ref self: ContractState, from: ContractAddress, nonce: felt252) {
-            self.nonces._use_unordered_nonce(from, nonce);
+            domain.hash_struct()
         }
     }
 }
