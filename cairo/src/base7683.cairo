@@ -218,7 +218,7 @@ pub mod Base7683Component {
 
 
     #[embeddable_as(ERC7683ExtraImpl)]
-    impl ERC7683Extra<
+    pub impl ERC7683Extra<
         TContractState, +HasComponent<TContractState>, +Virtual<TContractState>,
     > of IERC7683Extra<ComponentState<TContractState>> {
         /// READS ///

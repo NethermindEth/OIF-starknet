@@ -5,5 +5,5 @@ pub trait IMintable<TState> {
 
 #[starknet::interface]
 pub trait IDS<TState> {
-    fn DOMAIN_SEPARATOR(ref self: TState) -> felt252;
+    fn DOMAIN_SEPARATOR(self: @TState) -> felt252;
 }

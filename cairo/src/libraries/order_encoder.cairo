@@ -157,14 +157,14 @@ pub impl OpenOrderEncoderImpl of OpenOrderEncoder<(felt252, Bytes)> {
 }
 
 /// Sets the default value of `ContractAddress` to zero.
-impl ContractAddressDefault of Default<ContractAddress> {
+pub impl ContractAddressDefault of Default<ContractAddress> {
     fn default() -> ContractAddress {
         Zero::zero()
     }
 }
 
 /// Sets the default value of `Bytes` to zero.
-impl BytesDefault of Default<Bytes> {
+pub impl BytesDefault of Default<Bytes> {
     fn default() -> Bytes {
         BytesTrait::new_empty()
     }
