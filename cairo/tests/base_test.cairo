@@ -8,6 +8,9 @@ use oif_starknet::erc7683::interface::{
     OnchainCrossChainOrder, ResolvedCrossChainOrder,
 };
 use oif_starknet::libraries::order_encoder::{OpenOrderEncoder};
+use crate::mocks::mock_basic_swap7683::{
+    IMockBasicSwap7683Dispatcher, IMockBasicSwap7683DispatcherTrait,
+};
 use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_utils::cryptography::snip12::{SNIP12HashSpanImpl, StructHash};
 use permit2::interfaces::signature_transfer::{
@@ -29,8 +32,8 @@ use snforge_std::signature::stark_curve::{
 };
 use starknet::ContractAddress;
 use crate::common::{
-    deploy_eth, deal_multiple, ETH_ADDRESS, Account, deploy_permit2, deploy_erc20,
-    deploy_mock_base7683, generate_account,
+    deploy_mock_basic_swap7683, deploy_eth, deal_multiple, ETH_ADDRESS, Account, deploy_permit2,
+    deploy_erc20, deploy_mock_base7683, generate_account,
 };
 use crate::mocks::mock_base7683::{IMockBase7683Dispatcher, IMockBase7683DispatcherTrait};
 
@@ -108,7 +111,6 @@ pub fn setup() -> BaseTestSetup {
         users,
     }
 }
-
 
 pub fn _prepare_onchain_order(
     order_data: Bytes, fill_deadline: u64, order_data_type: felt252,
@@ -284,6 +286,7 @@ pub fn _assert_resolved_order(
     assert_eq!(resolved_order.fill_deadline, fill_deadline);
 }
 
+
 pub fn _order_data_by_id(order_id: u256, setup: BaseTestSetup) -> Bytes {
     let (_, order_data): (felt252, @Bytes) = setup.base_full.open_orders(order_id).decode();
 
@@ -350,6 +353,7 @@ pub fn _balance_id(user: ContractAddress, setup: BaseTestSetup) -> usize {
         999999999
     }
 }
+
 
 pub fn _assert_order(
     order_id: u256,

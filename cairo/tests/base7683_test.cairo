@@ -26,7 +26,7 @@ use snforge_std::{
 };
 use crate::mocks::mock_base7683::{IMockBase7683Dispatcher, IMockBase7683DispatcherTrait};
 use crate::base_test::{
-    BaseTestSetup, base_setup, _prepare_onchain_order, _balances, _assert_open_order,
+    BaseTestSetup, setup as _setup, _prepare_onchain_order, _balances, _assert_open_order,
     _assert_resolved_order, _get_signature,
 };
 
@@ -47,7 +47,7 @@ pub fn setup() -> BaseTestSetup {
         DOMAIN_SEPARATOR,
         fork_id,
         mut users,
-    } = base_setup();
+    } = _setup();
 
     users.append(base.contract_address);
 
