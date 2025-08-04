@@ -198,7 +198,7 @@ pub mod BasicSwap7683Component {
                     order_data.input_token, order_data.sender, order_data.amount_in,
                 );
 
-            self.emit(Settled { order_id, receiver: order_data.sender });
+            self.emit(Refunded { order_id, receiver: order_data.sender });
         }
 
 
