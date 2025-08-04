@@ -12,6 +12,9 @@ use starknet::{ClassHash, ContractAddress};
 use starknet::event::Event as _Event;
 use crate::mocks::mock_erc20::{MockERC20};
 use crate::mocks::mock_base7683::{IMockBase7683Dispatcher, IMockBase7683DispatcherTrait};
+use crate::mocks::mock_basic_swap7683::{
+    IMockBasicSwap7683Dispatcher, IMockBasicSwap7683DispatcherTrait,
+};
 use crate::mocks::interfaces::{IMintableDispatcher, IMintableDispatcherTrait};
 use permit2::interfaces::permit2::{IPermit2Dispatcher, IPermit2DispatcherTrait};
 
@@ -71,6 +74,18 @@ pub fn deploy_mock_base7683(
         .expect('mock permit2 deployment failed');
 
     IMockBase7683Dispatcher { contract_address }
+}
+
+pub fn deploy_mock_basic_swap7683(permit2: ContractAddress) -> IMockBasicSwap7683Dispatcher {
+    let contract = declare("MockBasicSwap7683").unwrap().contract_class();
+    let mut ctor_calldata: Array<felt252> = array![];
+    permit2.serialize(ref ctor_calldata);
+
+    let (contract_address, _) = contract
+        .deploy(@ctor_calldata)
+        .expect('mock permit2 deployment failed');
+
+    IMockBasicSwap7683Dispatcher { contract_address }
 }
 
 

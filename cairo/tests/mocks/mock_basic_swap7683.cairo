@@ -8,8 +8,8 @@ use oif_starknet::erc7683::interface::{
 };
 #[starknet::interface]
 pub trait IMockBasicSwap7683<TState> {
-    fn fill_order(ref self: TState, order_id: u256, origin_data: Bytes, _empty: Bytes, value: u256);
-    fn settle_order(
+    fn fill_order(ref self: TState, order_id: u256, origin_data: Bytes, _empty: Bytes);
+    fn settle_orders(
         ref self: TState,
         order_ids: Array<u256>,
         orders_origin_data: Array<Bytes>,
@@ -65,6 +65,12 @@ pub trait IMockBasicSwap7683<TState> {
     fn get_gasless_order_id(self: @TState, order: GaslessCrossChainOrder) -> u256;
 
     fn get_onchain_order_id(self: @TState, order: OnchainCrossChainOrder) -> u256;
+
+    fn dispatched_origin_domain(self: @TState) -> u32;
+
+    fn dispatched_order_ids(self: @TState) -> Array<u256>;
+
+    fn dispatched_orders_filler_data(self: @TState) -> Array<Bytes>;
 }
 
 #[starknet::contract]
@@ -77,7 +83,7 @@ pub mod MockBasicSwap7683 {
     use oif_starknet::base7683::Base7683Component::{DestinationSettler, OriginSettler};
     use oif_starknet::basic_swap7683::BasicSwap7683Component;
     use oif_starknet::erc7683::interface::{
-        FillInstruction, GaslessCrossChainOrder, OnchainCrossChainOrder, Output,
+        IBasicSwapExtra, FillInstruction, GaslessCrossChainOrder, OnchainCrossChainOrder, Output,
         ResolvedCrossChainOrder,
     };
     use openzeppelin_utils::cryptography::snip12::StructHashStarknetDomainImpl;
@@ -92,7 +98,6 @@ pub mod MockBasicSwap7683 {
     component!(path: BasicSwap7683Component, storage: basic_swap7683, event: BasicSwap7683Event);
 
     /// EXTERNAL ///
-    /// Base7683
     #[abi(embed_v0)]
     pub impl OriginSettlerImpl =
         Base7683Component::OriginSettlerImpl<ContractState>;
@@ -100,39 +105,23 @@ pub mod MockBasicSwap7683 {
     impl DestinationSettlerImpl =
         Base7683Component::DestinationSettlerImpl<ContractState>;
     #[abi(embed_v0)]
-    pub impl ExtraImpl = Base7683Component::ERC7683ExtraImpl<ContractState>;
-    /// BasicSwap7683
+    pub impl BaseExtraImpl = Base7683Component::ERC7683ExtraImpl<ContractState>;
+    #[abi(embed_v0)]
+    pub impl BasicSwapExtraImpl =
+        BasicSwap7683Component::BasicSwapExtraImpl<ContractState>;
 
     /// INTERNAL ///
     impl BaseInternalImpl = Base7683Component::InternalImpl<ContractState>;
-    pub impl BasicSwap7683Impl = BasicSwap7683Component::InternalImpl<ContractState>;
+    impl BasicSwap7683Impl = BasicSwap7683Component::InternalImpl<ContractState>;
 
     /// STORAGE ///
     #[storage]
     pub struct Storage {
         dispatched_origin_domain: u32,
         dispatched_order_ids: Map<usize, u256>,
-        dispatched_order_ids_len: usize,
         dispatched_orders_filler_data: Map<usize, Bytes>,
+        dispatched_order_ids_len: usize,
         dispatched_orders_filler_data_len: usize,
-        ///////////
-        native: bool,
-        input_token: ContractAddress,
-        output_token: ContractAddress,
-        counterpart: ContractAddress,
-        origin: u32,
-        destination: u32,
-        filled_id: u256,
-        filled_origin_data: Bytes,
-        filled_filler_data: Bytes,
-        settled_order_ids: Map<usize, u256>,
-        settled_orders_origin_data: Map<usize, Bytes>,
-        settled_orders_filler_data: Map<usize, Bytes>,
-        settled_order_ids_len: usize,
-        settled_orders_origin_data_len: usize,
-        settled_orders_filler_data_len: usize,
-        refunded_order_ids: Map<usize, u256>,
-        refunded_order_ids_len: usize,
         /// COMPONENT STORAGE ///
         #[substorage(v0)]
         base7683: Base7683Component::Storage,
@@ -142,19 +131,8 @@ pub mod MockBasicSwap7683 {
 
     /// CONSTRUCTOR ///
     #[constructor]
-    fn constructor(
-        ref self: ContractState,
-        permit2: ContractAddress,
-        local: u32,
-        remote: u32,
-        input_token: ContractAddress,
-        output_token: ContractAddress,
-    ) {
+    fn constructor(ref self: ContractState, permit2: ContractAddress) {
         self.base7683._initialize(permit2);
-        self.origin.write(local);
-        self.destination.write(remote);
-        self.input_token.write(input_token);
-        self.output_token.write(output_token);
     }
 
     /// EVENTS ///
@@ -170,27 +148,44 @@ pub mod MockBasicSwap7683 {
     /// EXTRA PUBLIC ///
     #[abi(embed_v0)]
     pub impl MockBasicSwap7683Impl of super::IMockBasicSwap7683<ContractState> {
-        fn fill_order(
-            ref self: ContractState, order_id: u256, origin_data: Bytes, _empty: Bytes, value: u256,
-        ) {
+        fn dispatched_origin_domain(self: @ContractState) -> u32 {
+            self.dispatched_origin_domain.read()
+        }
+
+        fn dispatched_order_ids(self: @ContractState) -> Array<u256> {
+            let mut order_ids = array![];
+            let len = self.dispatched_order_ids_len.read();
+            for i in 0..len {
+                order_ids.append(self.dispatched_order_ids.entry(i).read());
+            };
+            order_ids
+        }
+
+        fn dispatched_orders_filler_data(self: @ContractState) -> Array<Bytes> {
+            let mut orders_filler_data = array![];
+            let len = self.dispatched_orders_filler_data_len.read();
+            for i in 0..len {
+                orders_filler_data.append(self.dispatched_orders_filler_data.entry(i).read());
+            };
+            orders_filler_data
+        }
+
+
+        fn fill_order(ref self: ContractState, order_id: u256, origin_data: Bytes, _empty: Bytes) {
             BasicSwap7683Component::InternalImpl::_fill_order(
                 ref self.base7683, order_id, @origin_data, @_empty,
             );
         }
 
-        fn settle_order(
+        fn settle_orders(
             ref self: ContractState,
             order_ids: Array<u256>,
             orders_origin_data: Array<Bytes>,
             orders_filler_data: Array<Bytes>,
             value: u256,
         ) {
-            BasicSwap7683Component::InternalImpl::_settle_orders(
-                ref self.basic_swap7683,
-                @order_ids,
-                @orders_origin_data,
-                @orders_filler_data,
-                value,
+            Base7686VirtualImpl::_settle_orders(
+                ref self.base7683, @order_ids, @orders_origin_data, @orders_filler_data, value,
             );
         }
 
@@ -265,11 +260,11 @@ pub mod MockBasicSwap7683 {
 
         fn set_order_opened(ref self: ContractState, order_id: u256, order_data: OrderData) {
             let order = OrderEncoder::encode(@order_data);
-            self
-                .base7683
-                .open_orders
-                .entry(order_id)
-                .write((OrderEncoder::order_data_type_hash(), order).encode())
+            let order_data_type = OrderEncoder::order_data_type_hash();
+            let order_as_bytes = (order_data_type, order).encode();
+
+            self.base7683.open_orders.entry(order_id).write(order_as_bytes);
+            self.base7683.order_status.entry(order_id).write(Base7683Component::OPENED);
         }
 
         fn get_gasless_order_id(self: @ContractState, order: GaslessCrossChainOrder) -> u256 {
@@ -278,63 +273,6 @@ pub mod MockBasicSwap7683 {
 
         fn get_onchain_order_id(self: @ContractState, order: OnchainCrossChainOrder) -> u256 {
             self.basic_swap7683._get_order_id(order.order_data_type, order.order_data)
-        }
-    }
-
-    /// INTERNAL ///
-    #[generate_trait]
-    pub impl InternalImpl of InternalTrait {
-        fn __resolved_order(
-            self: @Base7683Component::ComponentState<ContractState>,
-            sender: ContractAddress,
-            open_deadline: u64,
-            fill_deadline: u64,
-            order_data: Bytes,
-        ) -> (ResolvedCrossChainOrder, u256, felt252) {
-            let self = self.get_contract();
-
-            let max_spent = array![
-                Output {
-                    token: self.output_token.read(),
-                    amount: 100,
-                    recipient: self.counterpart.read(),
-                    chain_id: self.destination.read(),
-                },
-            ];
-
-            let min_received = array![
-                Output {
-                    token: self.input_token.read(),
-                    amount: 100,
-                    recipient: 0.try_into().unwrap(),
-                    chain_id: self.origin.read(),
-                },
-            ];
-
-            let fill_instructions = array![
-                FillInstruction {
-                    destination_chain_id: self.destination.read(),
-                    destination_settler: self.counterpart.read(),
-                    origin_data: order_data,
-                },
-            ];
-
-            let order_id: u256 = 'someId'.into();
-
-            (
-                ResolvedCrossChainOrder {
-                    user: sender,
-                    origin_chain_id: self.origin.read(),
-                    open_deadline,
-                    fill_deadline,
-                    order_id,
-                    min_received,
-                    max_spent,
-                    fill_instructions,
-                },
-                order_id,
-                1,
-            )
         }
     }
 
@@ -366,6 +304,7 @@ pub mod MockBasicSwap7683 {
                 self, order, origin_filler_data,
             )
         }
+
         fn _settle_orders(
             ref self: Base7683Component::ComponentState<ContractState>,
             order_ids: @Array<u256>,
@@ -373,13 +312,9 @@ pub mod MockBasicSwap7683 {
             orders_filler_data: @Array<Bytes>,
             value: u256,
         ) {
-            let mut contract_state = self.get_contract_mut();
-            BasicSwap7683Component::InternalImpl::_settle_orders(
-                ref contract_state.basic_swap7683,
-                order_ids,
-                orders_origin_data,
-                orders_filler_data,
-                value,
+            let mut self = self.get_contract_mut();
+            BasicSwap7683Impl::_settle_orders(
+                ref self.basic_swap7683, order_ids, orders_origin_data, orders_filler_data, value,
             );
         }
 
@@ -389,9 +324,9 @@ pub mod MockBasicSwap7683 {
             order_ids: @Array<u256>,
             value: u256,
         ) {
-            let mut contract_state = self.get_contract_mut();
+            let mut self = self.get_contract_mut();
             BasicSwap7683Component::InternalImpl::_refund_onchain_orders(
-                ref contract_state.basic_swap7683, orders, order_ids, value,
+                ref self.basic_swap7683, orders, order_ids, value,
             );
         }
 
@@ -401,9 +336,9 @@ pub mod MockBasicSwap7683 {
             order_ids: @Array<u256>,
             value: u256,
         ) {
-            let mut contract_state = self.get_contract_mut();
+            let mut self = self.get_contract_mut();
             BasicSwap7683Component::InternalImpl::_refund_gasless_orders(
-                ref contract_state.basic_swap7683, orders, order_ids, value,
+                ref self.basic_swap7683, orders, order_ids, value,
             );
         }
 
@@ -469,14 +404,9 @@ pub mod MockBasicSwap7683 {
             order_id: u256,
             receiver: ContractAddress,
         ) {
-            let mut contract_state = self.get_contract_mut();
-
+            let mut self = self.get_contract_mut();
             BasicSwap7683Component::InternalImpl::_handle_settle_order(
-                ref contract_state.basic_swap7683,
-                message_origin,
-                message_sender,
-                order_id,
-                receiver,
+                ref self.basic_swap7683, message_origin, message_sender, order_id, receiver,
             );
         }
 
@@ -486,9 +416,9 @@ pub mod MockBasicSwap7683 {
             message_sender: ContractAddress,
             order_id: u256,
         ) {
-            let mut contract_state = self.get_contract_mut();
+            let mut self = self.get_contract_mut();
             BasicSwap7683Component::InternalImpl::_handle_refund_order(
-                ref contract_state.basic_swap7683, message_origin, message_sender, order_id,
+                ref self.basic_swap7683, message_origin, message_sender, order_id,
             );
         }
     }
