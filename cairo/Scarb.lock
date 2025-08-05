@@ -64,6 +64,7 @@ dependencies = [
  "openzeppelin_account",
  "openzeppelin_introspection",
  "openzeppelin_token",
+ "openzeppelin_upgrades",
  "openzeppelin_utils",
  "permit2",
  "snforge_std",
