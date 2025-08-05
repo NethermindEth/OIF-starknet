@@ -297,7 +297,7 @@ pub mod MockHyperlane7683 {
             self.settled_message_origin.entry(i1).write(message_origin);
             self.settled_message_sender.entry(i2).write(message_sender);
             self.settled_order_id.entry(i3).write(order_id);
-            self.settled_order_receiver.entry(4).write(receiver);
+            self.settled_order_receiver.entry(i4).write(receiver);
 
             self.settled_message_origin_len.write(i1 + 1);
             self.settled_message_sender_len.write(i2 + 1);
@@ -335,7 +335,7 @@ pub mod MockHyperlane7683 {
             sender: u256,
             message: Bytes,
         ) {
-            let mut contract_state = self.get_contract_mut();
+            let mut self = self.get_contract_mut();
             let (settle, order_ids, orders_filler_data) = Hyperlane7683Message::decode(message);
             let sender: ContractAddress = TryInto::<u256, felt252>::try_into(sender)
                 .expect('Err casting u256 -> felt252')
@@ -352,7 +352,7 @@ pub mod MockHyperlane7683 {
                             .read_address(0);
 
                         BasicSwap7683VirtualImpl::_handle_settle_order(
-                            ref contract_state.basic_swap7683,
+                            ref self.basic_swap7683,
                             origin.try_into().unwrap(),
                             sender.try_into().unwrap(),
                             *order_ids.at(i),
@@ -361,7 +361,7 @@ pub mod MockHyperlane7683 {
                     },
                     false => {
                         BasicSwap7683VirtualImpl::_handle_refund_order(
-                            ref contract_state.basic_swap7683,
+                            ref self.basic_swap7683,
                             origin.try_into().unwrap(),
                             sender.try_into().unwrap(),
                             *order_ids.at(i),

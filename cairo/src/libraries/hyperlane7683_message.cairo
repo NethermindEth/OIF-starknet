@@ -40,13 +40,11 @@ pub mod Hyperlane7683Message {
     ///
     /// Returns The array of calls
     pub fn decode(message: Bytes) -> (bool, Span<u256>, Span<Bytes>) {
-        let mut order_ids = array![];
-        let mut orders_filler_data = array![];
-
         // Settle
         let (offset, settle) = message.read_u8(0);
 
         // Order IDs
+        let mut order_ids = array![];
         let (mut offset, order_ids_size) = message.read_usize(offset);
         for _ in 0..order_ids_size {
             let (_offset, order_id) = message.read_u256(offset);
@@ -56,16 +54,15 @@ pub mod Hyperlane7683Message {
         };
 
         // Orders Filler Data
-        let (mut offset, orders_filler_data_size) = message.read_usize(offset);
-        for _ in 0..orders_filler_data_size {
+        let mut orders_filler_data = array![];
+        let (mut offset, orders_filler_data_len) = message.read_usize(offset);
+        for _ in 0..orders_filler_data_len {
             let (_offset, filler_data_size) = message.read_usize(offset);
             let (_offset, filler_data) = message.read_bytes(_offset, filler_data_size);
             orders_filler_data.append(filler_data);
 
             offset = _offset;
         };
-
-        assert(order_ids.len() == orders_filler_data.len(), 'Decoded arrays len mismatch');
 
         (settle == 1, order_ids.span(), orders_filler_data.span())
     }
