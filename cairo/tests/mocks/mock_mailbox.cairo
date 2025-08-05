@@ -1,9 +1,30 @@
-use alexandria_bytes::Bytes;
 use contracts::libs::message::Message;
 use starknet::ContractAddress;
+use alexandria_bytes::{Bytes, BytesStore};
+
+#[derive(Drop, Serde, Clone, starknet::Store, PartialEq)]
+pub struct Call {
+    pub destination_domain: u32,
+    pub recipient_address: u256,
+    pub message_body: Bytes,
+    pub fee_amount: u256,
+    pub metadata: Option<Bytes>,
+    pub hook: Option<ContractAddress>,
+}
+
+pub impl OptionBytesCloneImpl of Clone<Option<Bytes>> {
+    fn clone(self: @Option<Bytes>) -> Option<Bytes> {
+        match self {
+            Option::Some(bytes) => Option::Some(bytes.clone()),
+            Option::None(()) => Option::None(()),
+        }
+    }
+}
 
 #[starknet::interface]
 pub trait IMockMailbox<TContractState> {
+    fn latest_call(self: @TContractState) -> Call;
+    ///
     fn add_remote_mail_box(ref self: TContractState, domain: u32, mailbox: ContractAddress);
     fn add_inbound_message(ref self: TContractState, message: Message);
     fn process_next_inbound_message(ref self: TContractState);
@@ -42,7 +63,7 @@ pub trait IMockMailbox<TContractState> {
 
 #[starknet::contract]
 pub mod MockMailbox {
-    use alexandria_bytes::{Bytes, BytesTrait};
+    use alexandria_bytes::{Bytes, BytesTrait, BytesStore};
     use contracts::interfaces::{
         IInterchainSecurityModuleDispatcher, IInterchainSecurityModuleDispatcherTrait,
         IMailboxDispatcher, IMailboxDispatcherTrait, IMessageRecipientDispatcher,
@@ -55,9 +76,7 @@ pub mod MockMailbox {
         ITestPostDispatchHookDispatcher, ITestPostDispatchHookDispatcherTrait,
     };
     use openzeppelin_access::ownable::OwnableComponent;
-    use openzeppelin_token::erc20::interface::{
-        ERC20ABI, ERC20ABIDispatcher, ERC20ABIDispatcherTrait,
-    };
+    use openzeppelin_token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin_upgrades::{interface::IUpgradeable, upgradeable::UpgradeableComponent};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -67,10 +86,11 @@ pub mod MockMailbox {
         ClassHash, ContractAddress, contract_address_const, get_block_number, get_caller_address,
         get_contract_address,
     };
-    use super::{IMockMailboxDispatcher, IMockMailboxDispatcherTrait};
+    use super::{IMockMailboxDispatcher, IMockMailboxDispatcherTrait, Call, OptionBytesCloneImpl};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
@@ -82,9 +102,10 @@ pub mod MockMailbox {
         pub block_number: u64,
     }
 
-
     #[storage]
     struct Storage {
+        // Used to asssert a call was made
+        latest_call: Map<usize, Call>,
         inbound_unprocessed_nonce: u32,
         inbound_processed_nonce: u32,
         remote_mailboxes: Map<u32, ContractAddress>,
@@ -216,9 +237,14 @@ pub mod MockMailbox {
 
     #[abi(embed_v0)]
     impl IMailboxImpl of super::IMockMailbox<ContractState> {
+        fn latest_call(self: @ContractState) -> Call {
+            self.latest_call.read(0)
+        }
+        ///
         fn add_remote_mail_box(ref self: ContractState, domain: u32, mailbox: ContractAddress) {
             self.remote_mailboxes.write(domain, mailbox);
         }
+
         fn dispatch(
             ref self: ContractState,
             destination_domain: u32,
@@ -228,6 +254,20 @@ pub mod MockMailbox {
             metadata: Option<Bytes>,
             hook: Option<ContractAddress>,
         ) -> u256 {
+            self
+                .latest_call
+                .write(
+                    0,
+                    Call {
+                        destination_domain,
+                        recipient_address,
+                        message_body: message_body.clone(),
+                        fee_amount,
+                        metadata: metadata.clone(),
+                        hook: hook.clone(),
+                    },
+                );
+
             let hook = match hook {
                 Option::Some(hook) => {
                     if hook != contract_address_const::<0>() {
