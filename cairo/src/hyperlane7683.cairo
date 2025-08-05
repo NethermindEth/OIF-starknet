@@ -120,7 +120,7 @@ pub mod Hyperlane7683 {
     }
 
     /// BASE OVERRIDES ///
-    pub impl Base7686VirtualImpl of Base7683Component::Virtual<ContractState> {
+    pub impl Base7683VirtualImpl of Base7683Component::Virtual<ContractState> {
         fn _fill_order(
             ref self: Base7683Component::ComponentState<ContractState>,
             order_id: u256,

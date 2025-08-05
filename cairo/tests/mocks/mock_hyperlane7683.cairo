@@ -33,7 +33,6 @@ pub mod MockHyperlane7683 {
     use contracts::client::router_component::RouterComponent::IMessageRecipientInternalHookTrait;
     use oif_starknet::base7683::Base7683Component;
     use oif_starknet::base7683::Base7683Component::{DestinationSettler, OriginSettler};
-    use oif_starknet::hyperlane7683::Hyperlane7683;
     use oif_starknet::basic_swap7683::BasicSwap7683Component;
     use oif_starknet::erc7683::interface::{
         GaslessCrossChainOrder, OnchainCrossChainOrder, ResolvedCrossChainOrder,
