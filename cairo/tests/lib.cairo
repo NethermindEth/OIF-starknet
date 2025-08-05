@@ -6,6 +6,10 @@ pub mod mocks {
     pub mod mock_hyperlane7683;
     pub mod mock_erc20;
     pub mod mock_permit2;
+    pub mod mock_hyperlane_environment;
+    pub mod mock_mailbox;
+    pub mod test_interchain_gas_payment;
+    pub mod test_ism;
 }
 pub mod base_test;
 pub mod base7683_test;

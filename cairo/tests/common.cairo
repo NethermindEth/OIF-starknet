@@ -1,22 +1,16 @@
-use oif_starknet::erc7683::interface::{Base7683ABIDispatcher, Base7683ABIDispatcherTrait};
 use openzeppelin_account::interface::AccountABIDispatcher;
-use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-use core::dict::Felt252Dict;
-use core::num::traits::Pow;
+use openzeppelin_token::erc20::interface::{IERC20Dispatcher};
 use snforge_std::signature::stark_curve::{
     StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
 };
 use snforge_std::signature::{KeyPair, KeyPairTrait};
 use snforge_std::{Event, ContractClassTrait, DeclareResultTrait, declare};
-use starknet::{ClassHash, ContractAddress};
+use starknet::{ContractAddress};
 use starknet::event::Event as _Event;
-use crate::mocks::mock_erc20::{MockERC20};
-use crate::mocks::mock_base7683::{IMockBase7683Dispatcher, IMockBase7683DispatcherTrait};
-use crate::mocks::mock_basic_swap7683::{
-    IMockBasicSwap7683Dispatcher, IMockBasicSwap7683DispatcherTrait,
-};
+use crate::mocks::mock_base7683::{IMockBase7683Dispatcher};
+use crate::mocks::mock_basic_swap7683::{IMockBasicSwap7683Dispatcher};
+use crate::mocks::mock_hyperlane7683::{IMockHyperlane7683Dispatcher};
 use crate::mocks::interfaces::{IMintableDispatcher, IMintableDispatcherTrait};
-use permit2::interfaces::permit2::{IPermit2Dispatcher, IPermit2DispatcherTrait};
 
 pub fn ETH_ADDRESS() -> ContractAddress {
     0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7.try_into().unwrap()
@@ -81,11 +75,29 @@ pub fn deploy_mock_basic_swap7683(permit2: ContractAddress) -> IMockBasicSwap768
     let mut ctor_calldata: Array<felt252> = array![];
     permit2.serialize(ref ctor_calldata);
 
-    let (contract_address, _) = contract
-        .deploy(@ctor_calldata)
-        .expect('mock permit2 deployment failed');
+    let (contract_address, _) = contract.deploy(@ctor_calldata).expect('mock basic swap failed');
 
     IMockBasicSwap7683Dispatcher { contract_address }
+}
+
+pub fn deploy_mock_hyperlane7683(
+    permit2: ContractAddress,
+    mailbox: ContractAddress,
+    owner: ContractAddress,
+    hook: ContractAddress,
+    ism: ContractAddress,
+) -> IMockHyperlane7683Dispatcher {
+    let contract = declare("MockHyperlane7683").unwrap().contract_class();
+    let mut ctor_calldata: Array<felt252> = array![];
+    permit2.serialize(ref ctor_calldata);
+    mailbox.serialize(ref ctor_calldata);
+    owner.serialize(ref ctor_calldata);
+    hook.serialize(ref ctor_calldata);
+    ism.serialize(ref ctor_calldata);
+
+    let (contract_address, _) = contract.deploy(@ctor_calldata).expect('mock hyperlane failed');
+
+    IMockHyperlane7683Dispatcher { contract_address }
 }
 
 
