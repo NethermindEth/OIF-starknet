@@ -9,6 +9,9 @@ help:
 	@echo "  test     - Run tests"
 	@echo "  clean    - Clean build artifacts"
 	@echo "  lint     - Run linter"
+	@echo "  verify-hyperlane  - Verify pre-deployed Hyperlane7683 contracts"
+	@echo "  start-networks - Start all testnet forks with color-coded logging"
+	@echo "  kill-networks  - Stop all running networks"
 
 # Install dependencies
 deps:
@@ -22,6 +25,31 @@ build:
 # Run the solver
 run: build
 	./bin/solver
+
+# Verify pre-deployed Hyperlane7683 contracts on forked networks
+verify-hyperlane: build-verify-hyperlane
+	./bin/verify-hyperlane
+
+# Start all testnet forks with color-coded logging
+start-networks:
+	./start-networks.sh
+
+# Kill all running networks
+kill-networks:
+	@echo "🛑 Stopping all networks..."
+	@for port in 8545 8546 8547 8548; do \
+		if [ -f "/tmp/anvil_$$port.pid" ]; then \
+			pid=$$(cat "/tmp/anvil_$$port.pid"); \
+			kill $$pid 2>/dev/null || true; \
+			rm -f "/tmp/anvil_$$port.pid"; \
+		fi; \
+	done
+	@pkill -f "anvil" 2>/dev/null || true
+	@echo "✅ All networks stopped"
+
+# Build Hyperlane7683 verification tool
+build-verify-hyperlane:
+	go build -o bin/verify-hyperlane ./cmd/verify-hyperlane
 
 # Run tests
 test:
