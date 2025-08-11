@@ -21,3 +21,8 @@ target/
 #.idea/
 
 *.DS_Store
+
+.env
+
+deployer_account*.json
+!deployer_account.example.json
