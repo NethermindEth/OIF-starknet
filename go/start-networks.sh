@@ -69,11 +69,29 @@ start_network() {
         echo -e "${color}${id}${RESET} Using public RPC for ${testnet_name}"
     fi
     
-    # Fork from latest block (testnets are smaller, so no need for specific block)
-    echo -e "${color}${id}${RESET} Forking ${testnet_name} from latest block"
+    	# Fork from block when contract was last active to preserve state
+	local fork_block
+			case $testnet_name in
+			"sepolia")
+				fork_block=8319000  # After the working open() transaction
+				;;
+			"optimism-sepolia")
+				fork_block=27370000  # After the working open() transaction
+				;;
+			"arbitrum-sepolia")
+				fork_block=138020000  # After any working transactions
+				;;
+			"base-sepolia")
+				fork_block=25380000  # After the working fill() transaction
+				;;
+			*)
+				fork_block=8319000
+				;;
+		esac
+	echo -e "${color}${id}${RESET} Forking ${testnet_name} from block ${fork_block} (when contract was last used)"
     
     # Start anvil with testnet fork and pipe output through color filter
-    anvil --port $port --chain-id $chain_id --fork-url "$rpc_url" 2>&1 | while IFS= read -r line; do
+    	anvil --port $port --chain-id $chain_id --fork-url "$rpc_url" --fork-block-number ${fork_block} 2>&1 | while IFS= read -r line; do
         echo -e "${color}${id}${RESET} $line"
     done &
     
@@ -126,10 +144,10 @@ if [ -z "$ALCHEMY_API_KEY" ]; then
 fi
 
 # Start all networks
-start_network 8545 31337 "$ETH_COLOR" "$ETH_ID" "sepolia"
-start_network 8546 31338 "$OPT_COLOR" "$OPT_ID" "optimism-sepolia"
-start_network 8547 31339 "$ARB_COLOR" "$ARB_ID" "arbitrum-sepolia"
-start_network 8548 31340 "$BASE_COLOR" "$BASE_ID" "base-sepolia"
+start_network 8545 11155111 "$ETH_COLOR" "$ETH_ID" "sepolia"
+start_network 8546 11155420 "$OPT_COLOR" "$OPT_ID" "optimism-sepolia"
+start_network 8547 421614 "$ARB_COLOR" "$ARB_ID" "arbitrum-sepolia"
+start_network 8548 84532 "$BASE_COLOR" "$BASE_ID" "base-sepolia"
 
 echo ""
 echo "⏳ Waiting for networks to be ready..."
@@ -138,10 +156,10 @@ sleep 3
 echo ""
 echo "🎉 All testnet forks are running!"
 echo "================================"
-echo -e "${ETH_COLOR}${ETH_ID}${RESET} Sepolia Fork             - http://localhost:8545 (Chain ID: 31337)"
-echo -e "${OPT_COLOR}${OPT_ID}${RESET} Optimism Sepolia Fork    - http://localhost:8546 (Chain ID: 31338)"
-echo -e "${ARB_COLOR}${ARB_ID}${RESET} Arbitrum Sepolia Fork    - http://localhost:8547 (Chain ID: 31339)"
-echo -e "${BASE_COLOR}${BASE_ID}${RESET} Base Sepolia Fork        - http://localhost:8548 (Chain ID: 31340)"
+echo -e "${ETH_COLOR}${ETH_ID}${RESET} Sepolia Fork             - http://localhost:8545 (Chain ID: 11155111)"
+echo -e "${OPT_COLOR}${OPT_ID}${RESET} Optimism Sepolia Fork    - http://localhost:8546 (Chain ID: 11155420)"
+echo -e "${ARB_COLOR}${ARB_ID}${RESET} Arbitrum Sepolia Fork    - http://localhost:8547 (Chain ID: 421614)"
+echo -e "${BASE_COLOR}${BASE_ID}${RESET} Base Sepolia Fork        - http://localhost:8548 (Chain ID: 84532)"
 echo ""
 echo "🚀 What you get for FREE on all forks:"
 echo "   • Permit2 at 0x000000000022D473030F116dDEE9F6B43aC78BA3"
