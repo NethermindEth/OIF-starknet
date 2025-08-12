@@ -1,0 +1,32 @@
+{
+  "networks": {
+    "Arbitrum Sepolia": {
+      "chainId": 421614,
+      "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
+      "orcaCoinAddress": "0xE75e556d685D7428C8242eaF331A5eF80FCACa1f",
+      "dogCoinAddress": "0x186758879f2609536e0ea7d20C4cEBAcfE83a818",
+      "lastUpdated": "now"
+    },
+    "Base Sepolia": {
+      "chainId": 84468,
+      "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
+      "orcaCoinAddress": "0xF62Aa5366d5B86312E5493C18170616346Dd9316",
+      "dogCoinAddress": "0xC2a5aE48cA992BD6f5Ea6e6FB872Cf52F3D6ffBd",
+      "lastUpdated": "now"
+    },
+    "Optimism Sepolia": {
+      "chainId": 11156444,
+      "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
+      "orcaCoinAddress": "0x83Dad72262A50Cd1dFcB6152c8f4C94B5bA5f65E",
+      "dogCoinAddress": "0xDe9D8354424F6ae1aBD715B532Fb7280eCe06810",
+      "lastUpdated": "now"
+    },
+    "Sepolia": {
+      "chainId": 11156391,
+      "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
+      "orcaCoinAddress": "0xd7C5d07B43b17d29FcF4638Cab35922705C3b69a",
+      "dogCoinAddress": "0xF3A4Cb6464EC13E91135f3027a0FF46CF5560176",
+      "lastUpdated": "now"
+    }
+  }
+}
