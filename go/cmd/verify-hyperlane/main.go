@@ -29,25 +29,25 @@ func main() {
 			RPCURL:     "http://localhost:8545",
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
 			ChainName:  "ethereum",
-			ChainID:    1, // Mainnet fork
+			ChainID:    11155111, // Sepolia fork
 		},
 		{
 			RPCURL:     "http://localhost:8546",
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
 			ChainName:  "optimism",
-			ChainID:    10, // Optimism mainnet fork
+			ChainID:    11155420, // Optimism Sepolia fork
 		},
 		{
 			RPCURL:     "http://localhost:8547",
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
 			ChainName:  "arbitrum",
-			ChainID:    42161, // Arbitrum mainnet fork
+			ChainID:    421614, // Arbitrum sepolia fork
 		},
 		{
 			RPCURL:     "http://localhost:8548",
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
 			ChainName:  "base",
-			ChainID:    8453, // Base mainnet fork
+			ChainID:    84532, // Base mainnet fork
 		},
 	}
 
@@ -61,7 +61,7 @@ func main() {
 
 	// Get contract addresses
 	addresses := forkManager.GetContractAddresses()
-	
+
 	log.Printf("📋 Contract addresses:")
 	for chainName, address := range addresses {
 		log.Printf("   %s: %s", chainName, address.Hex())
