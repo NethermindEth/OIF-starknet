@@ -3,10 +3,10 @@ package internal
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync"
 
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
+	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
 	"github.com/NethermindEth/oif-starknet/go/internal/filler"
 	"github.com/NethermindEth/oif-starknet/go/internal/listener"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
@@ -106,8 +106,8 @@ func (sm *SolverManager) createHyperlane7683Solver() (*SolverModule, error) {
 		IntentSources: []types.IntentSource{
 			{
 				Address:         "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3", // Testnet address
-				ChainName:       "basesepolia",
-				InitialBlock:    big.NewInt(21491220),
+				ChainName:       "Base Sepolia",
+				InitialBlock:    nil, // Start from current block
 				PollInterval:    1000, // 1 second
 				ConfirmationBlocks: 2,
 			},
@@ -130,18 +130,15 @@ func (sm *SolverManager) createHyperlane7683Solver() (*SolverModule, error) {
 		BlockList: []types.AllowBlockListItem{},
 	}
 	
-	// Create listener config
-	listenerConfig := &listener.ListenerConfig{
-		ContractAddress:    metadata.IntentSources[0].Address,
-		ChainName:          metadata.IntentSources[0].ChainName,
-		InitialBlock:       metadata.IntentSources[0].InitialBlock,
-		PollInterval:       metadata.IntentSources[0].PollInterval,
-		ConfirmationBlocks: uint64(metadata.IntentSources[0].ConfirmationBlocks),
-		MaxBlockRange:      3000,
+	// Get deployment state to create listeners for all networks
+	state, err := deployer.GetDeploymentState()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment state: %w", err)
 	}
 	
-	// Create concrete implementations
-	evmListener := listener.NewEVMListener(listenerConfig)
+	// Create a multi-network listener that listens to all networks
+	multiListener := listener.NewMultiNetworkListener(state, sm.logger)
+	
 	hyperlaneFiller := filler.NewHyperlane7683Filler(allowBlockLists, metadata)
 	
 	// Add default rules
@@ -149,10 +146,35 @@ func (sm *SolverManager) createHyperlane7683Solver() (*SolverModule, error) {
 	
 	return &SolverModule{
 		Name:     "hyperlane7683",
-		Listener: evmListener,
+		Listener: multiListener,
 		Filler:   hyperlaneFiller,
-		Config:   listenerConfig,
+		Config:   &listener.ListenerConfig{
+			ContractAddress:    "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
+			ChainName:          "Multi-Network",
+			InitialBlock:       nil,
+			PollInterval:       1000,
+			ConfirmationBlocks: 2,
+			MaxBlockRange:      500,
+		},
 	}, nil
+}
+
+// getRPCURLForChain returns the RPC URL for a given chain name
+func (sm *SolverManager) getRPCURLForChain(chainName string) string {
+	// Map chain names to RPC URLs for our local testnet setup
+	switch chainName {
+	case "Base Sepolia":
+		return "http://localhost:8548"
+	case "Sepolia":
+		return "http://localhost:8545"
+	case "Optimism Sepolia":
+		return "http://localhost:8546"
+	case "Arbitrum Sepolia":
+		return "http://localhost:8547"
+	default:
+		// Default to Base Sepolia for now
+		return "http://localhost:8548"
+	}
 }
 
 // startSolver starts a solver and begins listening for events
@@ -178,6 +200,11 @@ func (sm *SolverManager) startSolver(solver *SolverModule) error {
 				"error":       err,
 			}).Error("Failed to process intent")
 			return err
+		}
+		
+		// Update the deployment state with the last indexed block
+		if err := deployer.UpdateLastIndexedBlock(originChainName, blockNumber); err != nil {
+			sm.logger.Warnf("Failed to update last indexed block for %s: %v", originChainName, err)
 		}
 		
 		sm.logger.WithFields(logrus.Fields{
