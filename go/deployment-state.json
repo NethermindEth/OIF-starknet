@@ -6,7 +6,7 @@
       "orcaCoinAddress": "0xE75e556d685D7428C8242eaF331A5eF80FCACa1f",
       "dogCoinAddress": "0x186758879f2609536e0ea7d20C4cEBAcfE83a818",
       "lastIndexedBlock": 138020000,
-      "lastUpdated": "2025-08-13T23:08:07-04:00"
+      "lastUpdated": "2025-08-13T23:38:15-04:00"
     },
     "Base Sepolia": {
       "chainId": 84532,
@@ -14,7 +14,7 @@
       "orcaCoinAddress": "0xF62Aa5366d5B86312E5493C18170616346Dd9316",
       "dogCoinAddress": "0xC2a5aE48cA992BD6f5Ea6e6FB872Cf52F3D6ffBd",
       "lastIndexedBlock": 25380000,
-      "lastUpdated": "2025-08-13T23:08:08-04:00"
+      "lastUpdated": "2025-08-13T23:38:19-04:00"
     },
     "Optimism Sepolia": {
       "chainId": 11155420,
@@ -22,7 +22,7 @@
       "orcaCoinAddress": "0x83Dad72262A50Cd1dFcB6152c8f4C94B5bA5f65E",
       "dogCoinAddress": "0xDe9D8354424F6ae1aBD715B532Fb7280eCe06810",
       "lastIndexedBlock": 27370000,
-      "lastUpdated": "2025-08-13T23:08:06-04:00"
+      "lastUpdated": "2025-08-13T23:38:14-04:00"
     },
     "Sepolia": {
       "chainId": 11155111,
@@ -30,7 +30,7 @@
       "orcaCoinAddress": "0xd7C5d07B43b17d29FcF4638Cab35922705C3b69a",
       "dogCoinAddress": "0xF3A4Cb6464EC13E91135f3027a0FF46CF5560176",
       "lastIndexedBlock": 8319000,
-      "lastUpdated": "2025-08-13T23:08:01-04:00"
+      "lastUpdated": "2025-08-13T23:38:05-04:00"
     }
   }
 }

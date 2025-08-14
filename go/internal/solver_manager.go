@@ -24,7 +24,7 @@ type SolverModule struct {
 // SolverManager manages multiple solvers
 type SolverManager struct {
 	config     *config.Config
-	logger     *logrus.Logger
+	logger     interface{}
 	solvers    map[string]*SolverModule
 	shutdownWg sync.WaitGroup
 	ctx        context.Context
@@ -32,7 +32,7 @@ type SolverManager struct {
 }
 
 // NewSolverManager creates a new solver manager
-func NewSolverManager(cfg *config.Config, logger *logrus.Logger) *SolverManager {
+func NewSolverManager(cfg *config.Config, logger interface{}) *SolverManager {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &SolverManager{
@@ -46,27 +46,27 @@ func NewSolverManager(cfg *config.Config, logger *logrus.Logger) *SolverManager 
 
 // InitializeSolvers initializes all enabled solvers
 func (sm *SolverManager) InitializeSolvers() error {
-	sm.logger.Info("⚙️  Initializing solvers...")
+	fmt.Printf("⚙️  Initializing solvers...\n")
 
 	for solverName, solverConfig := range sm.config.Solvers {
 		if !solverConfig.Enabled {
-			sm.logger.Infof("⏭️  Solver %s is disabled, skipping...", solverName)
+			fmt.Printf("⏭️  Solver %s is disabled, skipping...\n", solverName)
 			continue
 		}
 
 		if err := sm.initializeSolver(solverName); err != nil {
-			sm.logger.Errorf("❌ Failed to initialize solver %s: %v", solverName, err)
+			fmt.Printf("❌ Failed to initialize solver %s: %v\n", solverName, err)
 			return fmt.Errorf("failed to initialize solver %s: %w", solverName, err)
 		}
 	}
 
-	sm.logger.Info("✅ All solvers initialized successfully")
+	fmt.Printf("✅ All solvers initialized successfully\n")
 	return nil
 }
 
 // initializeSolver initializes a single solver
 func (sm *SolverManager) initializeSolver(name string) error {
-	sm.logger.Infof("⚙️  Initializing solver: %s...", name)
+	fmt.Printf("⚙️  Initializing solver: %s...\n", name)
 
 	// Create solver module based on name
 	solver, err := sm.createSolverModule(name)
@@ -82,7 +82,7 @@ func (sm *SolverManager) initializeSolver(name string) error {
 		return fmt.Errorf("failed to start solver: %w", err)
 	}
 
-	sm.logger.Infof("✅ Solver %s initialized and started", name)
+	fmt.Printf("✅ Solver %s initialized and started\n", name)
 	return nil
 }
 
@@ -137,7 +137,7 @@ func (sm *SolverManager) createHyperlane7683Solver() (*SolverModule, error) {
 	}
 
 	// Create a multi-network listener that listens to all networks
-	multiListener := listener.NewMultiNetworkListener(state, sm.logger)
+	multiListener := listener.NewMultiNetworkListener(state, sm.logger.(*logrus.Logger))
 
 	hyperlaneFiller := filler.NewHyperlane7683Filler(allowBlockLists, metadata)
 
@@ -163,7 +163,7 @@ func (sm *SolverManager) createHyperlane7683Solver() (*SolverModule, error) {
 func (sm *SolverManager) getRPCURLForChain(chainName string) string {
 	rpcURL, err := config.GetRPCURL(chainName)
 	if err != nil {
-		sm.logger.Warnf("Failed to get RPC URL for chain %s, using default: %v", chainName, err)
+		fmt.Printf("⚠️  Failed to get RPC URL for chain %s, using default: %v\n", chainName, err)
 		return config.GetDefaultRPCURL()
 	}
 	return rpcURL
@@ -177,20 +177,13 @@ func (sm *SolverManager) startSolver(solver *SolverModule) error {
 
 	// Create event handler
 	handler := func(args types.ParsedArgs, originChainName string, blockNumber uint64) error {
-		sm.logger.WithFields(logrus.Fields{
-			"solver":      solver.Name,
-			"orderID":     args.OrderID,
-			"originChain": originChainName,
-			"blockNumber": blockNumber,
-		}).Info("Processing intent")
+		fmt.Printf("🔵 Processing intent: solver=%s, orderID=%s, chain=%s, block=%d\n", 
+			solver.Name, args.OrderID, originChainName, blockNumber)
 
 		// Process the intent through the filler
 		if err := solver.Filler.ProcessIntent(sm.ctx, args, originChainName, blockNumber); err != nil {
-			sm.logger.WithFields(logrus.Fields{
-				"solver":  solver.Name,
-				"orderID": args.OrderID,
-				"error":   err,
-			}).Error("Failed to process intent")
+					fmt.Printf("❌ Failed to process intent: solver=%s, orderID=%s, error=%v\n", 
+			solver.Name, args.OrderID, err)
 			return err
 		}
 
@@ -203,10 +196,8 @@ func (sm *SolverManager) startSolver(solver *SolverModule) error {
 		// 2. After ALL events in a block are processed → MarkBlockFullyProcessed called
 		// 3. Only then is LastIndexedBlock updated
 
-		sm.logger.WithFields(logrus.Fields{
-			"solver":  solver.Name,
-			"orderID": args.OrderID,
-		}).Info("Intent processed successfully")
+		fmt.Printf("✅ Intent processed successfully: solver=%s, orderID=%s\n", 
+			solver.Name, args.OrderID)
 
 		return nil
 	}
@@ -230,7 +221,7 @@ func (sm *SolverManager) startSolver(solver *SolverModule) error {
 
 // Shutdown gracefully shuts down all solvers
 func (sm *SolverManager) Shutdown() {
-	sm.logger.Info("🔄 Shutting down solvers...")
+	fmt.Printf("🔄 Shutting down solvers...\n")
 
 	// Cancel context to stop all goroutines
 	sm.cancel()
@@ -238,7 +229,7 @@ func (sm *SolverManager) Shutdown() {
 	// Wait for all solvers to shut down
 	sm.shutdownWg.Wait()
 
-	sm.logger.Info("✅ All solvers shut down successfully")
+	fmt.Printf("✅ All solvers shut down successfully\n")
 }
 
 // GetSolver returns a solver by name
@@ -255,20 +246,16 @@ func (sm *SolverManager) GetSolvers() map[string]*SolverModule {
 // MarkBlockFullyProcessed marks a block as fully processed across all solvers
 // This should be called after all events in a block have been processed/filled
 func (sm *SolverManager) MarkBlockFullyProcessed(chainName string, blockNumber uint64) error {
-	sm.logger.WithFields(logrus.Fields{
-		"chainName":  chainName,
-		"blockNumber": blockNumber,
-	}).Info("Marking block as fully processed")
+	fmt.Printf("🔵 Marking block as fully processed: chain=%s, block=%d\n", 
+		chainName, blockNumber)
 	
 	// Update the deployment state with the last indexed block
 	if err := deployer.UpdateLastIndexedBlock(chainName, blockNumber); err != nil {
 		return fmt.Errorf("failed to update last indexed block for %s: %w", chainName, err)
 	}
 	
-	sm.logger.WithFields(logrus.Fields{
-		"chainName":  chainName,
-		"blockNumber": blockNumber,
-	}).Info("Block marked as fully processed and LastIndexedBlock updated")
+	fmt.Printf("✅ Block marked as fully processed and LastIndexedBlock updated: chain=%s, block=%d\n", 
+		chainName, blockNumber)
 	
 	return nil
 }

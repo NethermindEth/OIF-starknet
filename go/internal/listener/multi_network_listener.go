@@ -14,14 +14,14 @@ import (
 // MultiNetworkListener listens to events from multiple networks simultaneously
 type MultiNetworkListener struct {
 	state     *deployer.DeploymentState
-	logger    *logrus.Logger
+	logger    interface{}
 	listeners map[string]BaseListener
 	stopChan  chan struct{}
 	mu        sync.RWMutex
 }
 
 // NewMultiNetworkListener creates a new multi-network listener
-func NewMultiNetworkListener(state *deployer.DeploymentState, logger *logrus.Logger) *MultiNetworkListener {
+func NewMultiNetworkListener(state *deployer.DeploymentState, logger interface{}) *MultiNetworkListener {
 	return &MultiNetworkListener{
 		state:     state,
 		logger:    logger,
@@ -32,17 +32,17 @@ func NewMultiNetworkListener(state *deployer.DeploymentState, logger *logrus.Log
 
 // Start begins listening for events on all networks
 func (m *MultiNetworkListener) Start(ctx context.Context, handler EventHandler) (ShutdownFunc, error) {
-	m.logger.Info("Starting multi-network event listener...")
+	fmt.Printf("Starting multi-network event listener...\n")
 	
 	// Create listeners for each network
 	for networkName, networkState := range m.state.Networks {
 		if err := m.createNetworkListener(networkName, networkState, handler, ctx); err != nil {
-			m.logger.Errorf("Failed to create listener for %s: %v", networkName, err)
+			fmt.Printf("❌ Failed to create listener for %s: %v\n", networkName, err)
 			continue
 		}
 	}
 	
-	m.logger.Infof("Multi-network listener started with %d networks", len(m.listeners))
+	fmt.Printf("Multi-network listener started with %d networks\n", len(m.listeners))
 	
 	// Return shutdown function
 	return func() {
@@ -66,7 +66,7 @@ func (m *MultiNetworkListener) createNetworkListener(networkName string, network
 	}
 	
 	// Create EVM listener
-	listener, err := NewEVMListener(config, rpcURL, m.logger)
+	listener, err := NewEVMListener(config, rpcURL, m.logger.(*logrus.Logger))
 	if err != nil {
 		return fmt.Errorf("failed to create EVM listener for %s: %v", networkName, err)
 	}
@@ -82,7 +82,7 @@ func (m *MultiNetworkListener) createNetworkListener(networkName string, network
 	m.listeners[networkName] = listener
 	m.mu.Unlock()
 	
-	m.logger.Infof("✅ Started listener for %s on %s", networkName, rpcURL)
+	fmt.Printf("✅ Started listener for %s on %s\n", networkName, rpcURL)
 	
 	return nil
 }
@@ -91,7 +91,7 @@ func (m *MultiNetworkListener) createNetworkListener(networkName string, network
 func (m *MultiNetworkListener) getRPCURLForNetwork(networkName string) string {
 	rpcURL, err := config.GetRPCURL(networkName)
 	if err != nil {
-		m.logger.Warnf("Failed to get RPC URL for network %s, using default: %v", networkName, err)
+		fmt.Printf("⚠️  Failed to get RPC URL for network %s, using default: %v\n", networkName, err)
 		return config.GetDefaultRPCURL()
 	}
 	return rpcURL
@@ -99,7 +99,7 @@ func (m *MultiNetworkListener) getRPCURLForNetwork(networkName string) string {
 
 // Stop gracefully stops all network listeners
 func (m *MultiNetworkListener) Stop() error {
-	m.logger.Info("Stopping multi-network event listener...")
+	fmt.Printf("Stopping multi-network event listener...\n")
 	
 	close(m.stopChan)
 	
@@ -109,23 +109,23 @@ func (m *MultiNetworkListener) Stop() error {
 	
 	for networkName, listener := range m.listeners {
 		if err := listener.Stop(); err != nil {
-			m.logger.Errorf("Failed to stop listener for %s: %v", networkName, err)
+			fmt.Printf("❌ Failed to stop listener for %s: %v\n", networkName, err)
 		}
 	}
 	
-	m.logger.Info("Multi-network event listener stopped")
+	fmt.Printf("Multi-network event listener stopped\n")
 	return nil
 }
 
 // GetLastProcessedBlock returns the last processed block across all networks
-func (m *MultiNetworkListener) GetLastProcessedBlock() uint64 {
+func (l *MultiNetworkListener) GetLastProcessedBlock() uint64 {
 	// For multi-network, return the highest block number
 	var highestBlock uint64
 	
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	
-	for _, listener := range m.listeners {
+	for _, listener := range l.listeners {
 		if block := listener.GetLastProcessedBlock(); block > highestBlock {
 			highestBlock = block
 		}

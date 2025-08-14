@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/sirupsen/logrus"
+
 )
 
 // Open event topic: Open(bytes32,ResolvedCrossChainOrder)
@@ -23,14 +23,14 @@ type EVMListener struct {
 	config             *ListenerConfig
 	client             *ethclient.Client
 	contractAddress    common.Address
-	logger             *logrus.Logger
+	logger             interface{}
 	lastProcessedBlock uint64
 	stopChan           chan struct{}
 	mu                 sync.RWMutex
 }
 
 // NewEVMListener creates a new EVM listener
-func NewEVMListener(config *ListenerConfig, rpcURL string, logger *logrus.Logger) (*EVMListener, error) {
+func NewEVMListener(config *ListenerConfig, rpcURL string, logger interface{}) (*EVMListener, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial RPC: %w", err)
@@ -73,7 +73,7 @@ func (l *EVMListener) Start(ctx context.Context, handler EventHandler) (Shutdown
 
 // Stop gracefully stops the listener
 func (l *EVMListener) Stop() error {
-	l.logger.Info("Stopping EVM listener...")
+	fmt.Printf("Stopping EVM listener...\n")
 
 	// Close stop channel
 	close(l.stopChan)
@@ -84,6 +84,8 @@ func (l *EVMListener) Stop() error {
 
 // GetLastProcessedBlock returns the last processed block number
 func (l *EVMListener) GetLastProcessedBlock() uint64 {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	return l.lastProcessedBlock
 }
 
@@ -102,22 +104,22 @@ func (l *EVMListener) MarkBlockFullyProcessed(blockNumber uint64) error {
 	// The solver manager will handle updating LastIndexedBlock via deployer.UpdateLastIndexedBlock
 	// This ensures proper coordination between event processing and block indexing
 	
-	l.logger.Infof("✅ Block %d marked as fully processed for %s", blockNumber, l.config.ChainName)
+	fmt.Printf("✅ Block %d marked as fully processed for %s\n", blockNumber, l.config.ChainName)
 	return nil
 }
 
 // realEventLoop implements simple polling for local forks (which don't support eth_subscribe)
 func (l *EVMListener) realEventLoop(ctx context.Context, handler EventHandler) {
-	l.logger.Infof("⚙️  Starting (%s) event listener...", l.config.ChainName)
+	fmt.Printf("⚙️  Starting (%s) event listener...\n", l.config.ChainName)
 
 	// Step 1: Catch up on historical blocks (MUST complete before polling starts)
 	if err := l.catchUpHistoricalBlocks(ctx, handler); err != nil {
-		l.logger.Errorf("❌ Failed to catch up on (%s) historical blocks: %v", l.config.ChainName, err)
+		fmt.Printf("❌ Failed to catch up on (%s) historical blocks: %v\n", l.config.ChainName, err)
 		// Continue anyway, we can still listen to new events
 	}
 
 	// Small delay to ensure blockchain state is stable after backfill
-	l.logger.Infof("🔄 Backfill complete (%s)", l.config.ChainName)
+	fmt.Printf("🔄 Backfill complete (%s)\n", l.config.ChainName)
 	time.Sleep(1 * time.Second)
 
 	// Step 2: Start polling for new events (only after backfill is complete)
@@ -143,7 +145,7 @@ func (l *EVMListener) processCurrentBlockRange(ctx context.Context, handler Even
 
 	// Defensive check: ensure we have a valid range
 	if fromBlock > toBlock {
-		l.logger.Warnf("⚠️  Invalid block range for %s: fromBlock (%d) > toBlock (%d), skipping", l.config.ChainName, fromBlock, toBlock)
+		fmt.Printf("⚠️  Invalid block range for %s: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
 		return nil
 	}
 
@@ -168,7 +170,7 @@ func (l *EVMListener) processCurrentBlockRange(ctx context.Context, handler Even
 func (l *EVMListener) processBlockRange(ctx context.Context, fromBlock, toBlock uint64, handler EventHandler) error {
 	// Defensive check: ensure we have a valid range
 	if fromBlock > toBlock {
-		l.logger.Warnf("⚠️  Invalid block range (%s) in processBlockRange: fromBlock (%d) > toBlock (%d), skipping", l.config.ChainName, fromBlock, toBlock)
+		fmt.Printf("⚠️  Invalid block range (%s) in processBlockRange: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
 		return nil
 	}
 
@@ -189,7 +191,7 @@ func (l *EVMListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 
 	// Only log if we found events
 	if len(logs) > 0 {
-		l.logger.Infof("📩 Found %d Open events on %s", len(logs), l.config.ChainName)
+		fmt.Printf("📩 Found %d Open events on %s\n", len(logs), l.config.ChainName)
 
 		// // Debug: Log each event's details
 		// for i, log := range logs {
@@ -201,7 +203,7 @@ func (l *EVMListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 	// Process each Open event directly
 	for _, log := range logs {
 		if err := l.processOpenEvent(log, handler); err != nil {
-			l.logger.Errorf("❌ Failed to process Open event: %v", err)
+			fmt.Printf("❌ Failed to process Open event: %v\n", err)
 			continue
 		}
 	}
@@ -239,7 +241,7 @@ func (l *EVMListener) processOpenEvent(log ethtypes.Log, handler EventHandler) e
 		},
 	}
 
-	l.logger.Infof("📜 Open order: OrderID=%s, Chain=%s",
+	fmt.Printf("📜 Open order: OrderID=%s, Chain=%s\n",
 		orderID.Hex(), l.config.ChainName)
 
 	// Call the handler
@@ -248,7 +250,7 @@ func (l *EVMListener) processOpenEvent(log ethtypes.Log, handler EventHandler) e
 
 // catchUpHistoricalBlocks processes all historical blocks to catch up on missed events
 func (l *EVMListener) catchUpHistoricalBlocks(ctx context.Context, handler EventHandler) error {
-	l.logger.Infof("🔄 Catching up on (%s) historical blocks...", l.config.ChainName)
+	fmt.Printf("🔄 Catching up on (%s) historical blocks...\n", l.config.ChainName)
 
 	// Get current block
 	currentBlock, err := l.client.BlockNumber(ctx)
@@ -267,13 +269,13 @@ func (l *EVMListener) catchUpHistoricalBlocks(ctx context.Context, handler Event
 	toBlock := currentBlock
 
 	if fromBlock >= toBlock {
-		l.logger.Info("✅ Already up to date, no historical blocks to process")
+		fmt.Printf("✅ Already up to date, no historical blocks to process\n")
 		return nil
 	}
 
 	// Ensure we start from the correct block (should be InitialBlock)
 	if l.lastProcessedBlock != fromBlock-1 {
-		l.logger.Warnf("⚠️  lastProcessedBlock mismatch: expected %d, got %d, correcting...", fromBlock-1, l.lastProcessedBlock)
+		fmt.Printf("⚠️  lastProcessedBlock mismatch: expected %d, got %d, correcting...\n", fromBlock-1, l.lastProcessedBlock)
 		l.lastProcessedBlock = fromBlock - 1
 	}
 
@@ -294,26 +296,26 @@ func (l *EVMListener) catchUpHistoricalBlocks(ctx context.Context, handler Event
 	// Update last processed block only after ALL historical blocks are processed
 	l.lastProcessedBlock = toBlock
 
-	l.logger.Infof("✅ Historical block processing completed for %s", l.config.ChainName)
+	fmt.Printf("✅ Historical block processing completed for %s\n", l.config.ChainName)
 	return nil
 }
 
 // startPolling continuously polls for new Open events
 func (l *EVMListener) startPolling(ctx context.Context, handler EventHandler) {
-	l.logger.Info("📭 Starting event polling...")
+	fmt.Printf("📭 Starting event polling...\n")
 
 	for {
 		select {
 		case <-ctx.Done():
-			l.logger.Info("🔄 Context cancelled, stopping event polling")
+			fmt.Printf("🔄 Context cancelled, stopping event polling\n")
 			return
 		case <-l.stopChan:
-			l.logger.Info("🔄 Stop signal received, stopping event polling")
+			fmt.Printf("🔄 Stop signal received, stopping event polling\n")
 			return
 		default:
 			// Process current block range
 			if err := l.processCurrentBlockRange(ctx, handler); err != nil {
-				l.logger.Errorf("❌ Failed to process current block range: %v", err)
+				fmt.Printf("❌ Failed to process current block range: %v\n", err)
 			}
 
 			// Wait for next poll interval using configured value
