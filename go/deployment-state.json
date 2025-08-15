@@ -1,36 +1,44 @@
 {
   "networks": {
-    "Arbitrum Sepolia": {
-      "chainId": 421614,
+    "Sepolia": {
+      "chainId": 11155111,
       "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
-      "orcaCoinAddress": "0xE75e556d685D7428C8242eaF331A5eF80FCACa1f",
-      "dogCoinAddress": "0x186758879f2609536e0ea7d20C4cEBAcfE83a818",
-      "lastIndexedBlock": 138020000,
-      "lastUpdated": "2025-08-14T19:15:02-04:00"
-    },
-    "Base Sepolia": {
-      "chainId": 84532,
-      "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
-      "orcaCoinAddress": "0xF62Aa5366d5B86312E5493C18170616346Dd9316",
-      "dogCoinAddress": "0xC2a5aE48cA992BD6f5Ea6e6FB872Cf52F3D6ffBd",
-      "lastIndexedBlock": 25380000,
-      "lastUpdated": "2025-08-14T19:14:56-04:00"
+      "orcaCoinAddress": "",
+      "dogCoinAddress": "",
+      "lastIndexedBlock": 8319000,
+      "lastUpdated": "now"
     },
     "Optimism Sepolia": {
       "chainId": 11155420,
       "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
-      "orcaCoinAddress": "0x83Dad72262A50Cd1dFcB6152c8f4C94B5bA5f65E",
-      "dogCoinAddress": "0xDe9D8354424F6ae1aBD715B532Fb7280eCe06810",
-      "lastIndexedBlock": 27370016,
-      "lastUpdated": "2025-08-14T19:17:08-04:00"
+      "orcaCoinAddress": "",
+      "dogCoinAddress": "",
+      "lastIndexedBlock": 27370000,
+      "lastUpdated": "now"
     },
-    "Sepolia": {
-      "chainId": 11155111,
+    "Arbitrum Sepolia": {
+      "chainId": 421614,
       "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
-      "orcaCoinAddress": "0xd7C5d07B43b17d29FcF4638Cab35922705C3b69a",
-      "dogCoinAddress": "0xF3A4Cb6464EC13E91135f3027a0FF46CF5560176",
-      "lastIndexedBlock": 8319016,
-      "lastUpdated": "2025-08-14T19:17:08-04:00"
+      "orcaCoinAddress": "",
+      "dogCoinAddress": "",
+      "lastIndexedBlock": 138020000,
+      "lastUpdated": "now"
+    },
+    "Base Sepolia": {
+      "chainId": 84532,
+      "hyperlaneAddress": "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3",
+      "orcaCoinAddress": "",
+      "dogCoinAddress": "",
+      "lastIndexedBlock": 25380000,
+      "lastUpdated": "now"
+    },
+    "Starknet Sepolia": {
+      "chainId": 123456789,
+      "hyperlaneAddress": "",
+      "orcaCoinAddress": "",
+      "dogCoinAddress": "",
+      "lastIndexedBlock": 1530000,
+      "lastUpdated": "now"
     }
   }
 }

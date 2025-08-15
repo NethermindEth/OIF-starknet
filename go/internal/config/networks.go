@@ -50,6 +50,14 @@ var Networks = map[string]NetworkConfig{
 		HyperlaneDomain:  84532, // 0x14a34 - matches actual contract (from router enrollment)
 		ForkStartBlock:   25380000,
 	},
+	"Starknet Sepolia": {
+		Name:             "Starknet Sepolia",
+		RPCURL:           "http://localhost:5050",
+		ChainID:       123456789,
+		HyperlaneAddress: common.Address{}, // TODO: Deploy Hyperlane7683 on Starknet
+		HyperlaneDomain:  123456789,
+		ForkStartBlock:   1530000,
+	},
 }
 
 // GetNetworkConfig returns the configuration for a given network name
@@ -140,12 +148,12 @@ func ValidateNetworkName(networkName string) bool {
 	return exists
 }
 
-// GetDefaultNetwork returns the default network (Base Sepolia)
+// GetDefaultNetwork returns the default network (Sepolia for now)
 func GetDefaultNetwork() NetworkConfig {
-	return Networks["Base Sepolia"]
+	return Networks["Sepolia"]
 }
 
 // GetDefaultRPCURL returns the default RPC URL
 func GetDefaultRPCURL() string {
-	return Networks["Base Sepolia"].RPCURL
+	return Networks["Sepolia"].RPCURL
 }
