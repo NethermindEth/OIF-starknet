@@ -53,7 +53,7 @@ clean:
 	@echo "✅ Clean complete"
 
 # Build all tools
-build-all: build-verify-hyperlane build-setup-evm-contracts build-open-order build-open-starknet-order build-deploy-hyperlane7683 build-declare-hyperlane7683 build-declare-mock-erc20 build-deploy-mock-erc20 build-setup-starknet-contracts
+build-all: build build-verify-hyperlane build-setup-evm-contracts build-open-order build-open-starknet-order build-deploy-hyperlane7683 build-declare-hyperlane7683 build-declare-mock-erc20 build-deploy-mock-erc20 build-setup-starknet-contracts
 
 # Rebuild everything (clean + build)
 rebuild: clean build-all
