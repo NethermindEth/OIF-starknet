@@ -28,8 +28,7 @@ use snforge_std::signature::stark_curve::{
 };
 use starknet::ContractAddress;
 use crate::common::{
-    deploy_eth, deal_multiple, ETH_ADDRESS, Account, deploy_permit2, deploy_erc20,
-generate_account,
+    deploy_eth, deal_multiple, ETH_ADDRESS, Account, deploy_permit2, deploy_erc20, generate_account,
 };
 use crate::mocks::mock_base7683::{IMockBase7683Dispatcher};
 use crate::mocks::mock_basic_swap7683::{IMockBasicSwap7683Dispatcher};

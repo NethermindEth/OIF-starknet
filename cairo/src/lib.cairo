@@ -7,6 +7,10 @@ pub mod libraries {
     pub mod order_encoder;
 }
 
+pub mod mocks {
+    pub mod mock_erc20;
+}
+
 pub mod base7683;
 pub mod basic_swap7683;
 pub mod hyperlane7683;
