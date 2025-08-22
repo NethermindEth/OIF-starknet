@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -12,69 +13,100 @@ type NetworkConfig struct {
 	RPCURL           string
 	ChainID          uint64
 	HyperlaneAddress common.Address
-	HyperlaneDomain  uint32
+	HyperlaneDomain  uint64 // Changed to uint64 to match new_code
 	ForkStartBlock   uint64
+	SolverStartBlock uint64 // Block number where solver should start listening (fork block + 1)
 	// Listener-specific configuration
 	PollInterval       int    // milliseconds, 0 = use default
 	ConfirmationBlocks uint64 // 0 = use default
 	MaxBlockRange      uint64 // 0 = use default
 }
 
+// getEnvWithDefault gets an environment variable with a default fallback
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvUint64 gets an environment variable as uint64 with a default fallback
+func getEnvUint64(key string, defaultValue uint64) uint64 {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := parseUint64(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
+// parseUint64 parses a string to uint64
+func parseUint64(s string) (uint64, error) {
+	var result uint64
+	_, err := fmt.Sscanf(s, "%d", &result)
+	return result, err
+}
+
 // Networks contains all network configurations
 var Networks = map[string]NetworkConfig{
 	"Sepolia": {
 		Name:               "Sepolia",
-		RPCURL:             "http://localhost:8545",
-		ChainID:            11155111,
-		HyperlaneAddress:   common.HexToAddress("0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3"),
-		HyperlaneDomain:    11155111,
-		ForkStartBlock:     8319000,
+		RPCURL:             getEnvWithDefault("SEPOLIA_RPC_URL", "http://localhost:8545"),
+		ChainID:            getEnvUint64("SEPOLIA_CHAIN_ID", 11155111),
+		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
+		HyperlaneDomain:    getEnvUint64("SEPOLIA_DOMAIN_ID", 11155111),
+		ForkStartBlock:     getEnvUint64("SEPOLIA_SOLVER_START_BLOCK", 8319000),
+		SolverStartBlock:   getEnvUint64("SEPOLIA_SOLVER_START_BLOCK", 8319000),
 		PollInterval:       1000,
-		ConfirmationBlocks: 2,
+		ConfirmationBlocks: 0,
 		MaxBlockRange:      500,
 	},
 	"Optimism Sepolia": {
 		Name:               "Optimism Sepolia",
-		RPCURL:             "http://localhost:8546",
-		ChainID:            11155420,
-		HyperlaneAddress:   common.HexToAddress("0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3"),
-		HyperlaneDomain:    11155420,
-		ForkStartBlock:     27370000,
+		RPCURL:             getEnvWithDefault("OPTIMISM_RPC_URL", "http://localhost:8546"),
+		ChainID:            getEnvUint64("OPTIMISM_CHAIN_ID", 11155420),
+		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
+		HyperlaneDomain:    getEnvUint64("OPTIMISM_DOMAIN_ID", 11155420),
+		ForkStartBlock:     getEnvUint64("OPTIMISM_SOLVER_START_BLOCK", 27370000),
+		SolverStartBlock:   getEnvUint64("OPTIMISM_SOLVER_START_BLOCK", 27370000),
 		PollInterval:       1000,
-		ConfirmationBlocks: 2,
+		ConfirmationBlocks: 0,
 		MaxBlockRange:      500,
 	},
 	"Arbitrum Sepolia": {
 		Name:               "Arbitrum Sepolia",
-		RPCURL:             "http://localhost:8547",
-		ChainID:            421614,
-		HyperlaneAddress:   common.HexToAddress("0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3"),
-		HyperlaneDomain:    421614,
-		ForkStartBlock:     138020000,
+		RPCURL:             getEnvWithDefault("ARBITRUM_RPC_URL", "http://localhost:8547"),
+		ChainID:            getEnvUint64("ARBITRUM_CHAIN_ID", 421614),
+		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
+		HyperlaneDomain:    getEnvUint64("ARBITRUM_DOMAIN_ID", 421614),
+		ForkStartBlock:     getEnvUint64("ARBITRUM_SOLVER_START_BLOCK", 138020000),
+		SolverStartBlock:   getEnvUint64("ARBITRUM_SOLVER_START_BLOCK", 138020000),
 		PollInterval:       1000,
-		ConfirmationBlocks: 2,
+		ConfirmationBlocks: 0,
 		MaxBlockRange:      500,
 	},
 	"Base Sepolia": {
 		Name:               "Base Sepolia",
-		RPCURL:             "http://localhost:8548",
-		ChainID:            84532,
-		HyperlaneAddress:   common.HexToAddress("0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3"),
-		HyperlaneDomain:    84532,
-		ForkStartBlock:     25380000,
+		RPCURL:             getEnvWithDefault("BASE_RPC_URL", "http://localhost:8548"),
+		ChainID:            getEnvUint64("BASE_CHAIN_ID", 84532),
+		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
+		HyperlaneDomain:    getEnvUint64("BASE_DOMAIN_ID", 84532),
+		ForkStartBlock:     getEnvUint64("BASE_SOLVER_START_BLOCK", 25380000),
+		SolverStartBlock:   getEnvUint64("BASE_SOLVER_START_BLOCK", 25380000),
 		PollInterval:       1000,
-		ConfirmationBlocks: 2,
+		ConfirmationBlocks: 0,
 		MaxBlockRange:      500,
 	},
 	"Starknet Sepolia": {
 		Name:               "Starknet Sepolia",
-		RPCURL:             "http://localhost:5050",
-		ChainID:            23448591,
-		HyperlaneAddress:   common.Address{}, // TODO: Deploy Hyperlane7683 on Starknet
-		HyperlaneDomain:    23448591,
-		ForkStartBlock:     1530000,
+		RPCURL:             getEnvWithDefault("STARKNET_RPC_URL", "http://localhost:5050"),
+		ChainID:            getEnvUint64("STARKNET_CHAIN_ID", 23448591),
+		HyperlaneAddress:   common.Address{}, // Will be populated after deployment
+		HyperlaneDomain:    getEnvUint64("STARKNET_DOMAIN_ID", 23448591),
+		ForkStartBlock:     getEnvUint64("STARKNET_SOLVER_START_BLOCK", 1530000),
+		SolverStartBlock:   getEnvUint64("STARKNET_SOLVER_START_BLOCK", 1530000),
 		PollInterval:       2000,
-		ConfirmationBlocks: 2,
+		ConfirmationBlocks: 0,
 		MaxBlockRange:      100,
 	},
 }
@@ -115,7 +147,7 @@ func GetHyperlaneAddress(networkName string) (common.Address, error) {
 }
 
 // GetHyperlaneDomain returns the Hyperlane domain ID for a given network name
-func GetHyperlaneDomain(networkName string) (uint32, error) {
+func GetHyperlaneDomain(networkName string) (uint64, error) { // Changed to uint64 to match new_code
 	config, err := GetNetworkConfig(networkName)
 	if err != nil {
 		return 0, err
@@ -130,6 +162,15 @@ func GetForkStartBlock(networkName string) (uint64, error) {
 		return 0, err
 	}
 	return config.ForkStartBlock, nil
+}
+
+// GetSolverStartBlock returns the solver start block for a given network name
+func GetSolverStartBlock(networkName string) (uint64, error) {
+	config, err := GetNetworkConfig(networkName)
+	if err != nil {
+		return 0, err
+	}
+	return config.SolverStartBlock, nil
 }
 
 // GetListenerConfig returns the listener configuration for a given network name

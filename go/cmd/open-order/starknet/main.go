@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -14,8 +15,10 @@ import (
 	"github.com/NethermindEth/starknet.go/account"
 	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/NethermindEth/starknet.go/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/joho/godotenv"
 
+	githubConfig "github.com/NethermindEth/oif-starknet/go/internal/config"
 	githubDeployer "github.com/NethermindEth/oif-starknet/go/internal/deployer"
 )
 
@@ -38,8 +41,8 @@ func loadNetworks() error {
 	networks = []NetworkConfig{
 		{
 			name:             "Starknet Sepolia",
-			url:              "http://localhost:5050",
-			chainID:          23448591,
+			url:              getEnvWithDefault("STARKNET_RPC_URL", "http://localhost:5050"),
+			chainID:          getEnvUint64("STARKNET_CHAIN_ID", 23448591),
 			hyperlaneAddress: "",
 			orcaCoinAddress:  "",
 			dogCoinAddress:   "",
@@ -199,9 +202,9 @@ var testUsers = []struct {
 	privateKey string
 	address    string
 }{
-	{"Alice", "SN_ALICE_PRIVATE_KEY", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7"},
-	{"Bob", "SN_BOB_PRIVATE_KEY", "0x17cc6ca902ed4e8baa8463a7009ff18cc294fa85a94b4ce6ac30a9ebd6057c7"},
-	{"Solver", "SN_SOLVER_PRIVATE_KEY", "0x2af9427c5a277474c079a1283c880ee8a6f0f8fbf73ce969c08d88befec1bba"},
+	{"Alice", "STARKNET_ALICE_PRIVATE_KEY", getEnvWithDefault("STARKNET_ALICE_ADDRESS", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7")},
+	{"Bob", "STARKNET_BOB_PRIVATE_KEY", getEnvWithDefault("STARKNET_BOB_ADDRESS", "0x17cc6ca902ed4e8baa8463a7009ff18cc294fa85a94b4ce6ac30a9ebd6057c7")},
+	{"Solver", "STARKNET_SOLVER_PRIVATE_KEY", getEnvWithDefault("STARKNET_SOLVER_ADDRESS", "0x2af9427c5a277474c079a1283c880ee8a6f0f8fbf73ce969c08d88befec1bba")},
 }
 
 // Order configuration
@@ -235,10 +238,12 @@ type OrderData struct {
 }
 
 // OnchainCrossChainOrder struct matching the Cairo interface
+// NOTE: order_data_type is now u256 → two felts (low, high)
 type OnchainCrossChainOrder struct {
-	FillDeadline  uint64 // Changed from uint32 to uint64
-	OrderDataType *felt.Felt
-	OrderData     []*felt.Felt
+	FillDeadline      uint64
+	OrderDataTypeLow  *felt.Felt
+	OrderDataTypeHigh *felt.Felt
+	OrderData         []*felt.Felt
 }
 
 func main() {
@@ -258,6 +263,9 @@ func main() {
 		fmt.Println("Commands:")
 		fmt.Println("  basic     - Open a basic hardcoded test order")
 		fmt.Println("  random    - Open a randomly generated order")
+		fmt.Println("  default-evm-evm      - Open default EVM→EVM order (Nonce: 1)")
+		fmt.Println("  default-evm-sn       - Open default EVM→Starknet order (Nonce: 2)")
+		fmt.Println("  default-sn-evm       - Open default Starknet→EVM order (Nonce: 3)")
 		os.Exit(1)
 	}
 
@@ -268,6 +276,12 @@ func main() {
 		openBasicOrder()
 	case "random":
 		openRandomOrder()
+	case "default-evm-evm":
+		openDefaultEvmToEvm()
+	case "default-evm-sn":
+		openDefaultEvmToStarknet()
+	case "default-sn-evm":
+		openDefaultStarknetToEvm()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		os.Exit(1)
@@ -338,6 +352,82 @@ func openRandomOrder() {
 	executeOrder(order)
 }
 
+// Default order functions for debugging - use identical data except nonces
+func openDefaultEvmToEvm() {
+	fmt.Println("🎯 Opening Default EVM → EVM Test Order (Nonce: 1)...")
+
+	order := OrderConfig{
+		OriginChain:      "Sepolia",
+		DestinationChain: "Optimism Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		OutputAmount:     new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		User:             "Alice",
+		OpenDeadline:     uint64(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Default EVM→EVM Order (Nonce: 1):\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	fmt.Printf("   Input: 1000 OrcaCoins\n")
+	fmt.Printf("   Output: 1000 DogCoins\n")
+
+	executeOrder(order)
+}
+
+func openDefaultEvmToStarknet() {
+	fmt.Println("🎯 Opening Default EVM → Starknet Test Order (Nonce: 2)...")
+
+	order := OrderConfig{
+		OriginChain:      "Sepolia",
+		DestinationChain: "Starknet Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		OutputAmount:     new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		User:             "Alice",
+		OpenDeadline:     uint64(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Default EVM→Starknet Order (Nonce: 2):\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	fmt.Printf("   Input: 1000 OrcaCoins\n")
+	fmt.Printf("   Output: 1000 DogCoins\n")
+
+	executeOrder(order)
+}
+
+func openDefaultStarknetToEvm() {
+	fmt.Println("🎯 Opening Default Starknet → EVM Test Order (Nonce: 3)...")
+
+	order := OrderConfig{
+		OriginChain:      "Starknet Sepolia",
+		DestinationChain: "Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		OutputAmount:     new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		User:             "Alice",
+		OpenDeadline:     uint64(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Default Starknet→EVM Order (Nonce: 3):\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	fmt.Printf("   Input: 1000 OrcaCoins\n")
+	fmt.Printf("   Output: 1000 DogCoins\n")
+
+	executeOrder(order)
+}
+
 func executeOrder(order OrderConfig) {
 	fmt.Printf("\n📋 Executing Order: %s → %s\n", order.OriginChain, order.DestinationChain)
 
@@ -363,10 +453,11 @@ func executeOrder(order OrderConfig) {
 	}
 
 	// Get user private key and public key
-	userKey := os.Getenv(fmt.Sprintf("SN_%s_PRIVATE_KEY", strings.ToUpper(order.User)))
-	userPublicKey := os.Getenv(fmt.Sprintf("SN_%s_PUBLIC_KEY", strings.ToUpper(order.User)))
+	userKey := os.Getenv(fmt.Sprintf("STARKNET_%s_PRIVATE_KEY", strings.ToUpper(order.User)))
+	userPublicKey := os.Getenv(fmt.Sprintf("STARKNET_%s_PUBLIC_KEY", strings.ToUpper(order.User)))
 	if userKey == "" || userPublicKey == "" {
 		fmt.Printf("❌ Missing credentials for user: %s\n", order.User)
+		fmt.Printf("   Required: STARKNET_%s_PRIVATE_KEY and STARKNET_%s_PUBLIC_KEY\n", strings.ToUpper(order.User), strings.ToUpper(order.User))
 		os.Exit(1)
 	}
 
@@ -382,9 +473,21 @@ func executeOrder(order OrderConfig) {
 	fmt.Printf("   🔗 Connected to %s (Chain ID: %d)\n", order.OriginChain, originNetwork.chainID)
 	fmt.Printf("   👤 User: %s (%s)\n", order.User, userAddr)
 
-	// For now, use hardcoded domains (these should come from config)
-	originDomain := uint32(23448591)      // Starknet Sepolia domain
-	destinationDomain := uint32(11155420) // Base Sepolia domain
+	// Get domains from config
+	var originDomain, destinationDomain uint32
+	if originConfig, err := githubConfig.GetHyperlaneDomain(order.OriginChain); err == nil {
+		originDomain = uint32(originConfig)
+	} else {
+		fmt.Printf("   ⚠️  Warning: Could not get origin domain from config, using chain ID\n")
+		originDomain = uint32(originNetwork.chainID)
+	}
+
+	if destConfig, err := githubConfig.GetHyperlaneDomain(order.DestinationChain); err == nil {
+		destinationDomain = uint32(destConfig)
+	} else {
+		fmt.Printf("   ⚠️  Warning: Could not get destination domain from config\n")
+		os.Exit(1)
+	}
 
 	fmt.Printf("   🔎 Origin Domain: %d\n", originDomain)
 	fmt.Printf("   🔎 Destination Domain: %d\n", destinationDomain)
@@ -417,16 +520,18 @@ func executeOrder(order OrderConfig) {
 	senderNonce := big.NewInt(time.Now().UnixNano())
 
 	// Build the order data
-	orderData := buildOrderData(order, originNetwork, destinationDomain, senderNonce)
+	orderData := buildOrderData(order, originNetwork, originDomain, destinationDomain, senderNonce, order.DestinationChain)
 
-		// Build the OnchainCrossChainOrder
+	// Build the OnchainCrossChainOrder with u256 order_data_type (low, high)
+	lowHash, highHash := getOrderDataTypeHashU256()
 	crossChainOrder := OnchainCrossChainOrder{
-		FillDeadline:  order.FillDeadline,
-		OrderDataType: getOrderDataTypeHash(),
-		OrderData:     encodeOrderData(orderData),
+		FillDeadline:      order.FillDeadline,
+		OrderDataTypeLow:  lowHash,
+		OrderDataTypeHigh: highHash,
+		OrderData:         encodeOrderData(orderData),
 	}
 
-		// Use generated bindings for open()
+	// Use generated bindings for open()
 	fmt.Printf("   📝 Calling open() function...\n")
 
 	// Create user account for transaction signing
@@ -459,27 +564,37 @@ func executeOrder(order OrderConfig) {
 		os.Exit(1)
 	}
 
-		fmt.Println("\n📝 Now attempting to open the order...")
-
-		// Call the open function
+	fmt.Println("\n📝 Now attempting to open the order...")
 	fmt.Printf("   📝 Sending open transaction...\n")
-	
-	// Build the transaction
-	// The open function takes: OnchainCrossChainOrder { fill_deadline: u64, order_data_type: felt252, order_data: Bytes }
-	// Cairo automatically serializes the struct, so we just pass the fields in order
+
+	// Build the transaction calldata for open(fill_deadline: u64, order_data_type: u256, order_data: Bytes)
 	calldata := []*felt.Felt{
-		// OnchainCrossChainOrder fields in order:
-		utils.Uint64ToFelt(crossChainOrder.FillDeadline), // fill_deadline: u64
-		crossChainOrder.OrderDataType,                    // order_data_type: felt252
-		// order_data: Bytes - send the Bytes struct directly
+		utils.Uint64ToFelt(crossChainOrder.FillDeadline),
+		crossChainOrder.OrderDataTypeLow,
+		crossChainOrder.OrderDataTypeHigh,
 	}
-	// Add the orderData (which is already a Bytes struct with size, data_len, and data array)
 	calldata = append(calldata, crossChainOrder.OrderData...)
+
+	// Log the complete calldata for debugging
+	fmt.Printf("   🧪 Open Function Calldata Debug:\n")
+	fmt.Printf("     • fill_deadline: %s\n", utils.Uint64ToFelt(crossChainOrder.FillDeadline).String())
+	fmt.Printf("     • order_data_type.low: %s\n", crossChainOrder.OrderDataTypeLow.String())
+	fmt.Printf("     • order_data_type.high: %s\n", crossChainOrder.OrderDataTypeHigh.String())
+	fmt.Printf("     • order_data size: %d felts\n", len(crossChainOrder.OrderData))
+	fmt.Printf("     • total calldata: %d felts\n", len(calldata))
+
+	// Log the first few calldata elements
+	for i := 0; i < len(calldata) && i < 8; i++ {
+		fmt.Printf("     • calldata[%d]: %s\n", i, calldata[i].String())
+	}
+	if len(calldata) > 8 {
+		fmt.Printf("     • ... and %d more calldata elements\n", len(calldata)-8)
+	}
 
 	tx, err := userAccnt.BuildAndSendInvokeTxn(
 		context.Background(),
 		[]rpc.InvokeFunctionCall{{
-			ContractAddress: hyperlaneAddrFelt, // Call on Hyperlane7683 contract, not user account
+			ContractAddress: hyperlaneAddrFelt,
 			FunctionName:    "open",
 			CallData:        calldata,
 		}},
@@ -501,7 +616,6 @@ func executeOrder(order OrderConfig) {
 	}
 
 	fmt.Printf("   ✅ Order opened successfully!\n")
-	fmt.Printf("   🎯 Order ID: %s\n", calculateOrderId(orderData))
 
 	// Verify that balances actually changed as expected
 	fmt.Printf("   🔍 Verifying balance changes...\n")
@@ -514,7 +628,7 @@ func executeOrder(order OrderConfig) {
 	fmt.Printf("\n🎉 Order execution completed!\n")
 }
 
-func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destinationDomain uint32, senderNonce *big.Int) OrderData {
+func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) OrderData {
 	// Get the actual user address for the specified user
 	var userAddr string
 	for _, user := range testUsers {
@@ -527,47 +641,138 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 	// Convert addresses to felt
 	userAddrFelt, _ := utils.HexToFelt(userAddr)
 	inputTokenFelt, _ := utils.HexToFelt(originNetwork.orcaCoinAddress)
-	outputTokenFelt, _ := utils.HexToFelt(originNetwork.dogCoinAddress)
-	destSettlerFelt, _ := utils.HexToFelt(originNetwork.hyperlaneAddress)
 
-	// Convert amounts to big.Int (they're already big.Int in the order config)
-	// senderNonceFelt := utils.BigIntToFelt(senderNonce)
+	// For recipient, since this is a Starknet order opener, destination is always EVM
+	// We need to map the Starknet user to their corresponding EVM address
+	var recipientFelt *felt.Felt
+	var evmUserAddr string
+
+	// Map Starknet users to their EVM addresses
+	switch order.User {
+	case "Alice":
+		evmUserAddr = getEnvWithDefault("EVM_ALICE_ADDRESS", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+	case "Bob":
+		evmUserAddr = getEnvWithDefault("EVM_BOB_ADDRESS", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
+	case "Solver":
+		evmUserAddr = getEnvWithDefault("EVM_SOLVER_ADDRESS", "0x90F79bf6EB2c4f870365E785982E1f101E93b906")
+	default:
+		// Fallback to solver address if unknown user
+		evmUserAddr = getEnvWithDefault("EVM_SOLVER_ADDRESS", "0x90F79bf6EB2c4f870365E785982E1f101E93b906")
+		fmt.Printf("   ⚠️  Warning: Unknown user %s, using solver EVM address as recipient\n", order.User)
+	}
+
+	// Pad EVM address to 32 bytes for Cairo ContractAddress
+	evmAddr := common.HexToAddress(evmUserAddr)
+	paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
+	recipientFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
+	fmt.Printf("   🔍 EVM recipient address for %s: %s (padded to 32 bytes: %s)\n", order.User, evmUserAddr, hex.EncodeToString(paddedAddr))
+
+	// Output token should be from the destination network, not origin
+	var outputTokenFelt *felt.Felt
+	if destChainName == "Starknet Sepolia" {
+		// If destination is Starknet, use Starknet's DogCoin
+		outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
+	} else {
+		// If destination is EVM, get DogCoin address from destination network
+		if state, err := githubDeployer.GetDeploymentState(); err == nil {
+			if net, ok := state.Networks[destChainName]; ok && net.DogCoinAddress != "" {
+				// For EVM addresses, we need to left-pad to 32 bytes for Cairo ContractAddress
+				evmAddr := common.HexToAddress(net.DogCoinAddress)
+				paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
+				outputTokenFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
+				fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
+			} else {
+				// Last resort - use origin network (this is wrong but prevents crash)
+				outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
+				fmt.Printf("   ⚠️  Warning: Using origin network DogCoin as fallback for destination\n")
+			}
+		} else {
+			// Fallback to origin network if deployment state unavailable
+			outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
+			fmt.Printf("   ⚠️  Warning: Using origin network DogCoin as fallback for destination\n")
+		}
+	}
+
+	// Destination settler must be the EVM Hyperlane address for the destination network
+	destSettlerHex := ""
+	if state, err := githubDeployer.GetDeploymentState(); err == nil {
+		if net, ok := state.Networks[destChainName]; ok {
+			destSettlerHex = net.HyperlaneAddress
+		}
+	}
+	if destSettlerHex == "" {
+		if staticAddr, err := githubConfig.GetHyperlaneAddress(destChainName); err == nil {
+			destSettlerHex = staticAddr.Hex()
+		}
+	}
+	if destSettlerHex == "" {
+		// As a last resort, keep previous behavior (but this is likely wrong for cross-chain)
+		destSettlerHex = originNetwork.hyperlaneAddress
+	}
+
+	// Ensure destination settler is properly padded to 32 bytes for Cairo ContractAddress
+	var destSettlerFelt *felt.Felt
+	if destChainName == "Starknet Sepolia" {
+		// If destination is Starknet, use Starknet address directly
+		destSettlerFelt, _ = utils.HexToFelt(destSettlerHex)
+	} else {
+		// If destination is EVM, pad the EVM address to 32 bytes
+		evmAddr := common.HexToAddress(destSettlerHex)
+		paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
+		destSettlerFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
+		fmt.Printf("   🔍 EVM destination settler address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
+	}
 
 	return OrderData{
 		Sender:             userAddrFelt,
-		Recipient:          userAddrFelt,
+		Recipient:          recipientFelt,
 		InputToken:         inputTokenFelt,
 		OutputToken:        outputTokenFelt,
-		AmountIn:           order.InputAmount,  // Already *big.Int
-		AmountOut:          order.OutputAmount, // Already *big.Int
+		AmountIn:           order.InputAmount,
+		AmountOut:          order.OutputAmount,
 		SenderNonce:        utils.BigIntToFelt(senderNonce),
-		OriginDomain:       uint32(23448591), // Starknet Sepolia domain
+		OriginDomain:       originDomain,
 		DestinationDomain:  destinationDomain,
 		DestinationSettler: destSettlerFelt,
 		OpenDeadline:       order.OpenDeadline,
 		FillDeadline:       order.FillDeadline,
-		Data:               []*felt.Felt{}, // Empty for basic orders
+		Data:               []*felt.Felt{},
 	}
 }
 
-func getOrderDataTypeHash() *felt.Felt {
-	// This should match the Cairo contract's OrderEncoder::ORDER_DATA_TYPE_HASH
-	// This tells the contract how to parse the orderData using OrderEncoder::decode
-
-	// The actual hash from the Cairo contract's OrderEncoder
-	// This matches the type string: "Order Data"(...)
-	hash, err := utils.HexToFelt("0x3ED8862ABBF6BBE28E01F529E75203031B5A7475E38592F6BDAC6469409A7E8")
-	if err != nil {
-		// This should never fail for a hardcoded hex string, but handle it gracefully
-		panic(fmt.Sprintf("Failed to convert type hash: %v", err))
+func getOrderDataTypeHashU256() (low *felt.Felt, high *felt.Felt) {
+	// Solidity ORDER_DATA_TYPE_HASH (32 bytes)
+	hashHex := getEnvWithDefault("ORDER_DATA_TYPE_HASH", "0x08d75650babf4de09c9273d48ef647876057ed91d4323f8a2e3ebc2cd8a63b5e")
+	bi, ok := new(big.Int).SetString(hashHex, 0)
+	if !ok {
+		panic("Failed to parse ORDER_DATA_TYPE_HASH")
 	}
-	return hash
+	// Split into low/high 128-bit felts: low = lower 128, high = upper 128
+	mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
+	lowBI := new(big.Int).And(bi, mask)
+	highBI := new(big.Int).Rsh(bi, 128)
+	return utils.BigIntToFelt(lowBI), utils.BigIntToFelt(highBI)
 }
 
 func encodeOrderData(orderData OrderData) []*felt.Felt {
-	// Encode as Cairo Bytes packed big-endian stream following OrderEncoder::encode
+	// Log the input values for debugging
+	fmt.Printf("   🧪 OrderData Input Debug:\n")
+	fmt.Printf("     • sender: %s\n", orderData.Sender.String())
+	fmt.Printf("     • recipient: %s\n", orderData.Recipient.String())
+	fmt.Printf("     • input_token: %s\n", orderData.InputToken.String())
+	fmt.Printf("     • output_token: %s\n", orderData.OutputToken.String())
+	fmt.Printf("     • amount_in: %s\n", orderData.AmountIn.String())
+	fmt.Printf("     • amount_out: %s\n", orderData.AmountOut.String())
+	fmt.Printf("     • sender_nonce: %s\n", orderData.SenderNonce.String())
+	fmt.Printf("     • origin_domain: %d (u32)\n", orderData.OriginDomain)
+	fmt.Printf("     • destination_domain: %d (u32)\n", orderData.DestinationDomain)
+	fmt.Printf("     • destination_settler: %s\n", orderData.DestinationSettler.String())
+	fmt.Printf("     • fill_deadline: %d (u64)\n", orderData.FillDeadline)
+	fmt.Printf("     • data: %d elements\n", len(orderData.Data))
 
-	// helpers
+	// Build Solidity ABI-compatible bytes for OrderData
+	// Head (12 words of 32 bytes), then tail for bytes data (length + data padded)
+
 	leftPad := func(src []byte, size int) []byte {
 		if len(src) >= size {
 			return src[len(src)-size:]
@@ -578,65 +783,92 @@ func encodeOrderData(orderData OrderData) []*felt.Felt {
 	}
 
 	feltToBytes32 := func(f *felt.Felt) []byte {
-		b := f.Bytes() // [32]byte
-		return b[:]
+		b := f.Bytes()
+		// Ensure we always return exactly 32 bytes
+		result := make([]byte, 32)
+
+		if len(b) >= 32 {
+			// Take the last 32 bytes if longer
+			start := len(b) - 32
+			for i := 0; i < 32; i++ {
+				result[i] = b[start+i]
+			}
+		} else {
+			// Pad with zeros if shorter
+			start := 32 - len(b)
+			for i := 0; i < len(b); i++ {
+				result[start+i] = b[i]
+			}
+		}
+
+		return result
 	}
 
-	bigIntToBytes32 := func(n *big.Int) []byte {
+	u256ToBytes32 := func(n *big.Int) []byte {
 		if n == nil {
 			return make([]byte, 32)
 		}
 		return leftPad(n.Bytes(), 32)
 	}
 
-	u32ToBytes := func(v uint32) []byte {
-		b := make([]byte, 4)
-		b[0] = byte(v >> 24)
-		b[1] = byte(v >> 16)
-		b[2] = byte(v >> 8)
-		b[3] = byte(v)
+	u32Word := func(v uint32) []byte {
+		b := make([]byte, 32)
+		b[28] = byte(v >> 24)
+		b[29] = byte(v >> 16)
+		b[30] = byte(v >> 8)
+		b[31] = byte(v)
 		return b
 	}
 
-	u64ToBytes := func(v uint64) []byte {
-		b := make([]byte, 8)
-		b[0] = byte(v >> 56)
-		b[1] = byte(v >> 48)
-		b[2] = byte(v >> 40)
-		b[3] = byte(v >> 32)
-		b[4] = byte(v >> 24)
-		b[5] = byte(v >> 16)
-		b[6] = byte(v >> 8)
-		b[7] = byte(v)
-		return b
+	writeWord := func(dst *[]byte, word []byte) {
+		*dst = append(*dst, leftPad(word, 32)...)
 	}
 
-	// build raw packed bytes
-	raw := make([]byte, 0, 272)
-	// sender
-	raw = append(raw, feltToBytes32(orderData.Sender)...)
-	// recipient
-	raw = append(raw, feltToBytes32(orderData.Recipient)...)
-	// input_token
-	raw = append(raw, feltToBytes32(orderData.InputToken)...)
-	// output_token
-	raw = append(raw, feltToBytes32(orderData.OutputToken)...)
-	// amount_in
-	raw = append(raw, bigIntToBytes32(orderData.AmountIn)...)
-	// amount_out
-	raw = append(raw, bigIntToBytes32(orderData.AmountOut)...)
-	// sender_nonce
-	raw = append(raw, feltToBytes32(orderData.SenderNonce)...)
-	// origin_domain (u32)
-	raw = append(raw, u32ToBytes(orderData.OriginDomain)...)
-	// destination_domain (u32)
-	raw = append(raw, u32ToBytes(orderData.DestinationDomain)...)
-	// destination_settler
-	raw = append(raw, feltToBytes32(orderData.DestinationSettler)...)
-	// fill_deadline (u64)
-	raw = append(raw, u64ToBytes(orderData.FillDeadline)...)
-	// data (empty)
+	var raw []byte
 
+	// 0) Dynamic data offset (32 bytes) - this is the offset to where the data field starts
+	// In Solidity ABI encoding, this is the first field when you have dynamic data
+	writeWord(&raw, u32Word(32))
+
+	// 1) sender, recipient, input_token, output_token (bytes32)
+	writeWord(&raw, feltToBytes32(orderData.Sender))
+	writeWord(&raw, feltToBytes32(orderData.Recipient))
+	writeWord(&raw, feltToBytes32(orderData.InputToken))
+	writeWord(&raw, feltToBytes32(orderData.OutputToken))
+	// 2) amount_in, amount_out (uint256)
+	writeWord(&raw, u256ToBytes32(orderData.AmountIn))
+	writeWord(&raw, u256ToBytes32(orderData.AmountOut))
+	// 3) sender_nonce (uint256 from felt)
+	writeWord(&raw, feltToBytes32(orderData.SenderNonce))
+	// 4) origin_domain (uint32), destination_domain (uint32) as 32-byte words
+	writeWord(&raw, u32Word(orderData.OriginDomain))
+	writeWord(&raw, u32Word(orderData.DestinationDomain))
+	// 5) destination_settler (bytes32)
+	writeWord(&raw, feltToBytes32(orderData.DestinationSettler))
+	// 6) fill_deadline (uint32) in 32-byte word (clamp lower 32 bits)
+	fill32 := uint32(orderData.FillDeadline)
+	writeWord(&raw, u32Word(fill32))
+	// 7) data offset (32 * 12 = 384)
+	writeWord(&raw, u32Word(384))
+
+	// Tail: data length (32 bytes) then data padded to 32
+	// Currently no dynamic data, so encode zero length
+	writeWord(&raw, make([]byte, 0)) // length = 0 -> becomes 32 zero bytes
+	// no data to pad
+
+	// Log the ABI-encoded OrderData
+	fmt.Printf("   🔍 Encoded OrderData ABI bytes (%d): %s\n", len(raw), hex.EncodeToString(raw))
+
+	// Additional debug: show the first few 32-byte chunks to verify padding
+	fmt.Printf("   🧪 OrderData Field Debug (first 4 fields, 32 bytes each):\n")
+	if len(raw) >= 128 {
+		fmt.Printf("     • sender (bytes 0-31): %s\n", hex.EncodeToString(raw[0:32]))
+		fmt.Printf("     • recipient (bytes 32-63): %s\n", hex.EncodeToString(raw[32:64]))
+		fmt.Printf("     • input_token (bytes 64-95): %s\n", hex.EncodeToString(raw[64:96]))
+		fmt.Printf("     • output_token (bytes 96-127): %s\n", hex.EncodeToString(raw[96:128]))
+	}
+
+	// Now wrap into Cairo Bytes: size, words_len, then 16-byte words as felts
 	// split into u128 words (16 bytes)
 	numElements := (len(raw) + 15) / 16
 	words := make([]*felt.Felt, 0, numElements)
@@ -651,11 +883,25 @@ func encodeOrderData(orderData OrderData) []*felt.Felt {
 		}
 	}
 
-	// Bytes serialization: size, data length, then words
 	bytesStruct := make([]*felt.Felt, 0, 2+len(words))
 	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(raw))))
 	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(words))))
 	bytesStruct = append(bytesStruct, words...)
+
+	// Log the final Cairo Bytes structure for debugging
+	fmt.Printf("   🧪 Cairo Bytes Structure Debug:\n")
+	fmt.Printf("     • size: %d bytes\n", len(raw))
+	fmt.Printf("     • words_len: %d words\n", len(words))
+	fmt.Printf("     • words: %d felts\n", len(words))
+	fmt.Printf("     • total felts: %d\n", len(bytesStruct))
+
+	// Log the first few words to see the structure
+	for i := 0; i < len(words) && i < 5; i++ {
+		fmt.Printf("     • word[%d]: %s\n", i, words[i].String())
+	}
+	if len(words) > 5 {
+		fmt.Printf("     • ... and %d more words\n", len(words)-5)
+	}
 
 	return bytesStruct
 }
@@ -682,86 +928,86 @@ func calculateOrderId(orderData OrderData) string {
 	return fmt.Sprintf("sn_order_%d", time.Now().UnixNano())
 }
 
-// getTokenBalance gets the balance of a token for a specific address
-func getTokenBalance(accnt *account.Account, tokenAddress, userAddress, tokenName string) (*big.Int, error) {
-	// Convert addresses to felt
-	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid token address: %w", err)
-	}
+//// getTokenBalance gets the balance of a token for a specific address
+//func getTokenBalance(accnt *account.Account, tokenAddress, userAddress, tokenName string) (*big.Int, error) {
+//	// Convert addresses to felt
+//	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
+//	if err != nil {
+//		return nil, fmt.Errorf("invalid token address: %w", err)
+//	}
+//
+//	userAddrFelt, err := utils.HexToFelt(userAddress)
+//	if err != nil {
+//		return nil, fmt.Errorf("invalid user address: %w", err)
+//	}
+//
+//	// Build the balanceOf function call
+//	balanceCall := rpc.FunctionCall{
+//		ContractAddress:    tokenAddrFelt,
+//		EntryPointSelector: utils.GetSelectorFromNameFelt("balanceOf"),
+//		Calldata:           []*felt.Felt{userAddrFelt},
+//	}
+//
+//	// Call the contract to get balance
+//	resp, err := accnt.Provider.Call(context.Background(), balanceCall, rpc.WithBlockTag("latest"))
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to call balanceOf: %w", err)
+//	}
+//
+//	if len(resp) == 0 {
+//		return nil, fmt.Errorf("no response from balanceOf call")
+//	}
+//
+//	// Convert felt response to big.Int
+//	balanceFelt := resp[0]
+//	balanceBigInt := utils.FeltToBigInt(balanceFelt)
+//
+//	return balanceBigInt, nil
+//}
 
-	userAddrFelt, err := utils.HexToFelt(userAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid user address: %w", err)
-	}
+//// getTokenAllowance gets the allowance of a token for a specific spender
+//func getTokenAllowance(accnt *account.Account, tokenAddress, ownerAddress, spenderAddress, tokenName string) (*big.Int, error) {
+//	// Convert addresses to felt
+//	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
+//	if err != nil {
+//		return nil, fmt.Errorf("invalid token address: %w", err)
+//	}
+//
+//	ownerAddrFelt, err := utils.HexToFelt(ownerAddress)
+//	if err != nil {
+//		return nil, fmt.Errorf("invalid owner address: %w", err)
+//	}
+//
+//	spenderAddrFelt, err := utils.HexToFelt(spenderAddress)
+//	if err != nil {
+//		return nil, fmt.Errorf("invalid spender address: %w", err)
+//	}
+//
+//	// Build the allowance function call
+//	allowanceCall := rpc.FunctionCall{
+//		ContractAddress:    tokenAddrFelt,
+//		EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
+//		Calldata:           []*felt.Felt{ownerAddrFelt, spenderAddrFelt},
+//	}
+//
+//	// Call the contract to get allowance
+//	resp, err := accnt.Provider.Call(context.Background(), allowanceCall, rpc.WithBlockTag("latest"))
+//	if err != nil {
+//		return nil, fmt.Errorf("invalid owner address: %w", err)
+//	}
+//
+//	if len(resp) == 0 {
+//		return nil, fmt.Errorf("no response from allowance call")
+//	}
+//
+//	// Convert felt response to big.Int
+//	allowanceFelt := resp[0]
+//	allowanceBigInt := utils.FeltToBigInt(allowanceFelt)
+//
+//	return allowanceBigInt, nil
+//}
 
-	// Build the balanceOf function call
-	balanceCall := rpc.FunctionCall{
-		ContractAddress:    tokenAddrFelt,
-		EntryPointSelector: utils.GetSelectorFromNameFelt("balanceOf"),
-		Calldata:           []*felt.Felt{userAddrFelt},
-	}
-
-	// Call the contract to get balance
-	resp, err := accnt.Provider.Call(context.Background(), balanceCall, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to call balanceOf: %w", err)
-	}
-
-	if len(resp) == 0 {
-		return nil, fmt.Errorf("no response from balanceOf call")
-	}
-
-	// Convert felt response to big.Int
-	balanceFelt := resp[0]
-	balanceBigInt := utils.FeltToBigInt(balanceFelt)
-
-	return balanceBigInt, nil
-}
-
-// getTokenAllowance gets the allowance of a token for a specific spender
-func getTokenAllowance(accnt *account.Account, tokenAddress, ownerAddress, spenderAddress, tokenName string) (*big.Int, error) {
-	// Convert addresses to felt
-	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid token address: %w", err)
-	}
-
-	ownerAddrFelt, err := utils.HexToFelt(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
-	}
-
-	spenderAddrFelt, err := utils.HexToFelt(spenderAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid spender address: %w", err)
-	}
-
-	// Build the allowance function call
-	allowanceCall := rpc.FunctionCall{
-		ContractAddress:    tokenAddrFelt,
-		EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
-		Calldata:           []*felt.Felt{ownerAddrFelt, spenderAddrFelt},
-	}
-
-	// Call the contract to get allowance
-	resp, err := accnt.Provider.Call(context.Background(), allowanceCall, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
-	}
-
-	if len(resp) == 0 {
-		return nil, fmt.Errorf("no response from allowance call")
-	}
-
-	// Convert felt response to big.Int
-	allowanceFelt := resp[0]
-	allowanceBigInt := utils.FeltToBigInt(allowanceFelt)
-
-	return allowanceBigInt, nil
-}
-
-// getTokenBalanceFromRPC gets the balance of a token for a specific address using RPC
+// getTokenBalance gets the balance of a token for a specific address using RPC
 func getTokenBalanceFromRPC(client rpc.RpcProvider, tokenAddress, userAddress, tokenName string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
@@ -798,7 +1044,7 @@ func getTokenBalanceFromRPC(client rpc.RpcProvider, tokenAddress, userAddress, t
 	return balanceBigInt, nil
 }
 
-// getTokenAllowanceFromRPC gets the allowance of a token for a specific spender using RPC
+// getTokenAllowance gets the allowance of a token for a specific spender using RPC
 func getTokenAllowanceFromRPC(client rpc.RpcProvider, tokenAddress, ownerAddress, spenderAddress, tokenName string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
@@ -851,37 +1097,37 @@ func getTokenAllowanceFromRPC(client rpc.RpcProvider, tokenAddress, ownerAddress
 	return totalAllowance, nil
 }
 
-// verifyBalanceChanges verifies that opening an order actually transferred tokens
-func verifyBalanceChanges(accnt *account.Account, tokenAddress, userAddress, hyperlaneAddress string, initialBalance *big.Int, expectedTransferAmount *big.Int) error {
-	// Wait a moment for the transaction to be fully processed
-	time.Sleep(2 * time.Second)
+//// verifyBalanceChanges verifies that opening an order actually transferred tokens
+//func verifyBalanceChanges(accnt *account.Account, tokenAddress, userAddress, hyperlaneAddress string, initialBalance *big.Int, expectedTransferAmount *big.Int) error {
+//	// Wait a moment for the transaction to be fully processed
+//	time.Sleep(2 * time.Second)
+//
+//	// Get final balance
+//	finalUserBalance, err := getTokenBalance(accnt, tokenAddress, userAddress, "OrcaCoin")
+//	if err != nil {
+//		return fmt.Errorf("failed to get final user balance: %w", err)
+//	}
+//
+//	// Calculate actual change
+//	userBalanceChange := new(big.Int).Sub(initialBalance, finalUserBalance)
+//
+//	// Print balance changes
+//	fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
+//		formatTokenAmount(initialBalance),
+//		formatTokenAmount(finalUserBalance),
+//		formatTokenAmount(userBalanceChange))
+//
+//	// Verify the change matches expectations
+//	if userBalanceChange.Cmp(expectedTransferAmount) != 0 {
+//		return fmt.Errorf("user balance decreased by %s, expected %s",
+//			formatTokenAmount(userBalanceChange),
+//			formatTokenAmount(expectedTransferAmount))
+//	}
+//
+//	return nil
+//}
 
-	// Get final balance
-	finalUserBalance, err := getTokenBalance(accnt, tokenAddress, userAddress, "OrcaCoin")
-	if err != nil {
-		return fmt.Errorf("failed to get final user balance: %w", err)
-	}
-
-	// Calculate actual change
-	userBalanceChange := new(big.Int).Sub(initialBalance, finalUserBalance)
-
-	// Print balance changes
-	fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
-		formatTokenAmount(initialBalance),
-		formatTokenAmount(finalUserBalance),
-		formatTokenAmount(userBalanceChange))
-
-	// Verify the change matches expectations
-	if userBalanceChange.Cmp(expectedTransferAmount) != 0 {
-		return fmt.Errorf("user balance decreased by %s, expected %s",
-			formatTokenAmount(userBalanceChange),
-			formatTokenAmount(expectedTransferAmount))
-	}
-
-	return nil
-}
-
-// verifyBalanceChangesFromRPC verifies that opening an order actually transferred tokens using RPC
+// verifyBalanceChanges verifies that opening an order actually transferred tokens using RPC
 func verifyBalanceChangesFromRPC(client rpc.RpcProvider, tokenAddress, userAddress, hyperlaneAddress string, initialBalance *big.Int, expectedTransferAmount *big.Int) error {
 	// Wait a moment for the transaction to be fully processed
 	time.Sleep(2 * time.Second)
@@ -917,4 +1163,24 @@ func formatTokenAmount(amount *big.Int) string {
 	decimals := new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 	tokens := new(big.Float).Quo(new(big.Float).SetInt(amount), new(big.Float).SetInt(decimals))
 	return tokens.Text('f', 0) + " tokens"
+}
+
+// getEnvWithDefault gets an environment variable with a default fallback
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvUint64 gets an environment variable as uint64 with a default fallback
+func getEnvUint64(key string, defaultValue uint64) uint64 {
+	if value := os.Getenv(key); value != "" {
+		bi, ok := new(big.Int).SetString(value, 10)
+		if ok {
+			return bi.Uint64()
+		}
+		fmt.Printf("⚠️  Environment variable %s has invalid value: %s. Using default %d.\n", key, value, defaultValue)
+	}
+	return defaultValue
 }

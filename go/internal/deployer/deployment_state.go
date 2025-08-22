@@ -34,7 +34,7 @@ var defaultDeploymentState = DeploymentState{
 			HyperlaneAddress: config.Networks["Sepolia"].HyperlaneAddress.Hex(),
 			OrcaCoinAddress:  "",
 			DogCoinAddress:   "",
-			LastIndexedBlock: config.Networks["Sepolia"].ForkStartBlock,
+			LastIndexedBlock: config.Networks["Sepolia"].SolverStartBlock,
 			LastUpdated:      "",
 		},
 		"Optimism Sepolia": {
@@ -42,7 +42,7 @@ var defaultDeploymentState = DeploymentState{
 			HyperlaneAddress: config.Networks["Optimism Sepolia"].HyperlaneAddress.Hex(),
 			OrcaCoinAddress:  "",
 			DogCoinAddress:   "",
-			LastIndexedBlock: config.Networks["Optimism Sepolia"].ForkStartBlock,
+			LastIndexedBlock: config.Networks["Optimism Sepolia"].SolverStartBlock,
 			LastUpdated:      "",
 		},
 		"Arbitrum Sepolia": {
@@ -50,7 +50,7 @@ var defaultDeploymentState = DeploymentState{
 			HyperlaneAddress: config.Networks["Arbitrum Sepolia"].HyperlaneAddress.Hex(),
 			OrcaCoinAddress:  "",
 			DogCoinAddress:   "",
-			LastIndexedBlock: config.Networks["Arbitrum Sepolia"].ForkStartBlock,
+			LastIndexedBlock: config.Networks["Arbitrum Sepolia"].SolverStartBlock,
 			LastUpdated:      "",
 		},
 		"Base Sepolia": {
@@ -58,7 +58,7 @@ var defaultDeploymentState = DeploymentState{
 			HyperlaneAddress: config.Networks["Base Sepolia"].HyperlaneAddress.Hex(),
 			OrcaCoinAddress:  "",
 			DogCoinAddress:   "",
-			LastIndexedBlock: config.Networks["Base Sepolia"].ForkStartBlock,
+			LastIndexedBlock: config.Networks["Base Sepolia"].SolverStartBlock,
 			LastUpdated:      "",
 		},
 		"Starknet Sepolia": {
@@ -66,7 +66,7 @@ var defaultDeploymentState = DeploymentState{
 			HyperlaneAddress: "", // Will be populated after deployment
 			OrcaCoinAddress:  "",
 			DogCoinAddress:   "",
-			LastIndexedBlock: config.Networks["Starknet Sepolia"].ForkStartBlock,
+			LastIndexedBlock: config.Networks["Starknet Sepolia"].SolverStartBlock,
 			LastUpdated:      "",
 		},
 	},
@@ -162,6 +162,29 @@ func UpdateHyperlaneAddress(networkName string, newAddress string) error {
 	}
 
 	fmt.Printf("✅ Updated %s HyperlaneAddress: %s\n", networkName, newAddress)
+	return nil
+}
+
+// DisplayDeploymentState prints the current deployment state to stdout
+func DisplayDeploymentState() error {
+	state, err := GetDeploymentState()
+	if err != nil {
+		return fmt.Errorf("failed to get deployment state: %w", err)
+	}
+
+	fmt.Printf("📊 Current Deployment State:\n")
+	fmt.Printf("============================\n")
+	for networkName, networkState := range state.Networks {
+		fmt.Printf("🌐 %s:\n", networkName)
+		fmt.Printf("   • Chain ID: %d\n", networkState.ChainID)
+		fmt.Printf("   • Hyperlane Address: %s\n", networkState.HyperlaneAddress)
+		fmt.Printf("   • Last Indexed Block: %d\n", networkState.LastIndexedBlock)
+		fmt.Printf("   • Last Updated: %s\n", networkState.LastUpdated)
+		fmt.Printf("   • Orca Coin: %s\n", networkState.OrcaCoinAddress)
+		fmt.Printf("   • Dog Coin: %s\n", networkState.DogCoinAddress)
+		fmt.Printf("\n")
+	}
+
 	return nil
 }
 

@@ -18,6 +18,14 @@ import (
 	central "github.com/NethermindEth/oif-starknet/go/internal/deployer"
 )
 
+// getEnvWithDefault gets an environment variable with a default fallback
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 // Token deployment info structure
 type TokenDeploymentInfo struct {
 	NetworkName    string      `json:"networkName"`
@@ -80,28 +88,28 @@ func main() {
 	}
 
 	// Load Starknet account details from .env
-	deployerAddress := os.Getenv("SN_DEPLOYER_ADDRESS")
-	deployerPrivateKey := os.Getenv("SN_DEPLOYER_PRIVATE_KEY")
-	deployerPublicKey := os.Getenv("SN_DEPLOYER_PUBLIC_KEY")
+	deployerAddress := os.Getenv("STARKNET_DEPLOYER_ADDRESS")
+	deployerPrivateKey := os.Getenv("STARKNET_DEPLOYER_PRIVATE_KEY")
+	deployerPublicKey := os.Getenv("STARKNET_DEPLOYER_PUBLIC_KEY")
 
 	// Load test user addresses from .env
-	aliceAddress := os.Getenv("SN_ALICE_ADDRESS")
-	bobAddress := os.Getenv("SN_BOB_ADDRESS")
-	solverAddress := os.Getenv("SN_SOLVER_ADDRESS")
+	aliceAddress := os.Getenv("STARKNET_ALICE_ADDRESS")
+	bobAddress := os.Getenv("STARKNET_BOB_ADDRESS")
+	solverAddress := os.Getenv("STARKNET_SOLVER_ADDRESS")
 
 	if deployerAddress == "" || deployerPrivateKey == "" || deployerPublicKey == "" {
 		fmt.Println("❌ Missing required environment variables:")
-		fmt.Println("   SN_DEPLOYER_ADDRESS: Your Starknet account address")
-		fmt.Println("   SN_DEPLOYER_PRIVATE_KEY: Your private key")
-		fmt.Println("   SN_DEPLOYER_PUBLIC_KEY: Your public key")
+		fmt.Println("   STARKNET_DEPLOYER_ADDRESS: Your Starknet account address")
+		fmt.Println("   STARKNET_DEPLOYER_PRIVATE_KEY: Your private key")
+		fmt.Println("   STARKNET_DEPLOYER_PUBLIC_KEY: Your public key")
 		os.Exit(1)
 	}
 
 	if aliceAddress == "" || bobAddress == "" || solverAddress == "" {
-		fmt.Println("❌ Missing test user addresses:")
-		fmt.Println("   SN_ALICE_ADDRESS: Alice's Starknet address")
-		fmt.Println("   SN_BOB_ADDRESS: Bob's Starknet address")
-		fmt.Println("   SN_SOLVER_ADDRESS: Solver's Starknet address")
+		fmt.Println("❌ Missing required environment variables:")
+		fmt.Println("   STARKNET_ALICE_ADDRESS: Alice's Starknet address")
+		fmt.Println("   STARKNET_BOB_ADDRESS: Bob's Starknet address")
+		fmt.Println("   STARKNET_SOLVER_ADDRESS: Solver's Starknet address")
 		os.Exit(1)
 	}
 
@@ -228,7 +236,7 @@ func fundUsers(accnt *account.Account, orcaCoin, dogCoin TokenInfo, aliceAddr, b
 		if err != nil {
 			return fmt.Errorf("failed to get %s's OrcaCoin balance before minting: %w", user.name, err)
 		}
-		
+
 		dogBalanceBefore, err := getTokenBalance(accnt, dogCoin.Address, user.address, "DogCoin")
 		if err != nil {
 			return fmt.Errorf("failed to get %s's DogCoin balance before minting: %w", user.name, err)
@@ -251,7 +259,7 @@ func fundUsers(accnt *account.Account, orcaCoin, dogCoin TokenInfo, aliceAddr, b
 		if err != nil {
 			return fmt.Errorf("failed to get %s's OrcaCoin balance after minting: %w", user.name, err)
 		}
-		
+
 		dogBalanceAfter, err := getTokenBalance(accnt, dogCoin.Address, user.address, "DogCoin")
 		if err != nil {
 			return fmt.Errorf("failed to get %s's DogCoin balance after minting: %w", user.name, err)
@@ -262,14 +270,14 @@ func fundUsers(accnt *account.Account, orcaCoin, dogCoin TokenInfo, aliceAddr, b
 		// Verify the minting actually worked
 		expectedAmount := new(big.Int)
 		expectedAmount.SetString(UserFundingAmount, 10)
-		
+
 		orcaIncrease := new(big.Int).Sub(orcaBalanceAfter, orcaBalanceBefore)
 		dogIncrease := new(big.Int).Sub(dogBalanceAfter, dogBalanceBefore)
-		
+
 		if orcaIncrease.Cmp(expectedAmount) != 0 {
 			return fmt.Errorf("OrcaCoin minting failed for %s: expected increase %s, got %s", user.name, expectedAmount.String(), orcaIncrease.String())
 		}
-		
+
 		if dogIncrease.Cmp(expectedAmount) != 0 {
 			return fmt.Errorf("DogCoin minting failed for %s: expected increase %s, got %s", user.name, expectedAmount.String(), dogIncrease.String())
 		}
@@ -287,15 +295,15 @@ func fundUsers(accnt *account.Account, orcaCoin, dogCoin TokenInfo, aliceAddr, b
 func toU256(num *big.Int) (low, high *felt.Felt) {
 	// Create a mask for 128 bits (2^128 - 1)
 	mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
-	
+
 	// Extract low part (first 128 bits)
 	lowBigInt := new(big.Int).And(num, mask)
 	low = utils.BigIntToFelt(lowBigInt)
-	
+
 	// Extract high part (remaining bits)
 	highBigInt := new(big.Int).Rsh(num, 128)
 	high = utils.BigIntToFelt(highBigInt)
-	
+
 	return low, high
 }
 
@@ -317,10 +325,10 @@ func mintTokens(accnt *account.Account, tokenAddress, recipient, amount, tokenNa
 	// Convert amount string to big.Int
 	amountBigInt := new(big.Int)
 	amountBigInt.SetString(amount, 10) // Parse as decimal string
-	
+
 	// Convert to u256 representation (low and high felts)
 	lowFelt, highFelt := toU256(amountBigInt)
-	
+
 	// Build the mint function call with u256 (low, high)
 	mintCall := rpc.InvokeFunctionCall{
 		ContractAddress: tokenAddrFelt,
@@ -432,14 +440,14 @@ func setAllowances(accnt *account.Account, orcaCoin, dogCoin TokenInfo, hyperlan
 
 	// Users to set allowances for
 	users := []struct {
-		name    string
-		address string
+		name       string
+		address    string
 		privateKey string
 		publicKey  string
 	}{
-		{"Alice", aliceAddr, os.Getenv("SN_ALICE_PRIVATE_KEY"), os.Getenv("SN_ALICE_PUBLIC_KEY")},
-		{"Bob", bobAddr, os.Getenv("SN_BOB_PRIVATE_KEY"), os.Getenv("SN_BOB_PUBLIC_KEY")},
-		{"Solver", solverAddr, os.Getenv("SN_SOLVER_PRIVATE_KEY"), os.Getenv("SN_SOLVER_PUBLIC_KEY")},
+		{"Alice", aliceAddr, os.Getenv("STARKNET_ALICE_PRIVATE_KEY"), os.Getenv("STARKNET_ALICE_PUBLIC_KEY")},
+		{"Bob", bobAddr, os.Getenv("STARKNET_BOB_PRIVATE_KEY"), os.Getenv("STARKNET_BOB_PUBLIC_KEY")},
+		{"Solver", solverAddr, os.Getenv("STARKNET_SOLVER_PRIVATE_KEY"), os.Getenv("STARKNET_SOLVER_PUBLIC_KEY")},
 	}
 
 	// Set unlimited allowance for each user on both tokens
@@ -586,7 +594,7 @@ func verifyBalancesAndAllowances(accnt *account.Account, orcaCoin, dogCoin Token
 			if err != nil {
 				return fmt.Errorf("failed to get %s's OrcaCoin allowance: %w", user.name, err)
 			}
-			
+
 			// Debug: Show the actual allowance value
 			if orcaAllowance.Cmp(big.NewInt(0)) == 0 {
 				fmt.Printf("       ⚠️  OrcaCoin allowance: %s (this might indicate an issue)\n", formatTokenAmount(orcaAllowance))
@@ -599,7 +607,7 @@ func verifyBalancesAndAllowances(accnt *account.Account, orcaCoin, dogCoin Token
 			if err != nil {
 				return fmt.Errorf("failed to get %s's DogCoin allowance: %w", user.name, err)
 			}
-			
+
 			// Debug: Show the actual allowance value
 			if dogAllowance.Cmp(big.NewInt(0)) == 0 {
 				fmt.Printf("       ⚠️  DogCoin allowance: %s (this might indicate an issue)\n", formatTokenAmount(dogAllowance))
@@ -688,7 +696,7 @@ func formatTokenAmount(amount *big.Int) string {
 // testAllowanceReading is a simple test function to debug allowance reading
 func testAllowanceReading() {
 	fmt.Println("🧪 Testing allowance reading...")
-	
+
 	// Load token addresses from deployment file
 	tokens, err := loadTokenDeploymentInfo("Starknet Sepolia")
 	if err != nil {
@@ -718,10 +726,11 @@ func testAllowanceReading() {
 	fmt.Printf("📋 DogCoin: %s\n", tokens[1].Address)
 
 	// Test user (Alice)
-	aliceAddr := "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7"
+	// Alice's address (Katana default account)
+	aliceAddr := getEnvWithDefault("STARKNET_ALICE_ADDRESS", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7")
 
 	// Connect to Starknet RPC
-	client, err := rpc.NewProvider("http://localhost:5050")
+	client, err := rpc.NewProvider(os.Getenv("STARKNET_RPC_URL"))
 	if err != nil {
 		fmt.Printf("❌ Failed to connect to Starknet: %v\n", err)
 		os.Exit(1)
@@ -729,7 +738,7 @@ func testAllowanceReading() {
 
 	// Test allowance reading for OrcaCoin
 	fmt.Printf("\n🔍 Testing OrcaCoin allowance for Alice -> Hyperlane7683...\n")
-	
+
 	// Convert addresses to felt
 	tokenAddrFelt, _ := utils.HexToFelt(tokens[0].Address)
 	ownerAddrFelt, _ := utils.HexToFelt(aliceAddr)
@@ -773,7 +782,7 @@ func testAllowanceReading() {
 
 	// Now let's try to set a small allowance and see if it works
 	fmt.Printf("\n🧪 Testing setting a small allowance...\n")
-	
+
 	// Try to set allowance to 1000 tokens
 	smallAmount := new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
 	lowFelt := utils.BigIntToFelt(smallAmount)
@@ -782,7 +791,7 @@ func testAllowanceReading() {
 	fmt.Printf("   🔍 Setting allowance to: low=%s, high=%s\n", lowFelt.String(), highFelt.String())
 
 	// Build the approve function call
-	fmt.Printf("   🔍 Calling approve(spender=%s, amount_low=%s, amount_high=%s)\n", 
+	fmt.Printf("   🔍 Calling approve(spender=%s, amount_low=%s, amount_high=%s)\n",
 		spenderAddrFelt.String(), lowFelt.String(), highFelt.String())
 
 	// Note: We can't actually send the transaction here without an account, but we can show the call data

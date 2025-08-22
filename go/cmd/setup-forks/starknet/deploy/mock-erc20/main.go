@@ -62,15 +62,15 @@ func main() {
 	}
 
 	// Load Starknet account details from .env
-	deployerAddress := os.Getenv("SN_DEPLOYER_ADDRESS")
-	deployerPrivateKey := os.Getenv("SN_DEPLOYER_PRIVATE_KEY")
-	deployerPublicKey := os.Getenv("SN_DEPLOYER_PUBLIC_KEY")
+	deployerAddress := os.Getenv("STARKNET_DEPLOYER_ADDRESS")
+	deployerPrivateKey := os.Getenv("STARKNET_DEPLOYER_PRIVATE_KEY")
+	deployerPublicKey := os.Getenv("STARKNET_DEPLOYER_PUBLIC_KEY")
 
 	if deployerAddress == "" || deployerPrivateKey == "" || deployerPublicKey == "" {
 		fmt.Println("❌ Missing required environment variables:")
-		fmt.Println("   SN_DEPLOYER_ADDRESS: Your Starknet account address")
-		fmt.Println("   SN_DEPLOYER_PRIVATE_KEY: Your private key")
-		fmt.Println("   SN_DEPLOYER_PUBLIC_KEY: Your public key")
+		fmt.Println("   STARKNET_DEPLOYER_ADDRESS: Your Starknet account address")
+		fmt.Println("   STARKNET_DEPLOYER_PRIVATE_KEY: Your private key")
+		fmt.Println("   STARKNET_DEPLOYER_PUBLIC_KEY: Your public key")
 		os.Exit(1)
 	}
 

@@ -44,15 +44,15 @@ func main() {
 	}
 
 	// Load Starknet account details from .env
-	accountAddress := os.Getenv("SN_DEPLOYER_ADDRESS")
-	privateKey := os.Getenv("SN_DEPLOYER_PRIVATE_KEY")
-	publicKey := os.Getenv("SN_DEPLOYER_PUBLIC_KEY")
+	accountAddress := os.Getenv("STARKNET_DEPLOYER_ADDRESS")
+	accountPrivateKey := os.Getenv("STARKNET_DEPLOYER_PRIVATE_KEY")
+	accountPublicKey := os.Getenv("STARKNET_DEPLOYER_PUBLIC_KEY")
 
-	if accountAddress == "" || privateKey == "" || publicKey == "" {
+	if accountAddress == "" || accountPrivateKey == "" || accountPublicKey == "" {
 		fmt.Println("❌ Missing required environment variables:")
-		fmt.Println("   SN_DEPLOYER_ADDRESS: Your Starknet account address")
-		fmt.Println("   SN_DEPLOYER_PRIVATE_KEY: Your private key")
-		fmt.Println("   SN_DEPLOYER_PUBLIC_KEY: Your public key")
+		fmt.Println("   STARKNET_DEPLOYER_ADDRESS: Your Starknet account address")
+		fmt.Println("   STARKNET_DEPLOYER_PRIVATE_KEY: Your private key")
+		fmt.Println("   STARKNET_DEPLOYER_PUBLIC_KEY: Your public key")
 		os.Exit(1)
 	}
 
@@ -69,11 +69,11 @@ func main() {
 
 	// Initialize the account memkeyStore (public and private keys)
 	ks := account.NewMemKeystore()
-	privKeyBI, ok := new(big.Int).SetString(privateKey, 0)
+	privKeyBI, ok := new(big.Int).SetString(accountPrivateKey, 0)
 	if !ok {
 		panic("❌ Failed to convert private key to big.Int")
 	}
-	ks.Put(publicKey, privKeyBI)
+	ks.Put(accountPublicKey, privKeyBI)
 
 	// Convert account address to felt
 	accountAddressInFelt, err := utils.HexToFelt(accountAddress)
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	// Initialize the account)
-	accnt, err := account.NewAccount(client, accountAddressInFelt, publicKey, ks, account.CairoV2)
+	accnt, err := account.NewAccount(client, accountAddressInFelt, accountPublicKey, ks, account.CairoV2)
 	if err != nil {
 		panic(fmt.Sprintf("❌ Failed to initialize account: %s", err))
 	}

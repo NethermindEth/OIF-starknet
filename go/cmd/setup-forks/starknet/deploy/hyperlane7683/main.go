@@ -53,27 +53,36 @@ func main() {
 	}
 
 	// Load Starknet account details from .env
-	deployerAddress := os.Getenv("SN_DEPLOYER_ADDRESS")
-	deployerPrivateKey := os.Getenv("SN_DEPLOYER_PRIVATE_KEY")
-	deployerPublicKey := os.Getenv("SN_DEPLOYER_PUBLIC_KEY")
+	deployerAddress := os.Getenv("STARKNET_DEPLOYER_ADDRESS")
+	deployerPrivateKey := os.Getenv("STARKNET_DEPLOYER_PRIVATE_KEY")
+	deployerPublicKey := os.Getenv("STARKNET_DEPLOYER_PUBLIC_KEY")
 
-	// Optional constructor params via env (use 0x0 for now as requested)
-	permit2Addr := os.Getenv("SN_PERMIT2_ADDRESS")
-	mailboxAddr := os.Getenv("SN_MAILBOX_ADDRESS")
-	hookAddr := os.Getenv("SN_HOOK_ADDRESS")
-	ismAddr := os.Getenv("SN_ISM_ADDRESS")
+	// Load constructor parameters from environment variables
+	permit2Addr := os.Getenv("STARKNET_PERMIT2_ADDRESS")
+	mailboxAddr := os.Getenv("STARKNET_MAILBOX_ADDRESS")
+	hookAddr := os.Getenv("STARKNET_HOOK_ADDRESS")
+	ismAddr := os.Getenv("STARKNET_ISM_ADDRESS")
 
 	if deployerAddress == "" || deployerPrivateKey == "" || deployerPublicKey == "" {
 		fmt.Println("❌ Missing required environment variables:")
-		fmt.Println("   SN_DEPLOYER_ADDRESS: Your Starknet account address")
-		fmt.Println("   SN_DEPLOYER_PRIVATE_KEY: Your private key")
-		fmt.Println("   SN_DEPLOYER_PUBLIC_KEY: Your public key")
+		fmt.Println("   STARKNET_DEPLOYER_ADDRESS: Your Starknet account address")
+		fmt.Println("   STARKNET_DEPLOYER_PRIVATE_KEY: Your private key")
+		fmt.Println("   STARKNET_DEPLOYER_PUBLIC_KEY: Your public key")
 		fmt.Println("")
 		fmt.Println("Optional constructor parameters (will use 0x0 if not provided):")
-		fmt.Println("   SN_PERMIT2_ADDRESS: Permit2 contract address")
-		fmt.Println("   MAILBOX_ADDRESS: Hyperlane mailbox address")
-		fmt.Println("   HOOK_ADDRESS: Hook contract address")
-		fmt.Println("   ISM_ADDRESS: Interchain security module address")
+		fmt.Println("   STARKNET_PERMIT2_ADDRESS: Permit2 contract address")
+		fmt.Println("   STARKNET_MAILBOX_ADDRESS: Mailbox contract address")
+		fmt.Println("   STARKNET_HOOK_ADDRESS: Hook contract address")
+		fmt.Println("   STARKNET_ISM_ADDRESS: ISM contract address")
+		os.Exit(1)
+	}
+
+	if permit2Addr == "" || mailboxAddr == "" || hookAddr == "" || ismAddr == "" {
+		fmt.Println("❌ Missing required environment variables:")
+		fmt.Println("   STARKNET_PERMIT2_ADDRESS: Permit2 contract address")
+		fmt.Println("   STARKNET_MAILBOX_ADDRESS: Mailbox contract address")
+		fmt.Println("   STARKNET_HOOK_ADDRESS: Hook contract address")
+		fmt.Println("   STARKNET_ISM_ADDRESS: ISM contract address")
 		os.Exit(1)
 	}
 

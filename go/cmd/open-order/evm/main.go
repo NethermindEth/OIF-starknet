@@ -82,13 +82,21 @@ func loadNetworks() error {
 	return nil
 }
 
+// getEnvWithDefault gets an environment variable with a default fallback
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 // getHyperlaneDomain returns the Hyperlane domain ID for a given network
 func getHyperlaneDomain(networkName string) uint32 {
 	domain, err := config.GetHyperlaneDomain(networkName)
 	if err != nil {
 		return 0
 	}
-	return domain
+	return uint32(domain)
 }
 
 // Test user configuration
@@ -97,9 +105,9 @@ var testUsers = []struct {
 	privateKey string
 	address    string
 }{
-	{"Alice", "ALICE_PRIVATE_KEY", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"},
-	{"Bob", "BOB_PRIVATE_KEY", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"},
-	{"Solver", "SOLVER_PRIVATE_KEY", "0x90F79bf6EB2c4f870365E785982E1f101E93b906"},
+	{"Alice", "ALICE_PRIVATE_KEY", getEnvWithDefault("EVM_ALICE_ADDRESS", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")},
+	{"Bob", "BOB_PRIVATE_KEY", getEnvWithDefault("EVM_BOB_ADDRESS", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")},
+	{"Solver", "SOLVER_PRIVATE_KEY", getEnvWithDefault("EVM_SOLVER_ADDRESS", "0x90F79bf6EB2c4f870365E785982E1f101E93b906")},
 }
 
 // Order configuration
@@ -152,9 +160,13 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: open-order <command>")
 		fmt.Println("Commands:")
-		fmt.Println("  basic     - Open a basic hardcoded test order")
-		fmt.Println("  random    - Open a randomly generated order")
-		fmt.Println("  batch     - Open multiple random orders (future)")
+		fmt.Println("  basic         - Open a basic hardcoded test order")
+		fmt.Println("  random        - Open a randomly generated order (EVM→EVM)")
+		fmt.Println("  random-to-sn  - Open a random EVM→Starknet order")
+		fmt.Println("  default-evm-evm      - Open default EVM→EVM order (Nonce: 1)")
+		fmt.Println("  default-evm-sn       - Open default EVM→Starknet order (Nonce: 2)")
+		fmt.Println("  default-sn-evm       - Open default Starknet→EVM order (Nonce: 3)")
+		fmt.Println("  batch         - Open multiple random orders (future)")
 		os.Exit(1)
 	}
 
@@ -164,7 +176,15 @@ func main() {
 	case "basic":
 		openBasicOrder()
 	case "random":
-		openRandomOrder()
+		openRandom()
+	case "random-to-sn":
+		openRandomToStarknet()
+	case "default-evm-evm":
+		openDefaultEvmToEvm()
+	case "default-evm-sn":
+		openDefaultEvmToStarknet()
+	case "default-sn-evm":
+		openDefaultStarknetToEvm()
 	case "batch":
 		fmt.Println("Batch order opening not yet implemented")
 		os.Exit(1)
@@ -193,15 +213,25 @@ func openBasicOrder() {
 	executeOrder(order)
 }
 
-func openRandomOrder() {
+func openRandom() {
 	fmt.Println("🎲 Opening Random Test Order...")
 
 	// Seed random number generator
 	rand.Seed(time.Now().UnixNano())
 
-	// Random origin and destination chains
-	originIdx := rand.Intn(len(networks))
-	destIdx := rand.Intn(len(networks))
+	// Random origin and destination chains (exclude Starknet from origins)
+	var evmNetworks []NetworkConfig
+	for _, n := range networks {
+		if n.name != "Starknet Sepolia" {
+			evmNetworks = append(evmNetworks, n)
+		}
+	}
+	if len(evmNetworks) == 0 {
+		log.Fatalf("no EVM networks configured")
+	}
+
+	originIdx := rand.Intn(len(evmNetworks))
+	destIdx := rand.Intn(len(networks)) // Can still have Starknet as destination
 	for destIdx == originIdx {
 		destIdx = rand.Intn(len(networks))
 	}
@@ -214,7 +244,7 @@ func openRandomOrder() {
 	outputAmount := rand.Intn(9901) + 100 // 100-10000
 
 	order := OrderConfig{
-		OriginChain:      networks[originIdx].name,
+		OriginChain:      evmNetworks[originIdx].name,
 		DestinationChain: networks[destIdx].name,
 		InputToken:       "OrcaCoin",
 		OutputToken:      "DogCoin",
@@ -233,6 +263,122 @@ func openRandomOrder() {
 	outputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.OutputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
 	fmt.Printf("   Input: %s OrcaCoins\n", inputFloat.Text('f', 0))
 	fmt.Printf("   Output: %s DogCoins\n", outputFloat.Text('f', 0))
+
+	executeOrder(order)
+}
+
+func openRandomToStarknet() {
+	fmt.Println("🎲 Opening Random EVM → Starknet Test Order...")
+	rand.Seed(time.Now().UnixNano())
+
+	// Pick random EVM origin (exclude Starknet)
+	var evmNetworks []NetworkConfig
+	for _, n := range networks {
+		if n.name != "Starknet Sepolia" {
+			evmNetworks = append(evmNetworks, n)
+		}
+	}
+	if len(evmNetworks) == 0 {
+		log.Fatalf("no EVM networks configured")
+	}
+	origin := evmNetworks[rand.Intn(len(evmNetworks))]
+
+	order := OrderConfig{
+		OriginChain:      origin.name,
+		DestinationChain: "Starknet Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(int64(rand.Intn(9901)+100)), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),
+		OutputAmount:     new(big.Int).Mul(big.NewInt(int64(rand.Intn(9901)+100)), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),
+		User:             []string{"Alice", "Bob", "Solver"}[rand.Intn(3)],
+		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Random Order Generated:\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	inputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.InputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
+	outputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.OutputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
+	fmt.Printf("   Input: %s OrcaCoins\n", inputFloat.Text('f', 0))
+	fmt.Printf("   Output: %s DogCoins\n", outputFloat.Text('f', 0))
+
+	executeOrder(order)
+}
+
+// Default order functions for debugging - use identical data except nonces
+func openDefaultEvmToEvm() {
+	fmt.Println("🎯 Opening Default EVM → EVM Test Order (Nonce: 1)...")
+
+	order := OrderConfig{
+		OriginChain:      "Sepolia",
+		DestinationChain: "Optimism Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		OutputAmount:     new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		User:             "Alice",
+		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Default EVM→EVM Order (Nonce: 1):\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	fmt.Printf("   Input: 1000 OrcaCoins\n")
+	fmt.Printf("   Output: 1000 DogCoins\n")
+
+	executeOrder(order)
+}
+
+func openDefaultEvmToStarknet() {
+	fmt.Println("🎯 Opening Default EVM → Starknet Test Order (Nonce: 2)...")
+
+	order := OrderConfig{
+		OriginChain:      "Sepolia",
+		DestinationChain: "Starknet Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		OutputAmount:     new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		User:             "Alice",
+		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Default EVM→Starknet Order (Nonce: 2):\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	fmt.Printf("   Input: 1000 OrcaCoins\n")
+	fmt.Printf("   Output: 1000 DogCoins\n")
+
+	executeOrder(order)
+}
+
+func openDefaultStarknetToEvm() {
+	fmt.Println("🎯 Opening Default Starknet → EVM Test Order (Nonce: 3)...")
+
+	order := OrderConfig{
+		OriginChain:      "Starknet Sepolia",
+		DestinationChain: "Sepolia",
+		InputToken:       "OrcaCoin",
+		OutputToken:      "DogCoin",
+		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		OutputAmount:     new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
+		User:             "Alice",
+		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+	}
+
+	fmt.Printf("🎯 Default Starknet→EVM Order (Nonce: 3):\n")
+	fmt.Printf("   Origin: %s\n", order.OriginChain)
+	fmt.Printf("   Destination: %s\n", order.DestinationChain)
+	fmt.Printf("   User: %s\n", order.User)
+	fmt.Printf("   Input: 1000 OrcaCoins\n")
+	fmt.Printf("   Output: 1000 DogCoins\n")
 
 	executeOrder(order)
 }
@@ -365,6 +511,8 @@ func executeOrder(order OrderConfig) {
 	fmt.Printf("      AmountOut: %s\n", orderData.AmountOut.String())
 	fmt.Printf("      OriginDomain: %d (Hyperlane domain for %s)\n", orderData.OriginDomain, originNetwork.name)
 	fmt.Printf("      DestinationDomain: %d (Hyperlane domain for %s)\n", orderData.DestinationDomain, destinationNetwork.name)
+	fmt.Printf("      SenderNonce: %s\n", orderData.SenderNonce.String())
+	fmt.Printf("      DestinationSettler: %x\n", orderData.DestinationSettler)
 
 	// Build the OnchainCrossChainOrder
 	crossChainOrder := OnchainCrossChainOrder{
@@ -518,22 +666,72 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 	inputTokenAddr := originNetwork.orcaCoinAddress
 	outputTokenAddr := destinationNetwork.dogCoinAddress
 
-	// Convert destination settler to bytes32
-	destSettler := destinationNetwork.hyperlaneAddress
+	// Convert destination settler depending on destination chain type
+	var destSettlerBytes [32]byte
+	if destinationNetwork.name == "Starknet Sepolia" {
+		// Use Starknet Hyperlane address from centralized state as raw 32 bytes (felt)
+		state, err := deployer.GetDeploymentState()
+		if err == nil {
+			if sn, ok := state.Networks["Starknet Sepolia"]; ok && sn.HyperlaneAddress != "" {
+				destSettlerBytes = hexToBytes32(sn.HyperlaneAddress)
+			}
+		}
+		if destSettlerBytes == ([32]byte{}) {
+			log.Printf("⚠️  Starknet Hyperlane address not found in state; destinationSettler will be zero")
+		}
+	} else {
+		// EVM router is 20-byte address left-padded to 32
+		destSettler := destinationNetwork.hyperlaneAddress
+		copy(destSettlerBytes[12:], destSettler.Bytes())
+	}
 
-	// Convert addresses to bytes32 (left-pad with zeros)
-	var userBytes, inputTokenBytes, outputTokenBytes, destSettlerBytes [32]byte
-	copy(userBytes[12:], userAddr.Bytes()) // Address is 20 bytes, pad to 32
+	// Convert addresses to bytes32 (left-pad)
+	var userBytes, inputTokenBytes, outputTokenBytes [32]byte
+	copy(userBytes[12:], userAddr.Bytes())
 	copy(inputTokenBytes[12:], inputTokenAddr.Bytes())
-	copy(outputTokenBytes[12:], outputTokenAddr.Bytes())
-	copy(destSettlerBytes[12:], destSettler.Bytes())
 
-	// Get the destination chain ID (where the filler will execute the trade)
+	// For recipient, we need to determine if it should be EVM or Starknet address
+	var recipientBytes [32]byte
+	if destinationNetwork.name == "Starknet Sepolia" {
+		// If destination is Starknet, recipient should be the Starknet address of the same user
+		var starknetUserAddr string
+		switch order.User {
+		case "Alice":
+			starknetUserAddr = getEnvWithDefault("STARKNET_ALICE_ADDRESS", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7")
+		case "Bob":
+			starknetUserAddr = getEnvWithDefault("STARKNET_BOB_ADDRESS", "0x17cc6ca902ed4e8baa8463a7009ff18cc294fa85a94b4ce6ac30a9ebd6057c7")
+		case "Solver":
+			starknetUserAddr = getEnvWithDefault("STARKNET_SOLVER_ADDRESS", "0x2af9427c5a277474c079a1283c880ee8a6f0f8fbf73ce969c08d88befec1bba")
+		default:
+			// Fallback to solver address if unknown user
+			starknetUserAddr = getEnvWithDefault("STARKNET_SOLVER_ADDRESS", "0x2af9427c5a277474c079a1283c880ee8a6f0f8fbf73ce969c08d88befec1bba")
+		}
+		recipientBytes = hexToBytes32(starknetUserAddr)
+		fmt.Printf("   🔍 Starknet recipient address for %s: %s\n", order.User, starknetUserAddr)
+	} else {
+		// If destination is EVM, recipient is the same EVM user
+		recipientBytes = userBytes
+	}
+	if destinationNetwork.name == "Starknet Sepolia" {
+		if state, err := deployer.GetDeploymentState(); err == nil {
+			if sn, ok := state.Networks["Starknet Sepolia"]; ok && sn.DogCoinAddress != "" {
+				outputTokenBytes = hexToBytes32(sn.DogCoinAddress)
+			} else {
+				log.Fatalf("missing Starknet DogCoin address in state for destination; refusing to fallback")
+			}
+		} else {
+			log.Fatalf("failed to load deployment state; refusing to fallback for Starknet output token")
+		}
+	} else {
+		copy(outputTokenBytes[12:], outputTokenAddr.Bytes())
+	}
+
+	// Get the destination chain ID (Hyperlane domain)
 	destinationChainID := getHyperlaneDomain(destinationNetwork.name)
 
 	return OrderData{
 		Sender:             userBytes,
-		Recipient:          userBytes,
+		Recipient:          recipientBytes,
 		InputToken:         inputTokenBytes,
 		OutputToken:        outputTokenBytes,
 		AmountIn:           order.InputAmount,
@@ -543,8 +741,25 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 		DestinationDomain:  destinationChainID,
 		DestinationSettler: destSettlerBytes,
 		FillDeadline:       order.FillDeadline,
-		Data:               []byte{}, // Empty for basic orders
+		Data:               []byte{},
 	}
+}
+
+func hexToBytes32(hexStr string) [32]byte {
+	s := strings.TrimPrefix(hexStr, "0x")
+	if len(s)%2 == 1 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		log.Fatalf("invalid hex for bytes32: %s (%v)", hexStr, err)
+	}
+	if len(b) > 32 {
+		b = b[len(b)-32:]
+	}
+	var out [32]byte
+	copy(out[32-len(b):], b)
+	return out
 }
 
 // getLocalDomain reads the `localDomain()` from the Hyperlane7683 contract on the connected chain

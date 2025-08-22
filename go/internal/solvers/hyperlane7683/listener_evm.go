@@ -35,16 +35,18 @@ func NewEVMListener(config *listener.ListenerConfig, rpcURL string) (listener.Ba
 		return nil, fmt.Errorf("failed to dial RPC: %w", err)
 	}
 
-	// Initialize lastProcessedBlock safely, handling nil/zero InitialBlock
+	// Always use the last processed block from deployment state
 	var lastProcessedBlock uint64
-	if config.InitialBlock == nil || config.InitialBlock.Sign() <= 0 {
-		currentBlock, err := client.BlockNumber(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current block number: %w", err)
-		}
-		lastProcessedBlock = currentBlock
+	state, err := deployer.GetDeploymentState()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment state: %w", err)
+	}
+
+	if networkState, exists := state.Networks[config.ChainName]; exists {
+		lastProcessedBlock = networkState.LastIndexedBlock
+		fmt.Printf("📚 %s: Using persisted LastIndexedBlock: %d\n", config.ChainName, lastProcessedBlock)
 	} else {
-		lastProcessedBlock = config.InitialBlock.Uint64() - 1
+		return nil, fmt.Errorf("network %s not found in deployment state", config.ChainName)
 	}
 
 	return &evmListener{
@@ -101,11 +103,17 @@ func (l *evmListener) processCurrentBlockRange(ctx context.Context, handler list
 	if err != nil {
 		return fmt.Errorf("failed to get current block number: %v", err)
 	}
-	if currentBlock <= l.lastProcessedBlock {
+	// Apply confirmations window if configured
+	safeBlock := currentBlock
+	if l.config.ConfirmationBlocks > 0 && currentBlock > l.config.ConfirmationBlocks {
+		safeBlock = currentBlock - l.config.ConfirmationBlocks
+	}
+	if safeBlock <= l.lastProcessedBlock {
 		return nil
 	}
 	fromBlock := l.lastProcessedBlock + 1
-	toBlock := currentBlock
+	toBlock := safeBlock
+	fmt.Printf("🧭 %s EVM range: from=%d to=%d (current=%d, conf=%d)\n", l.config.ChainName, fromBlock, toBlock, currentBlock, l.config.ConfirmationBlocks)
 	if fromBlock > toBlock {
 		fmt.Printf("⚠️  Invalid block range for %s: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
 		return nil
@@ -133,10 +141,12 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 		Addresses: []common.Address{l.contractAddress},
 		Topics:    [][]common.Hash{{openEventTopic}},
 	}
+	fmt.Printf("🔎 %s filter: addr=%s, topic0=%s, from=%d, to=%d\n", l.config.ChainName, l.contractAddress.Hex(), openEventTopic.Hex(), fromBlock, toBlock)
 	logs, err := l.client.FilterLogs(ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to filter logs: %v", err)
 	}
+	fmt.Printf("📩 %s logs found: %d\n", l.config.ChainName, len(logs))
 	if len(logs) > 0 {
 		fmt.Printf("📩 Found %d Open events on %s\n", len(logs), l.config.ChainName)
 	}
@@ -204,7 +214,7 @@ func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, hand
 		SenderAddress: ro.User.Hex(),
 		Recipients: []types.Recipient{{
 			DestinationChainName: l.config.ChainName,
-			RecipientAddress:     "0x0000000000000000000000000000000000000000",
+			RecipientAddress:     "*",
 		}},
 		ResolvedOrder: ro,
 	}
@@ -222,17 +232,32 @@ func bytes32ToAddress(b [32]byte) common.Address { return common.BytesToAddress(
 func (l *evmListener) catchUpHistoricalBlocks(ctx context.Context, handler listener.EventHandler) error {
 	fmt.Printf("🔄 Catching up on (%s) historical blocks...\n", l.config.ChainName)
 	currentBlock, err := l.client.BlockNumber(ctx)
-	if err != nil { return fmt.Errorf("failed to get current block number: %v", err) }
-	var fromBlock uint64
-	if l.config.InitialBlock == nil || l.config.InitialBlock.Sign() <= 0 { fromBlock = currentBlock } else { fromBlock = l.config.InitialBlock.Uint64() }
-	toBlock := currentBlock
-	if fromBlock >= toBlock { fmt.Printf("✅ Already up to date, no historical blocks to process\n"); return nil }
-	if l.lastProcessedBlock != fromBlock-1 { fmt.Printf("⚠️  lastProcessedBlock mismatch: expected %d, got %d, correcting...\n", fromBlock-1, l.lastProcessedBlock); l.lastProcessedBlock = fromBlock - 1 }
+	if err != nil {
+		return fmt.Errorf("failed to get current block number: %v", err)
+	}
+	// Apply confirmations during backfill as well
+	safeBlock := currentBlock
+	if l.config.ConfirmationBlocks > 0 && currentBlock > l.config.ConfirmationBlocks {
+		safeBlock = currentBlock - l.config.ConfirmationBlocks
+	}
+
+	// Start from the last processed block + 1 (which should be the solver start block)
+	fromBlock := l.lastProcessedBlock + 1
+	toBlock := safeBlock
+	if fromBlock >= toBlock {
+		fmt.Printf("✅ Already up to date, no historical blocks to process\n")
+		return nil
+	}
+
 	chunkSize := l.config.MaxBlockRange
 	for start := fromBlock; start < toBlock; start += chunkSize {
 		end := start + chunkSize
-		if end > toBlock { end = toBlock }
-		if err := l.processBlockRange(ctx, start, end, handler); err != nil { return fmt.Errorf("failed to process historical blocks %d-%d: %v", start, end, err) }
+		if end > toBlock {
+			end = toBlock
+		}
+		if err := l.processBlockRange(ctx, start, end, handler); err != nil {
+			return fmt.Errorf("failed to process historical blocks %d-%d: %v", start, end, err)
+		}
 	}
 	l.lastProcessedBlock = toBlock
 	fmt.Printf("✅ Historical block processing completed for %s\n", l.config.ChainName)
@@ -250,9 +275,10 @@ func (l *evmListener) startPolling(ctx context.Context, handler listener.EventHa
 			fmt.Printf("🔄 Stop signal received, stopping event polling\n")
 			return
 		default:
-			if err := l.processCurrentBlockRange(ctx, handler); err != nil { fmt.Printf("❌ Failed to process current block range: %v\n", err) }
+			if err := l.processCurrentBlockRange(ctx, handler); err != nil {
+				fmt.Printf("❌ Failed to process current block range: %v\n", err)
+			}
 			time.Sleep(time.Duration(l.config.PollInterval) * time.Millisecond)
 		}
 	}
 }
-

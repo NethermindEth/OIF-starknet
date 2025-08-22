@@ -1,74 +1,80 @@
 package main
 
 import (
-	"log"
+	"context"
+	"fmt"
 	"os"
 
-	"github.com/NethermindEth/oif-starknet/go/internal/config"
-	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
-	"github.com/joho/godotenv"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-/// Verifies that the hyperlane7683 contract instance exists on the EVM networks
+type NetworkConfig struct {
+	Name       string
+	RPCURL     string
+	PrivateKey string
+}
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Printf("⚠️  Warning: .env file not found: %v", err)
-	}
-
-	// Load configuration
-	_, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("❌ Failed to load config: %v", err)
-	}
-
-	log.Printf("🔍 Verifying pre-deployed Hyperlane7683 contracts on forked networks...")
-
-	// Create fork verification configurations
-	forkConfigs := []deployer.ForkVerificationConfig{
+	// Get RPC URLs from environment variables with defaults
+	networks := []NetworkConfig{
 		{
-			RPCURL:     "http://localhost:8545",
+			Name:       "Sepolia",
+			RPCURL:     getEnvWithDefault("SEPOLIA_RPC_URL", "http://localhost:8545"),
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
-			ChainName:  "ethereum",
-			ChainID:    11155111, // Sepolia fork
 		},
 		{
-			RPCURL:     "http://localhost:8546",
+			Name:       "Optimism Sepolia",
+			RPCURL:     getEnvWithDefault("OPTIMISM_RPC_URL", "http://localhost:8546"),
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
-			ChainName:  "optimism",
-			ChainID:    11155420, // Optimism Sepolia fork
 		},
 		{
-			RPCURL:     "http://localhost:8547",
+			Name:       "Arbitrum Sepolia",
+			RPCURL:     getEnvWithDefault("ARBITRUM_RPC_URL", "http://localhost:8547"),
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
-			ChainName:  "arbitrum",
-			ChainID:    421614, // Arbitrum sepolia fork
 		},
 		{
-			RPCURL:     "http://localhost:8548",
+			Name:       "Base Sepolia",
+			RPCURL:     getEnvWithDefault("BASE_RPC_URL", "http://localhost:8548"),
 			PrivateKey: os.Getenv("PRIVATE_KEY"),
-			ChainName:  "base",
-			ChainID:    84532, // Base mainnet fork
 		},
 	}
 
-	// Create fork verification manager
-	forkManager := deployer.NewForkVerificationManager(forkConfigs)
+	// Get Hyperlane address from environment
+	hyperlaneAddress := getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")
 
-	// Verify pre-deployed contracts
-	if err := forkManager.VerifyPreDeployedContracts(); err != nil {
-		log.Fatalf("❌ Failed to verify contracts: %v", err)
+	for _, network := range networks {
+		fmt.Printf("🔍 Verifying Hyperlane7683 on %s...\n", network.Name)
+		fmt.Printf("   RPC URL: %s\n", network.RPCURL)
+		fmt.Printf("   Contract Address: %s\n", hyperlaneAddress)
+
+		client, err := ethclient.Dial(network.RPCURL)
+		if err != nil {
+			fmt.Printf("   ❌ Failed to connect: %v\n", err)
+			continue
+		}
+
+		// Check if contract exists
+		code, err := client.CodeAt(context.Background(), common.HexToAddress(hyperlaneAddress), nil)
+		if err != nil {
+			fmt.Printf("   ❌ Failed to get contract code: %v\n", err)
+			continue
+		}
+
+		if len(code) == 0 {
+			fmt.Printf("   ❌ Contract not deployed or no code at address\n")
+		} else {
+			fmt.Printf("   ✅ Contract deployed")
+		}
+
+		client.Close()
 	}
+}
 
-	// Get contract addresses
-	addresses := forkManager.GetContractAddresses()
-
-	log.Printf("📋 Contract addresses:")
-	for chainName, address := range addresses {
-		log.Printf("   %s: %s", chainName, address.Hex())
+// getEnvWithDefault gets an environment variable with a default fallback
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-
-	log.Printf("🎉 All pre-deployed contracts verified successfully!")
-	log.Printf("💡 These contracts are ready to use for intent solving!")
+	return defaultValue
 }

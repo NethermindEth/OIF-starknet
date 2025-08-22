@@ -40,7 +40,7 @@ var networks = func() []struct {
 		if networkName == "Starknet Sepolia" {
 			continue
 		}
-		
+
 		networkConfig := config.Networks[networkName]
 		networks = append(networks, struct {
 			name string
@@ -391,8 +391,8 @@ func setAllowances(client *ethclient.Client, aliceKey, bobKey, solverKey *ecdsa.
 		return fmt.Errorf("failed to get chain ID: %w", err)
 	}
 
-	// Get Hyperlane address from centralized config
-	hyperlaneAddress, err := config.GetHyperlaneAddress("Base Sepolia") // Use Base Sepolia as default
+	// Get Hyperlane address from centralized config for the current network
+	hyperlaneAddress, err := config.GetHyperlaneAddress(networkName)
 	if err != nil {
 		return fmt.Errorf("failed to get Hyperlane address: %w", err)
 	}
@@ -504,8 +504,8 @@ func verifyBalancesAndAllowances(client *ethclient.Client, aliceKey, bobKey, sol
 	// Expected balance after funding
 	expectedBalance := new(big.Int).Mul(big.NewInt(100000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 100,000 tokens
 
-	// Get Hyperlane address from centralized config
-	hyperlaneAddress, err := config.GetHyperlaneAddress("Base Sepolia") // Use Base Sepolia as default
+	// Get Hyperlane address from centralized config for the current network
+	hyperlaneAddress, err := config.GetHyperlaneAddress(networkName)
 	if err != nil {
 		return fmt.Errorf("failed to get Hyperlane address: %w", err)
 	}
