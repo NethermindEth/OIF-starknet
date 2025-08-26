@@ -40,6 +40,17 @@ func getEnvUint64(key string, defaultValue uint64) uint64 {
 	return defaultValue
 }
 
+// getEnvInt gets an environment variable as int with a default fallback
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		var result int
+		if _, err := fmt.Sscanf(value, "%d", &result); err == nil {
+			return result
+		}
+	}
+	return defaultValue
+}
+
 // parseUint64 parses a string to uint64
 func parseUint64(s string) (uint64, error) {
 	var result uint64
@@ -57,9 +68,9 @@ var Networks = map[string]NetworkConfig{
 		HyperlaneDomain:    getEnvUint64("SEPOLIA_DOMAIN_ID", 11155111),
 		ForkStartBlock:     getEnvUint64("SEPOLIA_SOLVER_START_BLOCK", 8319000),
 		SolverStartBlock:   getEnvUint64("SEPOLIA_SOLVER_START_BLOCK", 8319000),
-		PollInterval:       1000,
-		ConfirmationBlocks: 0,
-		MaxBlockRange:      500,
+		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
 	"Optimism Sepolia": {
 		Name:               "Optimism Sepolia",
@@ -69,9 +80,9 @@ var Networks = map[string]NetworkConfig{
 		HyperlaneDomain:    getEnvUint64("OPTIMISM_DOMAIN_ID", 11155420),
 		ForkStartBlock:     getEnvUint64("OPTIMISM_SOLVER_START_BLOCK", 27370000),
 		SolverStartBlock:   getEnvUint64("OPTIMISM_SOLVER_START_BLOCK", 27370000),
-		PollInterval:       1000,
-		ConfirmationBlocks: 0,
-		MaxBlockRange:      500,
+		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
 	"Arbitrum Sepolia": {
 		Name:               "Arbitrum Sepolia",
@@ -81,9 +92,9 @@ var Networks = map[string]NetworkConfig{
 		HyperlaneDomain:    getEnvUint64("ARBITRUM_DOMAIN_ID", 421614),
 		ForkStartBlock:     getEnvUint64("ARBITRUM_SOLVER_START_BLOCK", 138020000),
 		SolverStartBlock:   getEnvUint64("ARBITRUM_SOLVER_START_BLOCK", 138020000),
-		PollInterval:       1000,
-		ConfirmationBlocks: 0,
-		MaxBlockRange:      500,
+		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
 	"Base Sepolia": {
 		Name:               "Base Sepolia",
@@ -93,21 +104,21 @@ var Networks = map[string]NetworkConfig{
 		HyperlaneDomain:    getEnvUint64("BASE_DOMAIN_ID", 84532),
 		ForkStartBlock:     getEnvUint64("BASE_SOLVER_START_BLOCK", 25380000),
 		SolverStartBlock:   getEnvUint64("BASE_SOLVER_START_BLOCK", 25380000),
-		PollInterval:       1000,
-		ConfirmationBlocks: 0,
-		MaxBlockRange:      500,
+		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
 	"Starknet Sepolia": {
 		Name:               "Starknet Sepolia",
 		RPCURL:             getEnvWithDefault("STARKNET_RPC_URL", "http://localhost:5050"),
 		ChainID:            getEnvUint64("STARKNET_CHAIN_ID", 23448591),
-		HyperlaneAddress:   common.Address{}, // Will be populated after deployment
+		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")), // Can be set manually via .env, but deployment state takes precedence
 		HyperlaneDomain:    getEnvUint64("STARKNET_DOMAIN_ID", 23448591),
 		ForkStartBlock:     getEnvUint64("STARKNET_SOLVER_START_BLOCK", 1530000),
 		SolverStartBlock:   getEnvUint64("STARKNET_SOLVER_START_BLOCK", 1530000),
-		PollInterval:       2000,
-		ConfirmationBlocks: 0,
-		MaxBlockRange:      100,
+		PollInterval:       getEnvInt("STARKNET_POLL_INTERVAL_MS", getEnvInt("POLL_INTERVAL_MS", 2000)),    // Starknet-specific override or global
+		ConfirmationBlocks: getEnvUint64("STARKNET_CONFIRMATION_BLOCKS", 0),                                // Starknet-specific override
+		MaxBlockRange:      getEnvUint64("STARKNET_MAX_BLOCK_RANGE", getEnvUint64("MAX_BLOCK_RANGE", 100)), // Starknet-specific override or global
 	},
 }
 

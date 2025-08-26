@@ -13,36 +13,36 @@ help:
 	@echo "  lint     - Run linter"
 	@echo ""
 	@echo "Network Setup:"
-	@echo "  setup-forks              - Setup all forks (EVM and Starknet in parallel)"
-	@echo "  setup-evm-forks          - Setup EVM forks (verify + setup contracts + register routers)"
-	@echo "  setup-starknet-fork      - Setup Starknet fork (declare + deploy + setup + register routers)"
+	@echo "  setup-forks              - Setup all forks (EVM and Starknet)"
+	@echo "  setup-evm-forks          - Setup EVM forks"
+	@echo "  setup-starknet-fork      - Setup Starknet fork"
 	@echo ""
 	@echo "Network Management:"
-	@echo "  start-networks           - Start all testnet forks with color-coded logging"
+	@echo "  start-networks           - Start all testnet forks with logging"
 	@echo "  kill-networks            - Stop all running networks"
 	@echo ""
 	@echo "EVM Network Setup:"
-	@echo "  setup-evm-contracts      - Deploy ERC20 tokens to all forked EVM networks"
-	@echo "  verify-evm-hyperlane     - Verify pre-deployed Hyperlane7683 contracts on EVM networks"
-	@echo "  register-evm-routers     - Register remote routers/gas on EVM forks (impersonated owner)"
+	@echo "  setup-evm-contracts      - Deploy ERC20 tokens to all forked EVM networks and fund accounts"
+	@echo "  verify-evm-hyperlane     - Verify pre-deployed Hyperlane7683 contracts on each EVM network"
+	@echo "  register-evm-routers     - Register starknet domain each EVM hyperlane contract (impersonated owner)"
 	@echo ""
 	@echo "Starknet Network Setup:"
 	@echo "  declare-sn-hyperlane7683 - Declare Hyperlane7683 contract on Starknet"
 	@echo "  declare-sn-mock-erc20    - Declare MockERC20 contract on Starknet"
 	@echo "  deploy-sn-hyperlane7683  - Deploy Hyperlane7683 contract to Starknet"
 	@echo "  deploy-sn-mock-erc20     - Deploy MockERC20 tokens to Starknet"
-	@echo "  setup-starknet-contracts - Fund users and set allowances on Starknet"
-	@echo "  register-sn-routers      - Register EVM routers/gas on Starknet"
+	@echo "  setup-starknet-contracts - Fund Starknet users"
+	@echo "  register-sn-routers      - Register EVM domains on Starknet"
 	@echo ""
 	@echo "Order Management:"
-	@echo "  open-random-evm-order        - Open random order on EVM (to another EVM chain)"
-	@echo "  open-random-evm-order-to-sn  - Open random order from EVM to Starknet"
-	@echo "  open-random-sn-order         - Open random order from Starknet to a random EVM"
+	@echo "  open-random-evm-order    - Open random order on an EVM chain (to fill on another EVM chain)"
+	@echo "  open-random-evm-sn-order - Open random order from an EVM chain to Starknet"
+	@echo "  open-random-sn-order     - Open random order from Starknet to a random EVM chain"
 	@echo ""
 	@echo "Default Order Commands (for debugging - identical data except nonces):"
-	@echo "  default-evm-evm-order        - Open default EVM→EVM order (Nonce: 1)"
-	@echo "  default-evm-starknet-order   - Open default EVM→Starknet order (Nonce: 2)"
-	@echo "  default-starknet-evm-order   - Open default Starknet→EVM order (Nonce: 3)"
+	@echo "  default-evm-order                   - Open default EVM→EVM order"
+	@echo "  default-evm-sn-order                - Open default EVM→Starknet order"
+	@echo "  default-sn-order                    - Open default Starknet→EVM order"
 
 # Install dependencies
 deps:
@@ -114,20 +114,6 @@ deploy-sn-mock-erc20: build-deploy-mock-erc20
 setup-starknet-contracts: build-setup-starknet-contracts
 	./bin/setup-starknet-contracts
 
-# Open a basic hardcoded test order on EVM
-open-basic-evm-order: build-open-order
-	./bin/open-order basic
-
-# Default order commands for debugging (identical data except nonces)
-default-evm-evm-order: build-open-order
-	./bin/open-order default-evm-evm
-
-default-evm-starknet-order: build-open-order
-	./bin/open-order default-evm-sn
-
-default-starknet-evm-order: build-open-starknet-order
-	./bin/open-starknet-order default-sn-evm
-
 # Build helper tools
 build-register-evm-routers:
 	go build -o bin/register-evm-routers ./cmd/setup-forks/evm/setup-contracts/register-routers
@@ -135,11 +121,20 @@ build-register-evm-routers:
 build-register-sn-routers:
 	go build -o bin/register-sn-routers ./cmd/setup-forks/starknet/setup-contracts/register_routers
 
-# Fix open commands (ensure random selections match requirements)
-open-random-evm-order: build-open-order
-	./bin/open-order random
+# Default order commands for debugging (identical data except nonces)
+default-evm-order: build-open-order
+	./bin/open-order default-evm-evm
 
-open-random-evm-order-to-sn: build-open-order
+default-evm-sn-order: build-open-order
+	./bin/open-order default-evm-sn
+
+default-sn-order: build-open-starknet-order
+	./bin/open-starknet-order default
+
+open-random-evm-order: build-open-order
+	./bin/open-order random-to-evm
+
+open-random-evm-sn-order: build-open-order
 	./bin/open-order random-to-sn
 
 open-random-sn-order: build-open-starknet-order

@@ -64,11 +64,10 @@ func main() {
 	}
 
 	aliceKeyHex := os.Getenv("ALICE_PRIVATE_KEY")
-	bobKeyHex := os.Getenv("BOB_PRIVATE_KEY")
 	solverKeyHex := os.Getenv("SOLVER_PRIVATE_KEY")
 
-	if aliceKeyHex == "" || bobKeyHex == "" || solverKeyHex == "" {
-		log.Fatal("ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, and SOLVER_PRIVATE_KEY environment variables are required")
+	if aliceKeyHex == "" || solverKeyHex == "" {
+		log.Fatal("ALICE_PRIVATE_KEY and SOLVER_PRIVATE_KEY environment variables are required")
 	}
 
 	// Parse deployer private key
@@ -77,15 +76,10 @@ func main() {
 		log.Fatalf("Failed to parse deployer private key: %v", err)
 	}
 
-	// Parse test user private keys
+	// Parse private keys for Alice (opens orders) and Solver (fills orders)
 	aliceKey, err := ethutil.ParsePrivateKey(aliceKeyHex)
 	if err != nil {
 		log.Fatalf("Failed to parse Alice private key: %v", err)
-	}
-
-	bobKey, err := ethutil.ParsePrivateKey(bobKeyHex)
-	if err != nil {
-		log.Fatalf("Failed to parse Bob private key: %v", err)
 	}
 
 	solverKey, err := ethutil.ParsePrivateKey(solverKeyHex)
@@ -127,21 +121,21 @@ func main() {
 			fmt.Printf("   💾 Deployment state saved for %s\n", network.name)
 		}
 
-		// Fund test users
-		if err := fundUsers(client, deployerKey, aliceKey, bobKey, solverKey, orcaCoinAddress, dogCoinAddress, network.name); err != nil {
+		// Fund both Alice (order creator) and Solver (order filler)
+		if err := fundUsers(client, deployerKey, aliceKey, solverKey, orcaCoinAddress, dogCoinAddress, network.name); err != nil {
 			fmt.Printf("   ❌ Failed to fund users: %v\n", err)
 			continue
 		}
 
-		// Set allowances for Hyperlane7683
-		if err := setAllowances(client, aliceKey, bobKey, solverKey, orcaCoinAddress, dogCoinAddress, network.name); err != nil {
+		// Set allowances for both Alice and Solver
+		if err := setAllowances(client, aliceKey, orcaCoinAddress, dogCoinAddress, network.name); err != nil {
 			fmt.Printf("   ❌ Failed to set allowances: %v\n", err)
 			continue
 		}
 
-		// Verify balances and allowances after everything is set
+		// Verify balances and allowances for both users
 		fmt.Printf("   🔍 Verifying balances and allowances...\n")
-		if err := verifyBalancesAndAllowances(client, aliceKey, bobKey, solverKey, orcaCoinAddress, dogCoinAddress, network.name); err != nil {
+		if err := verifyBalancesAndAllowances(client, aliceKey, solverKey, orcaCoinAddress, dogCoinAddress, network.name); err != nil {
 			fmt.Printf("   ❌ Verification failed: %v\n", err)
 			continue
 		}
@@ -153,9 +147,10 @@ func main() {
 
 	fmt.Printf("\n🎯 All networks configured!\n")
 	fmt.Printf("   • OrcaCoin and DogCoin deployed to all networks\n")
-	fmt.Printf("   • Test users funded with tokens\n")
+	fmt.Printf("   • Alice funded with tokens (to open orders)\n")
+	fmt.Printf("   • Solver funded with tokens (to fill orders)\n")
 	fmt.Printf("   • Allowances set for Hyperlane7683\n")
-	fmt.Printf("   • Ready to open orders!\n")
+	fmt.Printf("   • Ready for Alice to open orders and Solver to fill them!\n")
 }
 
 func deployERC20(client *ethclient.Client, privateKey *ecdsa.PrivateKey, symbol, networkName string) (common.Address, error) {
@@ -252,7 +247,7 @@ func deployERC20(client *ethclient.Client, privateKey *ecdsa.PrivateKey, symbol,
 	return address, nil
 }
 
-func fundUsers(client *ethclient.Client, deployerKey, aliceKey, bobKey, solverKey *ecdsa.PrivateKey, orcaCoinAddress, dogCoinAddress common.Address, networkName string) error {
+func fundUsers(client *ethclient.Client, deployerKey, aliceKey, solverKey *ecdsa.PrivateKey, orcaCoinAddress, dogCoinAddress common.Address, networkName string) error {
 	fmt.Printf("   💰 Funding test users...\n")
 
 	// Get the ERC20 contract configuration
@@ -282,13 +277,12 @@ func fundUsers(client *ethclient.Client, deployerKey, aliceKey, bobKey, solverKe
 
 	fmt.Printf("     💰 Deployer has initial supply, distributing to users...\n")
 
-	// Distribute tokens to test users
+	// Distribute tokens to Alice (opens orders) and Solver (fills orders)
 	users := []struct {
 		name string
 		key  *ecdsa.PrivateKey
 	}{
 		{"Alice", aliceKey},
-		{"Bob", bobKey},
 		{"Solver", solverKey},
 	}
 
@@ -373,7 +367,7 @@ func transferTokens(client *ethclient.Client, auth *bind.TransactOpts, tokenAddr
 	return nil
 }
 
-func setAllowances(client *ethclient.Client, aliceKey, bobKey, solverKey *ecdsa.PrivateKey, orcaCoinAddress, dogCoinAddress common.Address, networkName string) error {
+func setAllowances(client *ethclient.Client, aliceKey *ecdsa.PrivateKey, orcaCoinAddress, dogCoinAddress common.Address, networkName string) error {
 	fmt.Printf("   🔐 Setting allowances for Hyperlane7683...\n")
 
 	// Get the ERC20 contract configuration
@@ -397,14 +391,12 @@ func setAllowances(client *ethclient.Client, aliceKey, bobKey, solverKey *ecdsa.
 		return fmt.Errorf("failed to get Hyperlane address: %w", err)
 	}
 
-	// Users to set allowances for
+	// Users to set allowances for (Alice opens orders, Solver fills orders)
 	users := []struct {
 		name string
 		key  *ecdsa.PrivateKey
 	}{
 		{"Alice", aliceKey},
-		{"Bob", bobKey},
-		{"Solver", solverKey},
 	}
 
 	// Set unlimited allowance for each user
@@ -499,7 +491,7 @@ func approveUnlimited(client *ethclient.Client, auth *bind.TransactOpts, tokenAd
 }
 
 // verifyBalancesAndAllowances verifies that users have the expected balances and allowances
-func verifyBalancesAndAllowances(client *ethclient.Client, aliceKey, bobKey, solverKey *ecdsa.PrivateKey, orcaCoinAddress, dogCoinAddress common.Address, networkName string) error {
+func verifyBalancesAndAllowances(client *ethclient.Client, aliceKey, solverKey *ecdsa.PrivateKey, orcaCoinAddress, dogCoinAddress common.Address, networkName string) error {
 
 	// Expected balance after funding
 	expectedBalance := new(big.Int).Mul(big.NewInt(100000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 100,000 tokens
@@ -510,13 +502,12 @@ func verifyBalancesAndAllowances(client *ethclient.Client, aliceKey, bobKey, sol
 		return fmt.Errorf("failed to get Hyperlane address: %w", err)
 	}
 
-	// Users to verify
+	// Users to verify (Alice opens orders, Solver fills orders)
 	users := []struct {
 		name string
 		key  *ecdsa.PrivateKey
 	}{
 		{"Alice", aliceKey},
-		{"Bob", bobKey},
 		{"Solver", solverKey},
 	}
 

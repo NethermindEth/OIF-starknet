@@ -26,13 +26,18 @@ type Output struct {
 	Amount    *big.Int       `json:"amount"`    // Amount of tokens
 	Recipient common.Address `json:"recipient"` // Address to receive tokens
 	ChainID   *big.Int       `json:"chainId"`   // Destination chain ID
+	// For Starknet destinations, preserve the original 32-byte addresses
+	OriginalToken     [32]byte `json:"originalToken,omitempty"`     // Original 32-byte token address
+	OriginalRecipient [32]byte `json:"originalRecipient,omitempty"` // Original 32-byte recipient address
 }
 
 // FillInstruction represents instructions to parameterize each leg of the fill
 type FillInstruction struct {
 	DestinationChainID *big.Int       `json:"destinationChainId"` // Chain to fill on
-	DestinationSettler common.Address `json:"destinationSettler"` // Contract address to fill on
+	DestinationSettler common.Address `json:"destinationSettler"` // Contract address to fill on (20-byte for EVM compatibility)
 	OriginData         []byte         `json:"originData"`         // Data needed by destinationSettler
+	// For Starknet destinations, preserve the original 32-byte address
+	OriginalDestinationSettler [32]byte `json:"originalDestinationSettler,omitempty"` // Original 32-byte settler address
 }
 
 // ResolvedCrossChainOrder contains the order details
@@ -44,7 +49,7 @@ type ResolvedCrossChainOrder struct {
 	OrderID          [32]byte          `json:"orderId"`          // Unique order identifier
 	MaxSpent         []Output          `json:"maxSpent"`         // Max outputs filler will send
 	MinReceived      []Output          `json:"minReceived"`      // Min outputs filler must receive
-	FillInstructions []FillInstruction `json:"fillInstructions"` // Instructions for each fill leg
+	FillInstructions []FillInstruction `json:"fillInstructions"` // Instructions for each leg
 }
 
 // IntentData contains the data needed to fill an intent

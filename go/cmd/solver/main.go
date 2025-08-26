@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/NethermindEth/oif-starknet/go/internal"
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,15 +30,37 @@ func main() {
 	logger := setupLogger(cfg)
 	logger.Info("🙍 Intent Solver 📝")
 
+	// Create ethereum client - use any EVM chain from config for the base client
+	// The solver manager will create specific clients for each chain as needed
+	var ethClient *ethclient.Client
+	for chainName, network := range config.Networks {
+		if chainName != "Starknet Sepolia" { // Use any EVM chain
+			ethClient, err = ethclient.Dial(network.RPCURL)
+			if err != nil {
+				logger.Fatalf("Failed to connect to %s at %s: %v", chainName, network.RPCURL, err)
+			}
+			logger.Infof("📡 Connected to %s", chainName)
+			break
+		}
+	}
+	
+	if ethClient == nil {
+		logger.Fatalf("❌ No EVM chains found in config")
+	}
+
 	// Create solver manager
-	solverManager := internal.NewSolverManager(cfg, logger)
+	solverManager := internal.NewSolverManager(ethClient)
 
 	// Handle shutdown gracefully
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// Create context for initialization
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Initialize solvers
-	if err := solverManager.InitializeSolvers(); err != nil {
+	if err := solverManager.InitializeSolvers(ctx); err != nil {
 		logger.Fatalf("❌ Failed to initialize solvers: %v", err)
 	}
 
@@ -44,7 +68,8 @@ func main() {
 	<-sigChan
 	logger.Info("🔄 Received shutdown signal, shutting down...")
 
-	// Shutdown gracefully
+	// Cancel context and shutdown gracefully
+	cancel()
 	solverManager.Shutdown()
 	logger.Info("✅ Solver shutdown complete")
 }

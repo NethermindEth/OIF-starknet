@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/NethermindEth/oif-starknet/go/internal/config"
 	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
 	"github.com/NethermindEth/oif-starknet/go/internal/listener"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
@@ -139,11 +140,17 @@ func (l *starknetListener) catchUpHistoricalBlocks(ctx context.Context, handler 
 		if end > toBlock {
 			end = toBlock
 		}
-		if err := l.processBlockRange(ctx, start, end, handler); err != nil {
+		newLast, err := l.processBlockRange(ctx, start, end, handler)
+		if err != nil {
 			return fmt.Errorf("failed to process historical blocks %d-%d: %v", start, end, err)
 		}
+		l.lastProcessedBlock = newLast
+		if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
+			fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", l.config.ChainName, err)
+		} else {
+			fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, l.config.ChainName)
+		}
 	}
-	l.lastProcessedBlock = toBlock
 	fmt.Printf("✅ Historical block processing completed for %s\n", l.config.ChainName)
 	return nil
 }
@@ -186,28 +193,31 @@ func (l *starknetListener) processCurrentBlockRange(ctx context.Context, handler
 		fmt.Printf("⚠️  Invalid block range for %s: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
 		return nil
 	}
-	if err := l.processBlockRange(ctx, fromBlock, toBlock, handler); err != nil {
+	newLast, err := l.processBlockRange(ctx, fromBlock, toBlock, handler)
+	if err != nil {
 		return fmt.Errorf("failed to process blocks %d-%d: %v", fromBlock, toBlock, err)
 	}
-	l.lastProcessedBlock = toBlock
-	if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, toBlock); err != nil {
+	l.lastProcessedBlock = newLast
+	if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 		fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", l.config.ChainName, err)
 	} else {
-		fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", toBlock, l.config.ChainName)
+		fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, l.config.ChainName)
 	}
 	return nil
 }
 
-func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toBlock uint64, handler listener.EventHandler) error {
+// processBlockRange processes events in [fromBlock, toBlock] and returns the highest contiguous block fully processed
+func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toBlock uint64, handler listener.EventHandler) (uint64, error) {
 	if fromBlock > toBlock {
 		fmt.Printf("⚠️  Invalid block range (%s) in processBlockRange: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
-		return nil
+		return l.lastProcessedBlock, nil
 	}
 
 	pageSize := 128
-	processed := 0
 	cursor := ""
+	newLast := l.lastProcessedBlock
 
+	retryCount := 0
 	for {
 		fb := fromBlock
 		tb := toBlock
@@ -226,105 +236,85 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 		res, err := l.provider.Events(ctx, input)
 		if err != nil {
-			return fmt.Errorf("failed to fetch events: %w", err)
+			return newLast, fmt.Errorf("failed to fetch events: %w", err)
 		}
 
 		if len(res.Events) > 0 {
 			fmt.Printf("📩 Found %d events on %s (blocks %d-%d)\n", len(res.Events), l.config.ChainName, fromBlock, toBlock)
 		}
 
+		// group by block
+		byBlock := make(map[uint64][]rpc.EmittedEvent)
 		for _, ev := range res.Events {
-			blockNum := ev.BlockNumber
-
-			// Only handle Open events (first key == Open selector)
-			isOpen := false
-			if len(ev.Event.Keys) >= 1 {
-				k0 := ev.Event.Keys[0].Bytes()
-				openSel := l.openEventSelector.Bytes()
-				k0b := k0[:]
-				openb := openSel[:]
-				if bytes.Equal(k0b, openb) {
-					isOpen = true
-				}
-			}
-			if !isOpen {
-				continue
-			}
-
-			// CRITICAL: Log the raw Cairo event data before any processing
-			fmt.Printf("   🧪 Raw Cairo Event Data Analysis:\n")
-			fmt.Printf("     • Event Keys count: %d\n", len(ev.Event.Keys))
-			for i, key := range ev.Event.Keys {
-				keyBytes := key.Bytes()
-				fmt.Printf("     • Key[%d]: %s (hex: %s)\n", i, key.String(), hex.EncodeToString(keyBytes[:]))
-			}
-			fmt.Printf("     • Event Data felts count: %d\n", len(ev.Event.Data))
-			for i, felt := range ev.Event.Data {
-				feltBytes := felt.Bytes()
-				fmt.Printf("     • Data[%d]: %s (hex: %s)\n", i, felt.String(), hex.EncodeToString(feltBytes[:]))
-			}
-
-			// Extract order_id from event keys: [selector, high, low]
-			// Cairo stores u256 as [high, low] where high is the first 16 bytes
-			orderIDHex := ""
-			if len(ev.Event.Keys) >= 3 {
-				highArr := ev.Event.Keys[1].Bytes() // First 16 bytes
-				lowArr := ev.Event.Keys[2].Bytes()  // Last 16 bytes
-				high := new(big.Int).SetBytes(highArr[:])
-				low := new(big.Int).SetBytes(lowArr[:])
-				orderU256 := new(big.Int).Add(high, new(big.Int).Lsh(low, 128))
-
-				// CRITICAL FIX: Cairo uses little-endian, EVM uses big-endian
-				// We need to reverse the byte order to match what the EVM contract expects
-				orderBytes := orderU256.Bytes()
-				reversedBytes := make([]byte, len(orderBytes))
-				for i := 0; i < len(orderBytes); i++ {
-					reversedBytes[i] = orderBytes[len(orderBytes)-1-i]
-				}
-				reversedOrderID := new(big.Int).SetBytes(reversedBytes)
-				orderIDHex = fmt.Sprintf("0x%x", reversedOrderID)
-
-				fmt.Printf("   🔄 Order ID Endianness Fix:\n")
-				fmt.Printf("     • Original Cairo order ID: 0x%x\n", orderU256)
-				fmt.Printf("     • Reversed endianness: 0x%x\n", reversedOrderID)
-				fmt.Printf("     • Final order ID: %s\n", orderIDHex)
-			}
-
-			ro, err := decodeResolvedOrderFromFelts(ev.Event.Data)
-			if err != nil {
-				fmt.Printf("❌ Failed to decode ResolvedCrossChainOrder: %v\n", err)
-				continue
-			}
-
-			parsedArgs := types.ParsedArgs{
-				OrderID:       orderIDHex,
-				SenderAddress: ro.User.Hex(),
-				Recipients:    []types.Recipient{{DestinationChainName: l.config.ChainName, RecipientAddress: "*"}},
-				ResolvedOrder: ro,
-			}
-
-			fmt.Printf("📜 Open order: OrderID=%s, Chain=%s\n", parsedArgs.OrderID, l.config.ChainName)
-			fmt.Printf("   📊 Order details: User=%s, OriginChainID=%s, FillDeadline=%d\n", ro.User.Hex(), ro.OriginChainID.String(), ro.FillDeadline)
-			fmt.Printf("   📦 Arrays: MaxSpent=%d, MinReceived=%d, FillInstructions=%d\n", len(ro.MaxSpent), len(ro.MinReceived), len(ro.FillInstructions))
-			if err := handler(parsedArgs, l.config.ChainName, blockNum); err != nil {
-				fmt.Printf("❌ Failed to handle event: %v\n", err)
-				continue
-			}
-			processed++
+			byBlock[ev.BlockNumber] = append(byBlock[ev.BlockNumber], ev)
 		}
 
-		// Pagination termination: if no continuation token, we're done
-		if res.ContinuationToken == "" {
+		// Iterate blocks in range
+		blockFailed := false
+		for b := fromBlock; b <= toBlock; b++ {
+			if evs, ok := byBlock[b]; ok {
+				for _, ev := range evs {
+					// Only handle Open events (first key == Open selector)
+					isOpen := false
+					if len(ev.Event.Keys) >= 1 {
+						k0 := ev.Event.Keys[0].Bytes()
+						openSel := l.openEventSelector.Bytes()
+						k0b := k0[:]
+						openb := openSel[:]
+						if bytes.Equal(k0b, openb) {
+							isOpen = true
+						}
+					}
+					if !isOpen {
+						continue
+					}
+
+					ro, derr := decodeResolvedOrderFromFelts(ev.Event.Data)
+					if derr != nil {
+						fmt.Printf("❌ Failed to decode ResolvedCrossChainOrder: %v\n", derr)
+						blockFailed = true
+						continue
+					}
+
+					parsedArgs := types.ParsedArgs{
+						OrderID:       "", // leave as empty for now; filler will use origin_data hashing on EVM side
+						SenderAddress: ro.User.Hex(),
+						Recipients:    []types.Recipient{{DestinationChainName: l.config.ChainName, RecipientAddress: "*"}},
+						ResolvedOrder: ro,
+					}
+
+					settled, herr := handler(parsedArgs, l.config.ChainName, b)
+					if herr != nil {
+						fmt.Printf("❌ Failed to handle event: %v\n", herr)
+						blockFailed = true
+						continue
+					}
+					
+					// Track settlement status (for now, assume all events are processed)
+					// In a more sophisticated implementation, we'd use the actual settlement status
+					_ = settled
+				}
+			}
+			if blockFailed {
+				break
+			}
+			newLast = b
+		}
+
+		if !blockFailed {
 			break
 		}
+		retryCount++
+		if retryCount >= configObj().MaxRetries {
+			fmt.Printf("⏭️  Giving up after %d retries for range %d-%d\n", retryCount, fromBlock, toBlock)
+			break
+		}
+		fmt.Printf("🔁 Retry %d for range %d-%d\n", retryCount, fromBlock, toBlock)
+		time.Sleep(500 * time.Millisecond)
 		cursor = res.ContinuationToken
 	}
 
-	//if processed == 0 {
-	//	fmt.Printf("ℹ️  No relevant events on %s for blocks %d-%d\n", l.config.ChainName, fromBlock, toBlock)
-	//}
-
-	return nil
+	return newLast, nil
 }
 
 // --- Decoders ---
@@ -359,7 +349,14 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 		out.Token = readAddress()
 		out.Amount = readU256()
 		out.Recipient = readAddress()
-		out.ChainID = new(big.Int).SetUint64(uint64(readU32()))
+		chainDomain := readU32()
+		// Map domain to actual chain ID using config
+		if chainID, err := domainToChainID(chainDomain); err == nil {
+			out.ChainID = chainID
+		} else {
+			fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID for output, using domain as chain ID\n", chainDomain)
+			out.ChainID = new(big.Int).SetUint64(uint64(chainDomain))
+		}
 		return out
 	}
 	readOutputs := func() []types.Output {
@@ -372,7 +369,14 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 	}
 	readFillInstruction := func() types.FillInstruction {
 		fi := types.FillInstruction{}
-		fi.DestinationChainID = new(big.Int).SetUint64(uint64(readU32()))
+		destinationDomain := readU32()
+		// Map destination domain to actual chain ID using config
+		if chainID, err := domainToChainID(destinationDomain); err == nil {
+			fi.DestinationChainID = chainID
+		} else {
+			fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID, using domain as chain ID\n", destinationDomain)
+			fi.DestinationChainID = new(big.Int).SetUint64(uint64(destinationDomain))
+		}
 		fi.DestinationSettler = readAddress()
 
 		// COMPREHENSIVE: Parse all Cairo event data into structured variables
@@ -537,4 +541,15 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 	ro.MinReceived = readOutputs()
 	ro.FillInstructions = readFillInstructions()
 	return ro, nil
+}
+
+// domainToChainID maps a Hyperlane domain ID to its corresponding chain ID
+func domainToChainID(domain uint32) (*big.Int, error) {
+	// Search through all networks to find the one with matching HyperlaneDomain
+	for _, network := range config.Networks {
+		if network.HyperlaneDomain == uint64(domain) {
+			return big.NewInt(int64(network.ChainID)), nil
+		}
+	}
+	return nil, fmt.Errorf("no chain found for domain %d", domain)
 }

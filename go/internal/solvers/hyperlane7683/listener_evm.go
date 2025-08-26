@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/oif-starknet/go/internal/config"
 	contracts "github.com/NethermindEth/oif-starknet/go/internal/contracts"
 	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
 	"github.com/NethermindEth/oif-starknet/go/internal/listener"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
@@ -27,6 +30,9 @@ type evmListener struct {
 	lastProcessedBlock uint64
 	stopChan           chan struct{}
 	mu                 sync.RWMutex
+	// Add cooldown tracking for failed blocks
+	failedBlocks map[uint64]time.Time
+	failedMu     sync.RWMutex
 }
 
 func NewEVMListener(config *listener.ListenerConfig, rpcURL string) (listener.BaseListener, error) {
@@ -55,6 +61,7 @@ func NewEVMListener(config *listener.ListenerConfig, rpcURL string) (listener.Ba
 		contractAddress:    common.HexToAddress(config.ContractAddress),
 		lastProcessedBlock: lastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		failedBlocks:       make(map[uint64]time.Time),
 	}, nil
 }
 
@@ -98,7 +105,23 @@ func (l *evmListener) realEventLoop(ctx context.Context, handler listener.EventH
 	l.startPolling(ctx, handler)
 }
 
+// cleanupFailedBlocks removes expired cooldown entries
+func (l *evmListener) cleanupFailedBlocks() {
+	l.failedMu.Lock()
+	defer l.failedMu.Unlock()
+	
+	cutoff := time.Now().Add(-10 * time.Minute) // Remove entries older than 10 minutes
+	for block, failTime := range l.failedBlocks {
+		if failTime.Before(cutoff) {
+			delete(l.failedBlocks, block)
+		}
+	}
+}
+
 func (l *evmListener) processCurrentBlockRange(ctx context.Context, handler listener.EventHandler) error {
+	// Clean up old failed blocks periodically
+	l.cleanupFailedBlocks()
+	
 	currentBlock, err := l.client.BlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current block number: %v", err)
@@ -118,22 +141,27 @@ func (l *evmListener) processCurrentBlockRange(ctx context.Context, handler list
 		fmt.Printf("⚠️  Invalid block range for %s: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
 		return nil
 	}
-	if err := l.processBlockRange(ctx, fromBlock, toBlock, handler); err != nil {
+	newLast, err := l.processBlockRange(ctx, fromBlock, toBlock, handler)
+	if err != nil {
 		return fmt.Errorf("failed to process blocks %d-%d: %v", fromBlock, toBlock, err)
 	}
-	l.lastProcessedBlock = toBlock
-	if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, toBlock); err != nil {
+	
+	fmt.Printf("🔍 DEBUG %s: processBlockRange returned newLast=%d, current lastProcessedBlock=%d\n", l.config.ChainName, newLast, l.lastProcessedBlock)
+	
+	l.lastProcessedBlock = newLast
+	if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 		fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", l.config.ChainName, err)
 	} else {
-		fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", toBlock, l.config.ChainName)
+		fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, l.config.ChainName)
 	}
 	return nil
 }
 
-func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock uint64, handler listener.EventHandler) error {
+// processBlockRange processes logs in [fromBlock, toBlock] and returns the highest contiguous block fully processed
+func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock uint64, handler listener.EventHandler) (uint64, error) {
 	if fromBlock > toBlock {
 		fmt.Printf("⚠️  Invalid block range (%s) in processBlockRange: fromBlock (%d) > toBlock (%d), skipping\n", l.config.ChainName, fromBlock, toBlock)
-		return nil
+		return l.lastProcessedBlock, nil
 	}
 	query := ethereum.FilterQuery{
 		FromBlock: big.NewInt(int64(fromBlock)),
@@ -144,35 +172,135 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 	fmt.Printf("🔎 %s filter: addr=%s, topic0=%s, from=%d, to=%d\n", l.config.ChainName, l.contractAddress.Hex(), openEventTopic.Hex(), fromBlock, toBlock)
 	logs, err := l.client.FilterLogs(ctx, query)
 	if err != nil {
-		return fmt.Errorf("failed to filter logs: %v", err)
+		return l.lastProcessedBlock, fmt.Errorf("failed to filter logs: %v", err)
 	}
 	fmt.Printf("📩 %s logs found: %d\n", l.config.ChainName, len(logs))
 	if len(logs) > 0 {
 		fmt.Printf("📩 Found %d Open events on %s\n", len(logs), l.config.ChainName)
 	}
 
-	// Use generated binding to parse Open events
-	filterer, err := contracts.NewHyperlane7683Filterer(l.contractAddress, l.client)
-	if err != nil {
-		return fmt.Errorf("failed to bind filterer: %w", err)
+	// group logs by block
+	byBlock := make(map[uint64][]gethtypes.Log)
+	for _, lg := range logs {
+		byBlock[lg.BlockNumber] = append(byBlock[lg.BlockNumber], lg)
 	}
 
-	for _, lg := range logs {
-		event, err := filterer.ParseOpen(lg)
-		if err != nil {
-			fmt.Printf("❌ Failed to parse Open event: %v\n", err)
-			continue
+	// iterate blocks in order
+	newLast := l.lastProcessedBlock
+	maxRetries := config.GetDefaultNetwork() // placeholder to avoid unused import
+	_ = maxRetries
+	for b := fromBlock; b <= toBlock; b++ {
+		// Check if this block is in cooldown
+		l.failedMu.RLock()
+		if failTime, exists := l.failedBlocks[b]; exists {
+			if time.Since(failTime) < 5*time.Minute { // 5 minute cooldown
+				fmt.Printf("   ⏸️  Block %d in cooldown (failed at %v), skipping\n", b, failTime)
+				l.failedMu.RUnlock()
+				continue
+			} else {
+				// Remove expired cooldown
+				l.failedMu.RUnlock()
+				l.failedMu.Lock()
+				delete(l.failedBlocks, b)
+				l.failedMu.Unlock()
+			}
+		} else {
+			l.failedMu.RUnlock()
 		}
-		if err := l.handleParsedOpenEvent(*event, handler); err != nil {
-			fmt.Printf("❌ Failed to handle Open event: %v\n", err)
-			continue
+		
+		retryCount := 0
+		failed := false
+		events := byBlock[b]
+		
+		// Track which orders in this block are settled
+		blockOrders := len(events)
+		settledOrders := 0
+		
+		for {
+			blockFailed := false
+			settledOrders = 0 // Reset for retry
+			
+			for _, lg := range events {
+				// Use generated binding to parse Open events
+				filterer, ferr := contracts.NewHyperlane7683Filterer(l.contractAddress, l.client)
+				if ferr != nil {
+					return newLast, fmt.Errorf("failed to bind filterer: %w", ferr)
+				}
+				event, perr := filterer.ParseOpen(lg)
+				if perr != nil {
+					fmt.Printf("❌ Failed to parse Open event: %v\n", perr)
+					blockFailed = true
+					continue
+				}
+				
+				// Handle the event and track if it was settled
+				settled, herr := l.handleParsedOpenEvent(*event, handler)
+				if herr != nil {
+					fmt.Printf("❌ Failed to handle Open event: %v\n", herr)
+					blockFailed = true
+					continue
+				}
+				
+							// Track settlement status
+			if settled {
+				settledOrders++
+			} else {
+				// Log why the order wasn't settled to help debug
+				fmt.Printf("   ⚠️  Order %s not settled (rules may have rejected it)\n", common.BytesToHash(event.OrderId[:]).Hex())
+			}
+			}
+			
+			if !blockFailed {
+				break
+			}
+			retryCount++
+			if retryCount >= configObj().MaxRetries {
+				fmt.Printf("⏭️  Giving up on block %d after %d retries, adding to cooldown\n", b, retryCount)
+				// Add block to cooldown
+				l.failedMu.Lock()
+				l.failedBlocks[b] = time.Now()
+				l.failedMu.Unlock()
+				failed = true
+				break
+			}
+			fmt.Printf("🔁 Retry %d for block %d\n", retryCount, b)
+			time.Sleep(500 * time.Millisecond)
+		}
+		
+		if failed {
+			break
+		}
+		
+		// Only advance to this block if all orders were processed
+		if settledOrders == blockOrders {
+			newLast = b
+			fmt.Printf("   ✅ Block %d fully processed: %d/%d orders settled\n", b, settledOrders, blockOrders)
+		} else {
+			fmt.Printf("   ⚠️  Block %d partially processed: %d/%d orders settled, stopping here\n", b, settledOrders, blockOrders)
+			break
 		}
 	}
-	return nil
+	return newLast, nil
+}
+
+// configObj fetches the loaded config (simple singleton)
+var cfgSingleton *config.Config
+var cfgOnce sync.Once
+
+func configObj() *config.Config {
+	cfgOnce.Do(func() {
+		c, err := config.LoadConfig()
+		if err != nil {
+			fmt.Printf("⚠️  Failed to load config: %v (using defaults)\n", err)
+			c = &config.Config{MaxRetries: 5}
+		}
+		cfgSingleton = c
+	})
+	return cfgSingleton
 }
 
 // handleParsedOpenEvent converts a typed binding event into our internal ParsedArgs and dispatches the handler
-func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, handler listener.EventHandler) error {
+func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, handler listener.EventHandler) (bool, error) {
 	// Map ResolvedCrossChainOrder
 	ro := types.ResolvedCrossChainOrder{
 		User:             ev.ResolvedOrder.User,
@@ -186,11 +314,20 @@ func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, hand
 	}
 
 	for _, o := range ev.ResolvedOrder.MaxSpent {
+		// For Starknet destinations, store the original 32-byte addresses
+		if l.isStarknetChain(o.ChainId) {
+			fmt.Printf("   🔍 Original Starknet addresses (32 bytes):\n")
+			fmt.Printf("     • Token: 0x%x\n", o.Token)
+			fmt.Printf("     • Recipient: 0x%x\n", o.Recipient)
+		}
+		
 		ro.MaxSpent = append(ro.MaxSpent, types.Output{
-			Token:     bytes32ToAddress(o.Token),
-			Amount:    o.Amount,
-			Recipient: bytes32ToAddress(o.Recipient),
-			ChainID:   o.ChainId,
+			Token:            bytes32ToAddress(o.Token),
+			Amount:           o.Amount,
+			Recipient:        bytes32ToAddress(o.Recipient),
+			ChainID:          o.ChainId,
+			OriginalToken:    o.Token,     // Store original 32-byte address
+			OriginalRecipient: o.Recipient, // Store original 32-byte address
 		})
 	}
 	for _, o := range ev.ResolvedOrder.MinReceived {
@@ -203,9 +340,10 @@ func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, hand
 	}
 	for _, fi := range ev.ResolvedOrder.FillInstructions {
 		ro.FillInstructions = append(ro.FillInstructions, types.FillInstruction{
-			DestinationChainID: fi.DestinationChainId,
-			DestinationSettler: bytes32ToAddress(fi.DestinationSettler),
-			OriginData:         fi.OriginData,
+			DestinationChainID:         fi.DestinationChainId,
+			DestinationSettler:         bytes32ToAddress(fi.DestinationSettler),
+			OriginData:                 fi.OriginData,
+			OriginalDestinationSettler: fi.DestinationSettler, // ✅ Store original 32-byte address
 		})
 	}
 
@@ -228,6 +366,66 @@ func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, hand
 
 // bytes32ToAddress converts a left-padded bytes32 address into common.Address
 func bytes32ToAddress(b [32]byte) common.Address { return common.BytesToAddress(b[12:]) }
+
+// addressToBytes32 converts a common.Address to [32]byte (left-padded)
+func addressToBytes32(addr common.Address) [32]byte {
+	var result [32]byte
+	copy(result[12:], addr.Bytes())
+	return result
+}
+
+// chainAwareBytes32ToAddress converts bytes32 to address based on chain type
+// For Starknet chains, it preserves the full 32-byte address in a special format
+func chainAwareBytes32ToAddress(b [32]byte, chainID *big.Int) common.Address {
+	// For Starknet chains, we need to handle the full 32-byte address differently  
+	if isStarknetChainByID(chainID) {
+		// For Starknet, we'll encode the full 32-byte address into the 20-byte field
+		// by using a special encoding that can be decoded later
+		// We'll use the first 20 bytes of the Starknet address
+		var result [20]byte
+		copy(result[:], b[:20])
+		return common.BytesToAddress(result[:])
+	}
+	
+	// For EVM chains, use the standard left-padded conversion
+	return common.BytesToAddress(b[12:])
+}
+
+// getOriginalBytes32Address retrieves the original 32-byte address for Starknet chains
+// This is a temporary workaround until we fix the type system
+func getOriginalBytes32Address(encodedAddr common.Address, chainID *big.Int) [32]byte {
+	if isStarknetChainByID(chainID) {
+		// For Starknet, we need to reconstruct the full address
+		// This is a placeholder - in the real solution, we'd store the original bytes32
+		var result [32]byte
+		copy(result[:20], encodedAddr.Bytes())
+		// The remaining 12 bytes would come from the original event data
+		// For now, we'll use zeros as a placeholder
+		return result
+	}
+	
+	// For EVM chains, convert back to bytes32 (left-padded)
+	var result [32]byte
+	copy(result[12:], encodedAddr.Bytes())
+	return result
+}
+
+// Chain detection helper functions for listener
+func (l *evmListener) isStarknetChain(chainID *big.Int) bool {
+	return isStarknetChainByID(chainID)
+}
+
+// Global helper function for chain detection (used by multiple files)
+func isStarknetChainByID(chainID *big.Int) bool {
+	// Find any network with "Starknet" in the name that matches this chain ID
+	for networkName, network := range config.Networks {
+		if network.ChainID == chainID.Uint64() {
+			// Check if network name contains "Starknet" (case insensitive)
+			return strings.Contains(strings.ToLower(networkName), "starknet")
+		}
+	}
+	return false
+}
 
 func (l *evmListener) catchUpHistoricalBlocks(ctx context.Context, handler listener.EventHandler) error {
 	fmt.Printf("🔄 Catching up on (%s) historical blocks...\n", l.config.ChainName)
@@ -255,11 +453,12 @@ func (l *evmListener) catchUpHistoricalBlocks(ctx context.Context, handler liste
 		if end > toBlock {
 			end = toBlock
 		}
-		if err := l.processBlockRange(ctx, start, end, handler); err != nil {
+		newLast, err := l.processBlockRange(ctx, start, end, handler)
+		if err != nil {
 			return fmt.Errorf("failed to process historical blocks %d-%d: %v", start, end, err)
 		}
+		l.lastProcessedBlock = newLast
 	}
-	l.lastProcessedBlock = toBlock
 	fmt.Printf("✅ Historical block processing completed for %s\n", l.config.ChainName)
 	return nil
 }

@@ -170,6 +170,13 @@ func main() {
 		fmt.Printf("✅ Updated deployment state for %s\n", networkName)
 	}
 
+	// Update .env file with deployed address
+	if err := updateEnvFile("STARKNET_HYPERLANE_ADDRESS", deployedAddress.String()); err != nil {
+		fmt.Printf("⚠️  Failed to update .env file: %s\n", err)
+	} else {
+		fmt.Printf("✅ Updated .env file with STARKNET_HYPERLANE_ADDRESS=%s\n", deployedAddress.String())
+	}
+
 	// Save deployment info
 	saveDeploymentInfo(classHash, deployedAddress.String(), txHash.String(), salt.String(), networkName)
 }
@@ -269,4 +276,39 @@ func buildConstructorCalldata(permit2Addr, mailboxAddr, ownerAddr, hookAddr, ism
 	ism := toFelt(ismAddr)
 
 	return []*felt.Felt{permit2, mailbox, owner, hook, ism}
+}
+
+// updateEnvFile updates or adds an environment variable in the .env file
+func updateEnvFile(key, value string) error {
+	envFile := ".env"
+	
+	// Read existing .env file if it exists
+	var lines []string
+	if data, err := os.ReadFile(envFile); err == nil {
+		lines = strings.Split(string(data), "\n")
+	}
+	
+	// Look for existing key and update it
+	keyPrefix := key + "="
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, keyPrefix) {
+			lines[i] = keyPrefix + value
+			found = true
+			break
+		}
+	}
+	
+	// If key not found, add it
+	if !found {
+		lines = append(lines, keyPrefix + value)
+	}
+	
+	// Write back to .env file
+	content := strings.Join(lines, "\n")
+	if err := os.WriteFile(envFile, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write .env file: %w", err)
+	}
+	
+	return nil
 }

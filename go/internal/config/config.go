@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -16,10 +17,11 @@ type SolverConfig struct {
 
 // Config holds all configuration
 type Config struct {
-	Solvers    map[string]SolverConfig `json:"solvers"`
-	PrivateKey string                  `json:"privateKey"`
-	LogLevel   string                  `json:"logLevel"`
-	LogFormat  string                  `json:"logFormat"`
+	Solvers     map[string]SolverConfig `json:"solvers"`
+	PrivateKey  string                  `json:"privateKey"`
+	LogLevel    string                  `json:"logLevel"`
+	LogFormat   string                  `json:"logFormat"`
+	MaxRetries  int                     `json:"maxRetries"`
 }
 
 // Default solver configurations
@@ -46,6 +48,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("solvers", defaultSolvers)
 	viper.SetDefault("logLevel", "info")
 	viper.SetDefault("logFormat", "text")
+	viper.SetDefault("maxRetries", 5)
 
 	// Environment variables
 	viper.AutomaticEnv()
@@ -69,6 +72,12 @@ func LoadConfig() (*Config, error) {
 
 	if logFormat := os.Getenv("LOG_FORMAT"); logFormat != "" {
 		viper.Set("logFormat", logFormat)
+	}
+
+	if mr := os.Getenv("MAX_RETRIES"); mr != "" {
+		if n, err := strconv.Atoi(mr); err == nil {
+			viper.Set("maxRetries", n)
+		}
 	}
 
 	var config Config

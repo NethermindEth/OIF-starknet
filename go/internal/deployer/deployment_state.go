@@ -109,6 +109,8 @@ func UpdateNetworkState(networkName string, orcaCoinAddr, dogCoinAddr string) er
 
 // UpdateLastIndexedBlock updates the LastIndexedBlock for a specific network and saves to file
 func UpdateLastIndexedBlock(networkName string, newBlockNumber uint64) error {
+	fmt.Printf("🔍 DEBUG UpdateLastIndexedBlock called: network=%s, newBlock=%d\n", networkName, newBlockNumber)
+	
 	stateMu.Lock()
 	defer stateMu.Unlock()
 
@@ -123,6 +125,8 @@ func UpdateLastIndexedBlock(networkName string, newBlockNumber uint64) error {
 	}
 
 	oldBlock := network.LastIndexedBlock
+	fmt.Printf("🔍 DEBUG %s: oldBlock=%d, newBlock=%d, same=%v\n", networkName, oldBlock, newBlockNumber, oldBlock == newBlockNumber)
+	
 	network.LastIndexedBlock = newBlockNumber
 	network.LastUpdated = time.Now().Format(time.RFC3339)
 	state.Networks[networkName] = network
@@ -133,6 +137,8 @@ func UpdateLastIndexedBlock(networkName string, newBlockNumber uint64) error {
 
 	if oldBlock != newBlockNumber {
 		fmt.Printf("✅ Updated %s LastIndexedBlock: %d → %d\n", networkName, oldBlock, newBlockNumber)
+	} else {
+		fmt.Printf("🔄 %s LastIndexedBlock unchanged: %d\n", networkName, newBlockNumber)
 	}
 
 	return nil

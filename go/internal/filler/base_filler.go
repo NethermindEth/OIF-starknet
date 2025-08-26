@@ -19,7 +19,8 @@ type FillerContext struct {
 // BaseFiller defines the interface for intent fillers
 type BaseFiller interface {
 	// ProcessIntent processes an intent through the complete lifecycle
-	ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) error
+	// Returns (success, error) where success=true means the order was fully settled
+	ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error)
 
 	// PrepareIntent evaluates rules and determines if intent should be filled
 	PrepareIntent(ctx context.Context, args types.ParsedArgs) (*types.Result[types.IntentData], error)
@@ -64,24 +65,28 @@ func (f *BaseFillerImpl) GetRules() []Rule {
 }
 
 // ProcessIntent implements the complete intent processing lifecycle
-func (f *BaseFillerImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) error {
+func (f *BaseFillerImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
 	// Step 1: Prepare intent (evaluate rules)
 	intent, err := f.PrepareIntent(ctx, args)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if !intent.Success {
-		return nil // Intent was rejected by rules
+		return false, nil // Intent was rejected by rules
 	}
 
 	// Step 2: Fill the intent
 	if err := f.Fill(ctx, args, intent.Data, originChainName, blockNumber); err != nil {
-		return err
+		return false, err
 	}
 
 	// Step 3: Settle the order
-	return f.SettleOrder(ctx, args, intent.Data, originChainName)
+	if err := f.SettleOrder(ctx, args, intent.Data, originChainName); err != nil {
+		return false, err
+	}
+	
+	return true, nil // Successfully filled and settled
 }
 
 // PrepareIntent evaluates rules to determine if intent should be filled

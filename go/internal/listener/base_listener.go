@@ -8,7 +8,8 @@ import (
 )
 
 // EventHandler is a function that processes parsed event arguments
-type EventHandler func(args types.ParsedArgs, originChainName string, blockNumber uint64) error
+// Returns (settled, error) where settled=true means the order was fully settled
+type EventHandler func(args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error)
 
 // ShutdownFunc is a function that stops the listener
 type ShutdownFunc func()

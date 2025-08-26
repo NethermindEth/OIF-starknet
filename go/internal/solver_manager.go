@@ -2,223 +2,280 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"sync"
+	"math/big"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
-	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
-	"github.com/NethermindEth/oif-starknet/go/internal/filler"
 	"github.com/NethermindEth/oif-starknet/go/internal/listener"
 	"github.com/NethermindEth/oif-starknet/go/internal/solvers/hyperlane7683"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/sirupsen/logrus"
 )
 
-// SolverModule represents a complete solver with listener and filler
-type SolverModule struct {
-	Name     string
-	Listener listener.BaseListener
-	Filler   filler.BaseFiller
+// SolverConfig defines configuration for a solver
+type SolverConfig struct {
+	Enabled bool                   `json:"enabled"`
+	Options map[string]interface{} `json:"options"`
 }
 
-// SolverManager manages multiple solvers
+// SolverRegistry maps solver names to their configurations
+type SolverRegistry map[string]SolverConfig
+
+// SolverManager manages multiple protocol solvers
+// Following the TypeScript SolverManager pattern
 type SolverManager struct {
-	config     *config.Config
-	logger     *logrus.Logger
-	solvers    map[string]*SolverModule
-	shutdownWg sync.WaitGroup
-	ctx        context.Context
-	cancel     context.CancelFunc
+	client           *ethclient.Client
+	activeShutdowns  []func()
+	solverRegistry   SolverRegistry
 }
 
 // NewSolverManager creates a new solver manager
-func NewSolverManager(cfg *config.Config, logger *logrus.Logger) *SolverManager {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewSolverManager(client *ethclient.Client) *SolverManager {
+	// Default solver registry - could be loaded from config file
+	registry := SolverRegistry{
+		"hyperlane7683": {
+			Enabled: true,
+			Options: map[string]interface{}{},
+		},
+		// Future solvers would be added here:
+		// "eco": {
+		//     Enabled: false,
+		//     Options: map[string]interface{}{},
+		// },
+	}
 
 	return &SolverManager{
-		config:  cfg,
-		logger:  logger,
-		solvers: make(map[string]*SolverModule),
-		ctx:     ctx,
-		cancel:  cancel,
+		client:         client,
+		activeShutdowns: make([]func(), 0),
+		solverRegistry: registry,
 	}
 }
 
-// InitializeSolvers initializes all enabled solvers
-func (sm *SolverManager) InitializeSolvers() error {
-	fmt.Printf("⚙️  Initializing solvers...\n")
-
-	// Display current deployment state for debugging
-	if err := deployer.DisplayDeploymentState(); err != nil {
-		fmt.Printf("⚠️  Failed to display deployment state: %v\n", err)
-	}
-
-	for solverName, solverConfig := range sm.config.Solvers {
-		if !solverConfig.Enabled {
-			fmt.Printf("⏭️  Solver %s is disabled, skipping...\n", solverName)
+// InitializeSolvers starts all enabled solvers
+func (sm *SolverManager) InitializeSolvers(ctx context.Context) error {
+	fmt.Printf("🚀 Initializing solvers...\n")
+	
+	for solverName, config := range sm.solverRegistry {
+		if !config.Enabled {
+			fmt.Printf("   ⏭️  Solver %s is disabled, skipping...\n", solverName)
 			continue
 		}
 
-		if err := sm.initializeSolver(solverName); err != nil {
-			fmt.Printf("❌ Failed to initialize solver %s: %v\n", solverName, err)
+		fmt.Printf("   🔧 Initializing solver: %s\n", solverName)
+		
+		if err := sm.initializeSolver(ctx, solverName, config); err != nil {
 			return fmt.Errorf("failed to initialize solver %s: %w", solverName, err)
 		}
+		
+		fmt.Printf("   ✅ Solver %s initialized successfully\n", solverName)
 	}
-
-	fmt.Printf("✅ All solvers initialized successfully\n")
+	
+	fmt.Printf("✅ All solvers initialized\n")
 	return nil
 }
 
-// initializeSolver initializes a single solver
-func (sm *SolverManager) initializeSolver(name string) error {
-	fmt.Printf("⚙️  Initializing solver: %s...\n", name)
-
-	// Create solver module based on name
-	solver, err := sm.createSolverModule(name)
-	if err != nil {
-		return fmt.Errorf("failed to create solver module: %w", err)
-	}
-
-	// Store the solver
-	sm.solvers[name] = solver
-
-	// Start the solver
-	if err := sm.startSolver(solver); err != nil {
-		return fmt.Errorf("failed to start solver: %w", err)
-	}
-
-	fmt.Printf("✅ Solver %s initialized and started\n", name)
-	return nil
-}
-
-// createSolverModule creates a solver module based on the name
-func (sm *SolverManager) createSolverModule(name string) (*SolverModule, error) {
+// initializeSolver starts a specific solver
+func (sm *SolverManager) initializeSolver(ctx context.Context, name string, config SolverConfig) error {
 	switch name {
 	case "hyperlane7683":
-		return sm.createHyperlane7683Solver()
+		return sm.initializeHyperlane7683(ctx)
 	default:
-		return nil, fmt.Errorf("unknown solver type: %s", name)
+		return fmt.Errorf("unknown solver: %s", name)
 	}
 }
 
-// createHyperlane7683Solver creates the Hyperlane7683 solver
-func (sm *SolverManager) createHyperlane7683Solver() (*SolverModule, error) {
-	// Get deployment state to create listeners for all networks
-	state, err := deployer.GetDeploymentState()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get deployment state: %w", err)
+// initializeHyperlane7683 starts the Hyperlane 7683 solver
+func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
+	// Create filler
+	hyperlane7683Filler := hyperlane7683.NewHyperlane7683Filler(sm.client)
+	hyperlane7683Filler.AddDefaultRules()
+
+	// Event handler that processes intents
+	eventHandler := func(args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
+		return hyperlane7683Filler.ProcessIntent(ctx, args, originChainName, blockNumber)
 	}
 
-	// Create a multi-network listener that listens to all networks
-	multiListener := hyperlane7683.NewMultiNetworkListener(state)
-
-	// Get a client for the filler (we'll use the Base Sepolia client for now)
-	baseClient, err := ethclient.Dial(config.GetDefaultRPCURL())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create base client: %w", err)
-	}
-
-	hyperlaneFiller := hyperlane7683.NewHyperlane7683Filler(baseClient)
-
-	// Add default rules
-	hyperlaneFiller.AddDefaultRules()
-
-	return &SolverModule{
-		Name:     "hyperlane7683",
-		Listener: multiListener,
-		Filler:   hyperlaneFiller,
-	}, nil
-}
-
-// getRPCURLForChain returns the RPC URL for a given chain name
-func (sm *SolverManager) getRPCURLForChain(chainName string) string {
-	rpcURL, err := config.GetRPCURL(chainName)
-	if err != nil {
-		fmt.Printf("⚠️  Failed to get RPC URL for chain %s, using default: %v\n", chainName, err)
-		return config.GetDefaultRPCURL()
-	}
-	return rpcURL
-}
-
-// startSolver starts a solver and begins listening for events
-func (sm *SolverManager) startSolver(solver *SolverModule) error {
-	if solver.Listener == nil {
-		return fmt.Errorf("solver %s has no listener configured", solver.Name)
-	}
-
-	// Create event handler
-	handler := func(args types.ParsedArgs, originChainName string, blockNumber uint64) error {
-		fmt.Printf("🔵 Processing intent: solver=%s, orderID=%s, chain=%s, block=%d\n",
-			solver.Name, args.OrderID, originChainName, blockNumber)
-
-		// Process the intent through the filler
-		if err := solver.Filler.ProcessIntent(sm.ctx, args, originChainName, blockNumber); err != nil {
-			fmt.Printf("❌ Failed to process intent: solver=%s, orderID=%s, error=%v\n",
-				solver.Name, args.OrderID, err)
-			return err
+	// Start listeners for each intent source
+	for _, source := range []string{"Base Sepolia", "Optimism Sepolia", "Arbitrum Sepolia", "Sepolia", "Starknet Sepolia"} {
+		networkConfig, exists := config.Networks[source]
+		if !exists {
+			fmt.Printf("   ⚠️  Network %s not found in config, skipping...\n", source)
+			continue
 		}
 
-		fmt.Printf("✅ Intent processed successfully: solver=%s, orderID=%s\n",
-			solver.Name, args.OrderID)
+		var shutdown listener.ShutdownFunc
 
+		// Create appropriate listener based on chain type
+		if source == "Starknet Sepolia" {
+			hyperlaneAddr, err := getStarknetHyperlaneAddress(networkConfig)
+			if err != nil {
+				return fmt.Errorf("failed to get Starknet Hyperlane address: %w", err)
+			}
+			
+			// Create Starknet listener config
+			listenerConfig := listener.NewListenerConfig(
+				hyperlaneAddr,
+				source,
+				big.NewInt(int64(networkConfig.SolverStartBlock)), // start from configured block
+				networkConfig.PollInterval,                        // poll interval from config
+				uint64(networkConfig.ConfirmationBlocks),          // confirmation blocks from config
+				networkConfig.MaxBlockRange,                       // max block range from config
+			)
+			
+			starknetListener, err := hyperlane7683.NewStarknetListener(listenerConfig, networkConfig.RPCURL)
+			if err != nil {
+				return fmt.Errorf("failed to create Starknet listener: %w", err)
+			}
+			shutdown, err = starknetListener.Start(ctx, eventHandler)
+			if err != nil {
+				return fmt.Errorf("failed to start Starknet listener for %s: %w", source, err)
+			}
+		} else {
+			// Create EVM listener config
+			listenerConfig := listener.NewListenerConfig(
+				networkConfig.HyperlaneAddress.Hex(),
+				source,
+				big.NewInt(int64(networkConfig.SolverStartBlock)), // start from configured block
+				networkConfig.PollInterval,                        // poll interval from config  
+				uint64(networkConfig.ConfirmationBlocks),          // confirmation blocks from config
+				networkConfig.MaxBlockRange,                       // max block range from config
+			)
+			
+			evmListener, err := hyperlane7683.NewEVMListener(listenerConfig, networkConfig.RPCURL)
+			if err != nil {
+				return fmt.Errorf("failed to create EVM listener: %w", err)
+			}
+			shutdown, err = evmListener.Start(ctx, eventHandler)
+			if err != nil {
+				return fmt.Errorf("failed to start EVM listener for %s: %w", source, err)
+			}
+		}
+
+		sm.activeShutdowns = append(sm.activeShutdowns, shutdown)
+		fmt.Printf("     📡 Started listener for %s\n", source)
+	}
+
+	return nil
+}
+
+// AddSolver dynamically adds a new solver to the registry
+func (sm *SolverManager) AddSolver(name string, config SolverConfig) {
+	sm.solverRegistry[name] = config
+}
+
+// EnableSolver enables a solver
+func (sm *SolverManager) EnableSolver(name string) error {
+	if config, exists := sm.solverRegistry[name]; exists {
+		config.Enabled = true
+		sm.solverRegistry[name] = config
 		return nil
 	}
-
-	// Start the listener
-	shutdownFunc, err := solver.Listener.Start(sm.ctx, handler)
-	if err != nil {
-		return fmt.Errorf("failed to start listener: %w", err)
-	}
-
-	// Store shutdown function for cleanup
-	sm.shutdownWg.Add(1)
-	go func() {
-		defer sm.shutdownWg.Done()
-		<-sm.ctx.Done()
-		shutdownFunc()
-	}()
-
-	return nil
+	return fmt.Errorf("solver %s not found", name)
 }
 
-// Shutdown gracefully shuts down all solvers
+// DisableSolver disables a solver
+func (sm *SolverManager) DisableSolver(name string) error {
+	if config, exists := sm.solverRegistry[name]; exists {
+		config.Enabled = false
+		sm.solverRegistry[name] = config
+		return nil
+	}
+	return fmt.Errorf("solver %s not found", name)
+}
+
+// Shutdown stops all active solvers
 func (sm *SolverManager) Shutdown() {
-	fmt.Printf("🔄 Shutting down solvers...\n")
-
-	// Cancel context to stop all goroutines
-	sm.cancel()
-
-	// Wait for all solvers to shut down
-	sm.shutdownWg.Wait()
-
-	fmt.Printf("✅ All solvers shut down successfully\n")
+	fmt.Printf("🛑 Shutting down solvers...\n")
+	
+	for i, shutdown := range sm.activeShutdowns {
+		fmt.Printf("   📡 Stopping listener %d\n", i+1)
+		shutdown()
+	}
+	
+	sm.activeShutdowns = make([]func(), 0)
+	fmt.Printf("✅ All solvers shut down\n")
 }
 
-// GetSolver returns a solver by name
-func (sm *SolverManager) GetSolver(name string) (*SolverModule, bool) {
-	solver, exists := sm.solvers[name]
-	return solver, exists
+// GetSolverStatus returns the status of all solvers
+func (sm *SolverManager) GetSolverStatus() map[string]bool {
+	status := make(map[string]bool)
+	for name, config := range sm.solverRegistry {
+		status[name] = config.Enabled
+	}
+	return status
 }
 
-// GetSolvers returns all solvers
-func (sm *SolverManager) GetSolvers() map[string]*SolverModule {
-	return sm.solvers
+// getStarknetHyperlaneAddress gets the correct Starknet Hyperlane address based on FORKING mode
+func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, error) {
+	// Check FORKING environment variable (default: true for local forks)
+	forkingStr := strings.ToLower(getEnvWithDefault("FORKING", "true"))
+	isForking, _ := strconv.ParseBool(forkingStr)
+
+	if isForking {
+		// Local forks: Use deployment state (fresh deployments)
+		if deploymentAddr := getStarknetHyperlaneFromDeploymentState(); deploymentAddr != "" {
+			fmt.Printf("   🔄 FORKING=true: Using Starknet Hyperlane address from deployment state: %s\n", deploymentAddr)
+			return deploymentAddr, nil
+		} else {
+			return "", fmt.Errorf("FORKING=true but no Starknet Hyperlane address found in deployment state")
+		}
+	} else {
+		// Live networks: Use .env address (manually configured)
+		envAddr := networkConfig.HyperlaneAddress.Hex()
+		if envAddr != "0x0000000000000000000000000000000000000000" && envAddr != "" {
+			fmt.Printf("   🔄 FORKING=false: Using Starknet Hyperlane address from .env: %s\n", envAddr)
+			return envAddr, nil
+		} else {
+			return "", fmt.Errorf("FORKING=false but no STARKNET_HYPERLANE_ADDRESS set in .env")
+		}
+	}
 }
 
-// MarkBlockFullyProcessed marks a block as fully processed across all solvers
-// This should be called after all events in a block have been processed/filled
-func (sm *SolverManager) MarkBlockFullyProcessed(chainName string, blockNumber uint64) error {
-	fmt.Printf("🔵 Marking block as fully processed: chain=%s, block=%d\n",
-		chainName, blockNumber)
-
-	// Update the deployment state with the last indexed block
-	if err := deployer.UpdateLastIndexedBlock(chainName, blockNumber); err != nil {
-		return fmt.Errorf("failed to update last indexed block for %s: %w", chainName, err)
+// getStarknetHyperlaneFromDeploymentState loads Starknet Hyperlane address from deployment state
+func getStarknetHyperlaneFromDeploymentState() string {
+	paths := []string{
+		"state/network_state/deployment-state.json",
+		"../state/network_state/deployment-state.json",
+		"../../state/network_state/deployment-state.json",
 	}
 
-	fmt.Printf("✅ Block marked as fully processed and LastIndexedBlock updated: chain=%s, block=%d\n",
-		chainName, blockNumber)
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
 
-	return nil
+		var deploymentState struct {
+			Networks map[string]struct {
+				ChainID          uint64 `json:"chainId"`
+				HyperlaneAddress string `json:"hyperlaneAddress"`
+				OrcaCoinAddress  string `json:"orcaCoinAddress"`
+				DogCoinAddress   string `json:"dogCoinAddress"`
+			} `json:"networks"`
+		}
+
+		if err := json.Unmarshal(data, &deploymentState); err != nil {
+			continue
+		}
+
+		if starknet, exists := deploymentState.Networks["Starknet Sepolia"]; exists {
+			if starknet.HyperlaneAddress != "" {
+				return starknet.HyperlaneAddress
+			}
+		}
+	}
+
+	return "" // Not found
+}
+
+// getEnvWithDefault gets an environment variable with a default fallback
+func getEnvWithDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

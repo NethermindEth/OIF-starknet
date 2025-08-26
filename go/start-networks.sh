@@ -42,10 +42,10 @@ reset_deployment_state() {
 	ARBITRUM_SOLVER_BLOCK=${ARBITRUM_SOLVER_START_BLOCK:-138020000}
 	BASE_SOLVER_BLOCK=${BASE_SOLVER_START_BLOCK:-25380000}
 	STARKNET_SOLVER_BLOCK=${STARKNET_SOLVER_START_BLOCK:-1530000}
-	
+
 	# Get Hyperlane address from environment
 	EVM_HYPERLANE_ADDR=${EVM_HYPERLANE_ADDRESS:-"0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3"}
-	
+
 	# Get Permit2 address from environment
 	EVM_PERMIT2_ADDR=${EVM_PERMIT2_ADDRESS:-"0x000000000022D473030F116dDEE9F6B43aC78BA3"}
 
@@ -284,7 +284,7 @@ start_starknet 5050 "$STARKNET_COLOR" "$STARKNET_ID"
 
 echo ""
 echo "⏳ Waiting for networks to be ready..."
-sleep 3
+sleep 5
 
 echo ""
 echo "🎉 All network forks are running!"

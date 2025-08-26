@@ -94,7 +94,6 @@ func main() {
 
 	// Load test user addresses from .env
 	aliceAddress := os.Getenv("STARKNET_ALICE_ADDRESS")
-	bobAddress := os.Getenv("STARKNET_BOB_ADDRESS")
 	solverAddress := os.Getenv("STARKNET_SOLVER_ADDRESS")
 
 	if deployerAddress == "" || deployerPrivateKey == "" || deployerPublicKey == "" {
@@ -105,10 +104,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if aliceAddress == "" || bobAddress == "" || solverAddress == "" {
+	if aliceAddress == "" || solverAddress == "" {
 		fmt.Println("❌ Missing required environment variables:")
 		fmt.Println("   STARKNET_ALICE_ADDRESS: Alice's Starknet address")
-		fmt.Println("   STARKNET_BOB_ADDRESS: Bob's Starknet address")
 		fmt.Println("   STARKNET_SOLVER_ADDRESS: Solver's Starknet address")
 		os.Exit(1)
 	}
@@ -117,7 +115,7 @@ func main() {
 	fmt.Printf("📋 RPC URL: %s\n", networkConfig.RPCURL)
 	fmt.Printf("📋 Chain ID: %d\n", networkConfig.ChainID)
 	fmt.Printf("📋 Deployer: %s\n", deployerAddress)
-	fmt.Printf("📋 Test Users: Alice=%s, Bob=%s, Solver=%s\n", aliceAddress, bobAddress, solverAddress)
+	fmt.Printf("📋 Test Users: Alice=%s, Solver=%s\n", aliceAddress, solverAddress)
 
 	// Initialize connection to RPC provider
 	client, err := rpc.NewProvider(networkConfig.RPCURL)
@@ -162,7 +160,7 @@ func main() {
 
 	// Fund test users
 	fmt.Println("\n💰 Funding test users...")
-	if err := fundUsers(accnt, orcaCoin, dogCoin, aliceAddress, bobAddress, solverAddress); err != nil {
+	if err := fundUsers(accnt, orcaCoin, dogCoin, aliceAddress, solverAddress); err != nil {
 		panic(fmt.Sprintf("❌ Failed to fund users: %s", err))
 	}
 
@@ -170,13 +168,13 @@ func main() {
 	fmt.Println("\n🔐 Setting allowances for Hyperlane7683...")
 	fmt.Printf("   📋 Found Hyperlane7683 at: %s\n", hyperlaneAddr)
 	fmt.Println("   🔐 Setting allowances for Hyperlane7683...")
-	if err := setAllowances(accnt, orcaCoin, dogCoin, hyperlaneAddr, aliceAddress, bobAddress, solverAddress); err != nil {
+	if err := setAllowances(accnt, orcaCoin, dogCoin, hyperlaneAddr, aliceAddress); err != nil {
 		panic(fmt.Sprintf("❌ Failed to set allowances: %s", err))
 	}
 
 	// Verify balances and allowances after everything is set
 	fmt.Printf("\n🔍 Verifying balances and allowances...\n")
-	if err := verifyBalancesAndAllowances(accnt, orcaCoin, dogCoin, hyperlaneAddr, aliceAddress, bobAddress, solverAddress); err != nil {
+	if err := verifyBalancesAndAllowances(accnt, orcaCoin, dogCoin, hyperlaneAddr, aliceAddress, solverAddress); err != nil {
 		fmt.Printf("❌ Verification failed: %v\n", err)
 	} else {
 		fmt.Printf("✅ All verifications passed!\n")
@@ -217,13 +215,12 @@ func loadTokenDeploymentInfo(networkName string) ([]TokenInfo, error) {
 }
 
 // fundUsers funds test users with tokens using the mint function
-func fundUsers(accnt *account.Account, orcaCoin, dogCoin TokenInfo, aliceAddr, bobAddr, solverAddr string) error {
+func fundUsers(accnt *account.Account, orcaCoin, dogCoin TokenInfo, aliceAddr, solverAddr string) error {
 	users := []struct {
 		name    string
 		address string
 	}{
 		{"Alice", aliceAddr},
-		{"Bob", bobAddr},
 		{"Solver", solverAddr},
 	}
 
@@ -424,7 +421,7 @@ func getTokenBalance(accnt *account.Account, tokenAddress, userAddress, tokenNam
 }
 
 // setAllowances sets unlimited allowances for users on tokens
-func setAllowances(accnt *account.Account, orcaCoin, dogCoin TokenInfo, hyperlaneAddress, aliceAddr, bobAddr, solverAddr string) error {
+func setAllowances(accnt *account.Account, orcaCoin, dogCoin TokenInfo, hyperlaneAddress, aliceAddr string) error {
 	if hyperlaneAddress == "" {
 		fmt.Println("   ⚠️  No Hyperlane address provided, skipping allowance setup")
 		return nil
@@ -446,8 +443,6 @@ func setAllowances(accnt *account.Account, orcaCoin, dogCoin TokenInfo, hyperlan
 		publicKey  string
 	}{
 		{"Alice", aliceAddr, os.Getenv("STARKNET_ALICE_PRIVATE_KEY"), os.Getenv("STARKNET_ALICE_PUBLIC_KEY")},
-		{"Bob", bobAddr, os.Getenv("STARKNET_BOB_PRIVATE_KEY"), os.Getenv("STARKNET_BOB_PUBLIC_KEY")},
-		{"Solver", solverAddr, os.Getenv("STARKNET_SOLVER_PRIVATE_KEY"), os.Getenv("STARKNET_SOLVER_PUBLIC_KEY")},
 	}
 
 	// Set unlimited allowance for each user on both tokens
@@ -545,7 +540,7 @@ func approveUnlimited(accnt *account.Account, tokenAddress string, ownerAddrFelt
 }
 
 // verifyBalancesAndAllowances verifies that users have the expected balances and allowances
-func verifyBalancesAndAllowances(accnt *account.Account, orcaCoin, dogCoin TokenInfo, hyperlaneAddress, aliceAddr, bobAddr, solverAddr string) error {
+func verifyBalancesAndAllowances(accnt *account.Account, orcaCoin, dogCoin TokenInfo, hyperlaneAddress, aliceAddr, solverAddr string) error {
 	// Expected increase in balance after funding
 	expectedIncrease := new(big.Int)
 	expectedIncrease.SetString(UserFundingAmount, 10)
@@ -556,7 +551,6 @@ func verifyBalancesAndAllowances(accnt *account.Account, orcaCoin, dogCoin Token
 		addr string
 	}{
 		{"Alice", aliceAddr},
-		{"Bob", bobAddr},
 		{"Solver", solverAddr},
 	}
 
@@ -587,8 +581,8 @@ func verifyBalancesAndAllowances(accnt *account.Account, orcaCoin, dogCoin Token
 		}
 		fmt.Printf("       ✅ DogCoin: %s (at least %s)\n", formatTokenAmount(dogBalance), formatTokenAmount(expectedIncrease))
 
-		// Check allowances if Hyperlane address is available
-		if hyperlaneAddress != "" {
+		// Check allowances if Hyperlane address is available and user is Alice
+		if hyperlaneAddress != "" && user.name == "Alice" {
 			// Check OrcaCoin allowance
 			orcaAllowance, err := getTokenAllowance(accnt, orcaCoin.Address, user.addr, hyperlaneAddress, "OrcaCoin")
 			if err != nil {

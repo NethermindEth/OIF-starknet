@@ -147,6 +147,168 @@ func (sf *StarknetFiller) Fill(ctx context.Context, orderIDHex string, originDat
 	return nil
 }
 
+// QuoteGasPayment calls the Starknet contract's quote_gas_payment function
+func (sf *StarknetFiller) QuoteGasPayment(ctx context.Context, originDomain uint32) (*big.Int, error) {
+	// Convert origin domain to felt
+	domainFelt := utils.BigIntToFelt(big.NewInt(int64(originDomain)))
+	
+	// Call quote_gas_payment(origin_domain: u32) -> u256
+	call := rpc.FunctionCall{
+		ContractAddress: sf.hyperlaneAddr,
+		EntryPointSelector: utils.GetSelectorFromNameFelt("quote_gas_payment"),
+		Calldata: []*felt.Felt{domainFelt},
+	}
+	
+	resp, err := sf.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
+	if err != nil {
+		return nil, fmt.Errorf("starknet quote_gas_payment call failed: %w", err)
+	}
+	
+	if len(resp) < 2 {
+		return nil, fmt.Errorf("starknet quote_gas_payment returned insufficient data: expected 2 felts, got %d", len(resp))
+	}
+	
+	// Convert two felts (low, high) back to u256
+	low := utils.FeltToBigInt(resp[0])
+	high := utils.FeltToBigInt(resp[1])
+	
+	// Combine low and high into u256: (high << 128) | low
+	result := new(big.Int).Lsh(high, 128)
+	result.Or(result, low)
+	
+	return result, nil
+}
+
+// EnsureETHApproval ensures the solver has approved the ETH address for settlement
+func (sf *StarknetFiller) EnsureETHApproval(ctx context.Context, amount *big.Int) error {
+	// Hard-coded ETH address on Starknet
+	ethAddress := "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+	ethFelt, err := utils.HexToFelt(ethAddress)
+	if err != nil {
+		return fmt.Errorf("failed to convert ETH address to felt: %w", err)
+	}
+	
+	// Check current allowance
+	call := rpc.FunctionCall{
+		ContractAddress: ethFelt,
+		EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
+		Calldata: []*felt.Felt{sf.solverAddr, sf.hyperlaneAddr},
+	}
+	
+	resp, err := sf.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
+	if err != nil {
+		return fmt.Errorf("starknet ETH allowance call failed: %w", err)
+	}
+	
+	if len(resp) < 2 {
+		return fmt.Errorf("starknet ETH allowance returned insufficient data: expected 2 felts, got %d", len(resp))
+	}
+	
+	// Convert two felts (low, high) back to u256
+	low := utils.FeltToBigInt(resp[0])
+	high := utils.FeltToBigInt(resp[1])
+	currentAllowance := new(big.Int).Lsh(high, 128)
+	currentAllowance.Or(currentAllowance, low)
+	
+	// If allowance is sufficient, no need to approve
+	if currentAllowance.Cmp(amount) >= 0 {
+		fmt.Printf("   ✅ ETH allowance sufficient: %s >= %s\n", currentAllowance.String(), amount.String())
+		return nil
+	}
+	
+	// Need to approve - convert amount to two felts (low, high)
+	low128 := new(big.Int).And(amount, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)))
+	high128 := new(big.Int).Rsh(amount, 128)
+	
+	lowFelt := utils.BigIntToFelt(low128)
+	highFelt := utils.BigIntToFelt(high128)
+	
+	// Build approve calldata: approve(spender: felt, amount: u256)
+	approveCalldata := []*felt.Felt{sf.hyperlaneAddr, lowFelt, highFelt}
+	
+	invoke := rpc.InvokeFunctionCall{
+		ContractAddress: ethFelt,
+		FunctionName: "approve",
+		CallData: approveCalldata,
+	}
+	
+	tx, err := sf.account.BuildAndSendInvokeTxn(ctx, []rpc.InvokeFunctionCall{invoke}, nil)
+	if err != nil {
+		return fmt.Errorf("starknet ETH approve send failed: %w", err)
+	}
+	
+	fmt.Printf("   🔄 Starknet ETH approve tx sent: %s\n", tx.Hash.String())
+	_, waitErr := sf.account.WaitForTransactionReceipt(ctx, tx.Hash, 2*time.Second)
+	if waitErr != nil {
+		return fmt.Errorf("starknet ETH approve wait failed: %w", waitErr)
+	}
+	
+	fmt.Printf("   ✅ Starknet ETH approval confirmed\n")
+	return nil
+}
+
+// Settle calls the Starknet contract's settle function
+func (sf *StarknetFiller) Settle(ctx context.Context, orderIDHex string, gasPayment *big.Int) error {
+	// Convert order ID to two felts (low, high) for u256
+	idBytes := utils.HexToBN(orderIDHex).Bytes()
+	if len(idBytes) < 32 {
+		idBytes = append(make([]byte, 32-len(idBytes)), idBytes...)
+	}
+	rev := func(in []byte) []byte {
+		out := make([]byte, len(in))
+		for i := 0; i < len(in); i++ {
+			out[i] = in[len(in)-1-i]
+		}
+		return out
+	}
+	low := utils.BigIntToFelt(new(big.Int).SetBytes(rev(idBytes[0:16])))
+	high := utils.BigIntToFelt(new(big.Int).SetBytes(rev(idBytes[16:32])))
+	
+	// Convert gas payment to two felts (low, high) for u256
+	low128 := new(big.Int).And(gasPayment, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)))
+	high128 := new(big.Int).Rsh(gasPayment, 128)
+	gasLow := utils.BigIntToFelt(low128)
+	gasHigh := utils.BigIntToFelt(high128)
+	
+	// Build calldata for settle(order_ids: Array<u256>, value: u256)
+	// order_ids: [Array<u256>] -> [size, len, low, high]
+	// value: u256 -> [low, high]
+	calldata := []*felt.Felt{
+		utils.Uint64ToFelt(1),           // Array size = 1
+		low, high,                        // order_id u256
+		gasLow, gasHigh,                  // value u256
+	}
+	
+	fmt.Printf("   🧪 StarknetSettle Debug\n")
+	fmt.Printf("     • orderID: %s\n", orderIDHex)
+	fmt.Printf("     • orderID.low: %s\n", low.String())
+	fmt.Printf("     • orderID.high: %s\n", high.String())
+	fmt.Printf("     • gasPayment: %s wei\n", gasPayment.String())
+	fmt.Printf("     • gasPayment.low: %s\n", gasLow.String())
+	fmt.Printf("     • gasPayment.high: %s\n", gasHigh.String())
+	fmt.Printf("     • total calldata felts: %d\n", len(calldata))
+	
+	invoke := rpc.InvokeFunctionCall{
+		ContractAddress: sf.hyperlaneAddr,
+		FunctionName: "settle",
+		CallData: calldata,
+	}
+	
+	tx, err := sf.account.BuildAndSendInvokeTxn(ctx, []rpc.InvokeFunctionCall{invoke}, nil)
+	if err != nil {
+		return fmt.Errorf("starknet settle send failed: %w", err)
+	}
+	
+	fmt.Printf("   🔄 Starknet settle tx sent: %s\n", tx.Hash.String())
+	_, waitErr := sf.account.WaitForTransactionReceipt(ctx, tx.Hash, 2*time.Second)
+	if waitErr != nil {
+		return fmt.Errorf("starknet settle wait failed: %w", waitErr)
+	}
+	
+	fmt.Printf("   ✅ Starknet settle transaction confirmed\n")
+	return nil
+}
+
 func bytesToU128Felts(b []byte) []*felt.Felt {
 	words := make([]*felt.Felt, 0, (len(b)+15)/16)
 	for i := 0; i < len(b); i += 16 {
