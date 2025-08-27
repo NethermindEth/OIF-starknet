@@ -11,7 +11,7 @@ import (
 
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
 	"github.com/NethermindEth/oif-starknet/go/internal/listener"
-	"github.com/NethermindEth/oif-starknet/go/internal/solvers/hyperlane7683"
+	contracts "github.com/NethermindEth/oif-starknet/go/internal/solvers/hyperlane7683"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -86,7 +86,7 @@ func (sm *SolverManager) initializeSolver(ctx context.Context, name string, conf
 // initializeHyperlane7683 starts the Hyperlane 7683 solver
 func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 	// Create filler
-	hyperlane7683Filler := hyperlane7683.NewHyperlane7683Filler(sm.client)
+	hyperlane7683Filler := contracts.NewHyperlane7683Filler(sm.client)
 	hyperlane7683Filler.AddDefaultRules()
 
 	// Event handler that processes intents
@@ -121,7 +121,7 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 				networkConfig.MaxBlockRange,                       // max block range from config
 			)
 
-			starknetListener, err := hyperlane7683.NewStarknetListener(listenerConfig, networkConfig.RPCURL)
+			starknetListener, err := contracts.NewStarknetListener(listenerConfig, networkConfig.RPCURL)
 			if err != nil {
 				return fmt.Errorf("failed to create Starknet listener: %w", err)
 			}
@@ -140,7 +140,7 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 				networkConfig.MaxBlockRange,                       // max block range from config
 			)
 
-			evmListener, err := hyperlane7683.NewEVMListener(listenerConfig, networkConfig.RPCURL)
+			evmListener, err := contracts.NewEVMListener(listenerConfig, networkConfig.RPCURL)
 			if err != nil {
 				return fmt.Errorf("failed to create EVM listener: %w", err)
 			}
@@ -261,4 +261,3 @@ func getStarknetHyperlaneFromDeploymentState() string {
 	}
 	return ""
 }
-

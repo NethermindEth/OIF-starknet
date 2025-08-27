@@ -18,7 +18,7 @@
 // This is actively used by:
 // - EVM setup scripts (cmd/setup-forks/evm/setup-contracts/main.go)
 // - For deploying test tokens on all EVM networks
-package deployer
+package hyperlane7683
 
 // ERC20Contract holds the bytecode and ABI for ERC20 token deployment
 type ERC20Contract struct {
