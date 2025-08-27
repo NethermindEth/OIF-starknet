@@ -40,6 +40,28 @@ func getEnvUint64(key string, defaultValue uint64) uint64 {
 	return defaultValue
 }
 
+// getEnvAny returns the first non-empty env value among keys, or defaultValue
+func getEnvAny(keys []string, defaultValue string) string {
+	for _, k := range keys {
+		if v := os.Getenv(k); v != "" {
+			return v
+		}
+	}
+	return defaultValue
+}
+
+// getEnvUint64Any returns the first present uint64 among keys, or defaultValue
+func getEnvUint64Any(keys []string, defaultValue uint64) uint64 {
+	for _, k := range keys {
+		if v := os.Getenv(k); v != "" {
+			if parsed, err := parseUint64(v); err == nil {
+				return parsed
+			}
+		}
+	}
+	return defaultValue
+}
+
 // getEnvInt gets an environment variable as int with a default fallback
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
@@ -60,20 +82,20 @@ func parseUint64(s string) (uint64, error) {
 
 // Networks contains all network configurations
 var Networks = map[string]NetworkConfig{
-	"Sepolia": {
-		Name:               "Sepolia",
-		RPCURL:             getEnvWithDefault("SEPOLIA_RPC_URL", "http://localhost:8545"),
-		ChainID:            getEnvUint64("SEPOLIA_CHAIN_ID", 11155111),
+	"Ethereum": {
+		Name:               "Ethereum",
+		RPCURL:             getEnvAny([]string{"ETHEREUM_RPC_URL", "SEPOLIA_RPC_URL"}, "http://localhost:8545"),
+		ChainID:            getEnvUint64Any([]string{"ETHEREUM_CHAIN_ID", "SEPOLIA_CHAIN_ID"}, 11155111),
 		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
-		HyperlaneDomain:    getEnvUint64("SEPOLIA_DOMAIN_ID", 11155111),
-		ForkStartBlock:     getEnvUint64("SEPOLIA_SOLVER_START_BLOCK", 8319000),
-		SolverStartBlock:   getEnvUint64("SEPOLIA_SOLVER_START_BLOCK", 8319000),
+		HyperlaneDomain:    getEnvUint64Any([]string{"ETHEREUM_DOMAIN_ID", "SEPOLIA_DOMAIN_ID"}, 11155111),
+		ForkStartBlock:     getEnvUint64Any([]string{"ETHEREUM_SOLVER_START_BLOCK", "SEPOLIA_SOLVER_START_BLOCK"}, 8319000),
+		SolverStartBlock:   getEnvUint64Any([]string{"ETHEREUM_SOLVER_START_BLOCK", "SEPOLIA_SOLVER_START_BLOCK"}, 8319000),
 		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
-		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0),
 		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
-	"Optimism Sepolia": {
-		Name:               "Optimism Sepolia",
+	"Optimism": {
+		Name:               "Optimism",
 		RPCURL:             getEnvWithDefault("OPTIMISM_RPC_URL", "http://localhost:8546"),
 		ChainID:            getEnvUint64("OPTIMISM_CHAIN_ID", 11155420),
 		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
@@ -81,11 +103,11 @@ var Networks = map[string]NetworkConfig{
 		ForkStartBlock:     getEnvUint64("OPTIMISM_SOLVER_START_BLOCK", 27370000),
 		SolverStartBlock:   getEnvUint64("OPTIMISM_SOLVER_START_BLOCK", 27370000),
 		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
-		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0),
 		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
-	"Arbitrum Sepolia": {
-		Name:               "Arbitrum Sepolia",
+	"Arbitrum": {
+		Name:               "Arbitrum",
 		RPCURL:             getEnvWithDefault("ARBITRUM_RPC_URL", "http://localhost:8547"),
 		ChainID:            getEnvUint64("ARBITRUM_CHAIN_ID", 421614),
 		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
@@ -93,11 +115,11 @@ var Networks = map[string]NetworkConfig{
 		ForkStartBlock:     getEnvUint64("ARBITRUM_SOLVER_START_BLOCK", 138020000),
 		SolverStartBlock:   getEnvUint64("ARBITRUM_SOLVER_START_BLOCK", 138020000),
 		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
-		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0),
 		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
-	"Base Sepolia": {
-		Name:               "Base Sepolia",
+	"Base": {
+		Name:               "Base",
 		RPCURL:             getEnvWithDefault("BASE_RPC_URL", "http://localhost:8548"),
 		ChainID:            getEnvUint64("BASE_CHAIN_ID", 84532),
 		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
@@ -105,20 +127,20 @@ var Networks = map[string]NetworkConfig{
 		ForkStartBlock:     getEnvUint64("BASE_SOLVER_START_BLOCK", 25380000),
 		SolverStartBlock:   getEnvUint64("BASE_SOLVER_START_BLOCK", 25380000),
 		PollInterval:       getEnvInt("POLL_INTERVAL_MS", 1000),
-		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0), // Read from environment
+		ConfirmationBlocks: getEnvUint64("CONFIRMATION_BLOCKS", 0),
 		MaxBlockRange:      getEnvUint64("MAX_BLOCK_RANGE", 500),
 	},
-	"Starknet Sepolia": {
-		Name:               "Starknet Sepolia",
+	"Starknet": {
+		Name:               "Starknet",
 		RPCURL:             getEnvWithDefault("STARKNET_RPC_URL", "http://localhost:5050"),
 		ChainID:            getEnvUint64("STARKNET_CHAIN_ID", 23448591),
-		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")), // Can be set manually via .env, but deployment state takes precedence
+		HyperlaneAddress:   common.HexToAddress(getEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")),
 		HyperlaneDomain:    getEnvUint64("STARKNET_DOMAIN_ID", 23448591),
 		ForkStartBlock:     getEnvUint64("STARKNET_SOLVER_START_BLOCK", 1530000),
 		SolverStartBlock:   getEnvUint64("STARKNET_SOLVER_START_BLOCK", 1530000),
-		PollInterval:       getEnvInt("STARKNET_POLL_INTERVAL_MS", getEnvInt("POLL_INTERVAL_MS", 2000)),    // Starknet-specific override or global
-		ConfirmationBlocks: getEnvUint64("STARKNET_CONFIRMATION_BLOCKS", 0),                                // Starknet-specific override
-		MaxBlockRange:      getEnvUint64("STARKNET_MAX_BLOCK_RANGE", getEnvUint64("MAX_BLOCK_RANGE", 100)), // Starknet-specific override or global
+		PollInterval:       getEnvInt("STARKNET_POLL_INTERVAL_MS", getEnvInt("POLL_INTERVAL_MS", 2000)),
+		ConfirmationBlocks: getEnvUint64("STARKNET_CONFIRMATION_BLOCKS", 0),
+		MaxBlockRange:      getEnvUint64("STARKNET_MAX_BLOCK_RANGE", getEnvUint64("MAX_BLOCK_RANGE", 100)),
 	},
 }
 
@@ -228,12 +250,14 @@ func ValidateNetworkName(networkName string) bool {
 	return exists
 }
 
-// GetDefaultNetwork returns the default network (Sepolia for now)
+// GetDefaultNetwork returns the default network (Ethereum)
 func GetDefaultNetwork() NetworkConfig {
-	return Networks["Sepolia"]
+	return Networks["Ethereum"]
 }
 
 // GetDefaultRPCURL returns the default RPC URL
 func GetDefaultRPCURL() string {
-	return Networks["Sepolia"].RPCURL
+	return Networks["Ethereum"].RPCURL
 }
+
+

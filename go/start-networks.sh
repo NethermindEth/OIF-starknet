@@ -7,7 +7,7 @@ if [ -f ".env" ]; then
 fi
 
 # Colors for each network (updated color scheme)
-SEPOLIA_COLOR="\033[32m"        # Green
+ETHEREUM_COLOR="\033[32m"       # Green
 OPT_COLOR="\033[91m"            # Pastel Red
 ARB_COLOR="\033[35m"            # Purple
 BASE_COLOR="\033[38;5;27m"      # Royal Blue
@@ -15,7 +15,7 @@ STARKNET_COLOR="\033[38;5;208m" # Orange
 RESET="\033[0m"                 # Reset
 
 # Network IDs
-SEPOLIA_ID="[SEP]"
+ETHEREUM_ID="[SEP]"
 OPT_ID="[OPT]"
 ARB_ID="[ARB]"
 BASE_ID="[BASE]"
@@ -37,7 +37,7 @@ reset_deployment_state() {
 	STATE_FILE="$STATE_DIR/deployment-state.json"
 
 	# Get values from environment variables with defaults
-	SEPOLIA_SOLVER_BLOCK=${SEPOLIA_SOLVER_START_BLOCK:-8319000}
+	ETHEREUM_SOLVER_BLOCK=${ETHEREUM_SOLVER_START_BLOCK:-8319000}
 	OPTIMISM_SOLVER_BLOCK=${OPTIMISM_SOLVER_START_BLOCK:-27370000}
 	ARBITRUM_SOLVER_BLOCK=${ARBITRUM_SOLVER_START_BLOCK:-138020000}
 	BASE_SOLVER_BLOCK=${BASE_SOLVER_START_BLOCK:-25380000}
@@ -53,15 +53,15 @@ reset_deployment_state() {
 	cat >"$STATE_FILE" <<EOF
 {
   "networks": {
-    "Sepolia": {
-      "chainId": ${SEPOLIA_CHAIN_ID:-11155111},
+    "Ethereum": {
+      "chainId": ${ETHEREUM_CHAIN_ID:-11155111},
       "hyperlaneAddress": "${EVM_HYPERLANE_ADDR}",
       "orcaCoinAddress": "",
       "dogCoinAddress": "",
-      "lastIndexedBlock": ${SEPOLIA_SOLVER_BLOCK},
+      "lastIndexedBlock": ${ETHEREUM_SOLVER_BLOCK},
       "lastUpdated": "now"
     },
-    "Optimism Sepolia": {
+    "Optimism": {
       "chainId": ${OPTIMISM_CHAIN_ID:-11155420},
       "hyperlaneAddress": "${EVM_HYPERLANE_ADDR}",
       "orcaCoinAddress": "",
@@ -69,7 +69,7 @@ reset_deployment_state() {
       "lastIndexedBlock": ${OPTIMISM_SOLVER_BLOCK},
       "lastUpdated": "now"
     },
-    "Arbitrum Sepolia": {
+    "Arbitrum": {
       "chainId": ${ARBITRUM_CHAIN_ID:-421614},
       "hyperlaneAddress": "${EVM_HYPERLANE_ADDR}",
       "orcaCoinAddress": "",
@@ -77,7 +77,7 @@ reset_deployment_state() {
       "lastIndexedBlock": ${ARBITRUM_SOLVER_BLOCK},
       "lastUpdated": "now"
     },
-    "Base Sepolia": {
+    "Base": {
       "chainId": ${BASE_CHAIN_ID:-84532},
       "hyperlaneAddress": "${EVM_HYPERLANE_ADDR}",
       "orcaCoinAddress": "",
@@ -85,7 +85,7 @@ reset_deployment_state() {
       "lastIndexedBlock": ${BASE_SOLVER_BLOCK},
       "lastUpdated": "now"
     },
-    "Starknet Sepolia": {
+    "Starknet": {
       "chainId": ${STARKNET_CHAIN_ID:-23448591},
       "hyperlaneAddress": "",
       "orcaCoinAddress": "",
@@ -100,7 +100,7 @@ EOF
 	echo "✅ Deployment state reset to solver start block numbers"
 	echo "🔧 Using environment variables:"
 	echo "   • EVM_HYPERLANE_ADDRESS: ${EVM_HYPERLANE_ADDR}"
-	echo "   • SEPOLIA_SOLVER_START_BLOCK: ${SEPOLIA_SOLVER_BLOCK}"
+	echo "   • ETHEREUM_SOLVER_START_BLOCK: ${ETHEREUM_SOLVER_BLOCK}"
 	echo "   • OPTIMISM_SOLVER_START_BLOCK: ${OPTIMISM_SOLVER_BLOCK}"
 	echo "   • ARBITRUM_SOLVER_START_BLOCK: ${ARBITRUM_SOLVER_BLOCK}"
 	echo "   • BASE_SOLVER_START_BLOCK: ${BASE_SOLVER_BLOCK}"
@@ -155,7 +155,7 @@ start_network() {
 	local fork_block
 	case $testnet_name in
 	"sepolia")
-		fork_block=${SEPOLIA_FORK_START_BLOCK:-8319000} # SolverStartBlock - 1
+		fork_block=${ETHEREUM_FORK_START_BLOCK:-8319000} # SolverStartBlock - 1
 		;;
 	"optimism-sepolia")
 		fork_block=${OPTIMISM_FORK_START_BLOCK:-27370000} # SolverStartBlock - 1
@@ -167,7 +167,7 @@ start_network() {
 		fork_block=${BASE_FORK_START_BLOCK:-25380000} # SolverStartBlock - 1
 		;;
 	*)
-		fork_block=${SEPOLIA_FORK_START_BLOCK:-8319000}
+		fork_block=${ETHEREUM_FORK_START_BLOCK:-8319000}
 		;;
 	esac
 	echo -e "${color}${id}${RESET} Forking ${testnet_name} from block ${fork_block} (SolverStartBlock - 1)"
@@ -189,7 +189,7 @@ start_starknet() {
 	local color=$2
 	local id=$3
 
-	echo -e "${color}${id}${RESET} Starting Starknet Sepolia fork with Katana..."
+	echo -e "${color}${id}${RESET} Starting Starknet fork with Katana..."
 
 	# Check if katana is installed
 	if ! command -v katana &>/dev/null; then
@@ -203,22 +203,30 @@ start_starknet() {
 	local rpc_url
 	if [ -n "$ALCHEMY_API_KEY" ]; then
 		rpc_url="https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/${ALCHEMY_API_KEY}"
-		echo -e "${color}${id}${RESET} Using Alchemy RPC for Starknet Sepolia"
+		echo -e "${color}${id}${RESET} Using Alchemy RPC for Starknet"
 	else
 		rpc_url="https://free-rpc.nethermind.io/starknet-sepolia-juno/"
-		echo -e "${color}${id}${RESET} Using public RPC for Starknet Sepolia"
+		echo -e "${color}${id}${RESET} Using public RPC for Starknet"
 	fi
 
 	# Start Katana with state forking (SolverStartBlock - 1)
 	local fork_block=${STARKNET_FORK_START_BLOCK:-1530000}
 	katana --chain-id ${STARKNET_CHAIN_ID:-23448591} --fork.provider "$rpc_url" --fork.block ${fork_block} 2>&1 | while IFS= read -r line; do
-		echo -e "${color}${id}${RESET} $line"
+		if [ "${LOG_LEVEL:-info}" = "debug" ]; then
+			echo -e "${color}${id}${RESET} $line"
+		else
+			case "$line" in
+			*TRACE*) ;; # skip
+			*DEBUG*) ;; # skip
+			*) echo -e "${color}${id}${RESET} $line" ;;
+			esac
+		fi
 	done &
 
 	# Store the PID
 	echo $! >"/tmp/katana_$port.pid"
 
-	echo -e "${color}${id}${RESET} Starknet Sepolia fork started on port $port (Chain ID: 23448591)"
+	echo -e "${color}${id}${RESET} Starknet fork started on port $port (Chain ID: 23448591)"
 }
 
 # Function to stop all networks
@@ -264,19 +272,11 @@ if [ -z "$ALCHEMY_API_KEY" ]; then
 	echo "⚠️  ALCHEMY_API_KEY not set!"
 	echo "💡 You'll be rate limited by the demo endpoint"
 	echo "💡 Set ALCHEMY_API_KEY in your .env for full access"
-	echo "💡 Or use alternative RPC endpoints (see script for options)"
-	echo ""
-	echo "🔗 Alternative RPC endpoints (free tiers):"
-	echo "   • Sepolia: https://rpc.sepolia.org"
-	echo "   • Optimism Sepolia: https://sepolia.optimism.io"
-	echo "   • Arbitrum Sepolia: https://sepolia-rollup.arbitrum.io/rpc"
-	echo "   • Base Sepolia: https://sepolia.base.org"
-	echo "   • Starknet Sepolia: https://free-rpc.nethermind.io/starknet-sepolia-juno/"
 	echo ""
 fi
 
 # Start all networks
-start_network 8545 11155111 "$SEPOLIA_COLOR" "$SEPOLIA_ID" "sepolia"
+start_network 8545 11155111 "$ETHEREUM_COLOR" "$ETHEREUM_ID" "sepolia"
 start_network 8546 11155420 "$OPT_COLOR" "$OPT_ID" "optimism-sepolia"
 start_network 8547 421614 "$ARB_COLOR" "$ARB_ID" "arbitrum-sepolia"
 start_network 8548 84532 "$BASE_COLOR" "$BASE_ID" "base-sepolia"
@@ -289,11 +289,11 @@ sleep 5
 echo ""
 echo "🎉 All network forks are running!"
 echo "================================"
-echo -e "${SEPOLIA_COLOR}${SEPOLIA_ID}${RESET} Sepolia Fork             - http://localhost:8545 (Chain ID: 11155111)"
-echo -e "${OPT_COLOR}${OPT_ID}${RESET} Optimism Sepolia Fork    - http://localhost:8546 (Chain ID: 11155420)"
-echo -e "${ARB_COLOR}${ARB_ID}${RESET} Arbitrum Sepolia Fork    - http://localhost:8547 (Chain ID: 421614)"
-echo -e "${BASE_COLOR}${BASE_ID}${RESET} Base Sepolia Fork        - http://localhost:8548 (Chain ID: 84532)"
-echo -e "${STARKNET_COLOR}${STARKNET_ID}${RESET} Starknet Sepolia Fork   - http://localhost:5050 (Chain ID: 23448591)"
+echo -e "${ETHEREUM_COLOR}${ETHEREUM_ID}${RESET} Ethereum Fork  - http://localhost:8545 (Chain ID: 11155111)"
+echo -e "${OPT_COLOR}${OPT_ID}${RESET} Optimism Fork            - http://localhost:8546 (Chain ID: 11155420)"
+echo -e "${ARB_COLOR}${ARB_ID}${RESET} Arbitrum Fork            - http://localhost:8547 (Chain ID: 421614)"
+echo -e "${BASE_COLOR}${BASE_ID}${RESET} Base Fork              - http://localhost:8548 (Chain ID: 84532)"
+echo -e "${STARKNET_COLOR}${STARKNET_ID}${RESET} Starknet Fork  - http://localhost:5050 (Chain ID: 23448591)"
 echo ""
 echo "💡 Networks will continue logging here..."
 echo "💡 Event listener will automatically start from fork blocks"

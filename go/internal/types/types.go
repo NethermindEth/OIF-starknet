@@ -2,8 +2,6 @@ package types
 
 import (
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // ParsedArgs represents the parsed arguments from an Open event
@@ -22,27 +20,22 @@ type Recipient struct {
 
 // Output represents tokens that must be received for a valid order fulfillment
 type Output struct {
-	Token     common.Address `json:"token"`     // ERC20 token address (address for cross-chain compatibility)
-	Amount    *big.Int       `json:"amount"`    // Amount of tokens
-	Recipient common.Address `json:"recipient"` // Address to receive tokens
-	ChainID   *big.Int       `json:"chainId"`   // Destination chain ID
-	// For Starknet destinations, preserve the original 32-byte addresses
-	OriginalToken     [32]byte `json:"originalToken,omitempty"`     // Original 32-byte token address
-	OriginalRecipient [32]byte `json:"originalRecipient,omitempty"` // Original 32-byte recipient address
+	Token     string   `json:"token"`     // Token address as string (preserves original format)
+	Amount    *big.Int `json:"amount"`    // Amount of tokens
+	Recipient string   `json:"recipient"` // Recipient address as string (preserves original format)
+	ChainID   *big.Int `json:"chainId"`   // Destination chain ID
 }
 
 // FillInstruction represents instructions to parameterize each leg of the fill
 type FillInstruction struct {
-	DestinationChainID *big.Int       `json:"destinationChainId"` // Chain to fill on
-	DestinationSettler common.Address `json:"destinationSettler"` // Contract address to fill on (20-byte for EVM compatibility)
-	OriginData         []byte         `json:"originData"`         // Data needed by destinationSettler
-	// For Starknet destinations, preserve the original 32-byte address
-	OriginalDestinationSettler [32]byte `json:"originalDestinationSettler,omitempty"` // Original 32-byte settler address
+	DestinationChainID *big.Int `json:"destinationChainId"` // Chain to fill on
+	DestinationSettler string   `json:"destinationSettler"` // Contract address as string (preserves original format)
+	OriginData         []byte   `json:"originData"`         // Data needed by destinationSettler
 }
 
 // ResolvedCrossChainOrder contains the order details
 type ResolvedCrossChainOrder struct {
-	User             common.Address    `json:"user"`             // User initiating the transfer
+	User             string    `json:"user"`             // User initiating the transfer
 	OriginChainID    *big.Int          `json:"originChainId"`    // Origin chain ID
 	OpenDeadline     uint32            `json:"openDeadline"`     // Timestamp by which order must be opened
 	FillDeadline     uint32            `json:"fillDeadline"`     // Timestamp by which order must be filled
