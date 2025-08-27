@@ -24,7 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-// HyperlaneEVM contains all EVM-specific logic for the Hyperlane 7683 protocol
+// HyperlaneEVM contains all EVM-specific logic for the Hyperlane7683 protocol
 type HyperlaneEVM struct {
 	client *ethclient.Client
 	signer *bind.TransactOpts
@@ -49,7 +49,7 @@ func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs, originCh
 	}
 
 	instruction := args.ResolvedOrder.FillInstructions[0]
-	fmt.Printf("🔵 EVM Fill: %s on chain %s\n", args.OrderID, instruction.DestinationChainID.String())
+	//fmt.Printf("🔵 EVM Fill: %s on chain %s\n", args.OrderID, instruction.DestinationChainID.String())
 
 	// Use the actual order ID from the event, not derived from origin_data
 	var orderIdArr [32]byte

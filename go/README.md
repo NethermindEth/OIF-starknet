@@ -1,59 +1,59 @@
 # Hyperlane7683 Solver - Go Implementation
 
-This (Golang) solver is an extension to BootNodeDev's Hyperlane7683 (Typescript) solver adding Starknet support. This codebase should be used as a reference for protocols to implement or extend.
+This (Golang) solver is an extension to BootNodeDev's Hyperlane7683 (Typescript) solver adding support for Starknet. This codebase should be used as a reference for protocols to implement or extend.
 
 ## Overview
 
-The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and across multiple EVM chains, then fills the intents based on configurable rules. This implementation supports both EVM and Cairo contracts, making it suitable for cross-chain intent processing.
+The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains, then fills the intents based on configurable rules.
 
 ## Architecture
 
 ```js
 go/
-├── cmd/                          # CLI entry points
-│   ├── open-order/               # Create orders (EVM & Starknet)
-│   │   ├── evm/                  # EVM order creation utilities
-│   │   └── starknet/             # Starknet order creation utilities
-│   ├── setup-forks/              # Setup local testnet forks
-│   │   ├── evm/                  # EVM fork setup (Anvil)
-│   │   └── starknet/             # Starknet fork setup (Katana)
-│   └── solver/                   # Main solver binary
-├── internal/                     # Core solver logic
-│   ├── config/                   # Configuration management
-│   │   ├── config.go             # Solver configuration
-│   │   └── networks.go           # Multi-chain network configs
-│   ├── contracts/                # Go bindings for smart contracts
-│   │   ├── erc20_contract.go     # ERC20 contract bindings
-│   │   └── hyperlane7683.go      # Hyperlane7683 contract bindings
-│   ├── deployer/                 # Deployment state management
-│   │   └── deployment_state.go   # Contract deployment tracking
-│   ├── filler/                   # Intent filling interface
-│   │   └── base_filler.go        # Base filler interface
-│   ├── listener/                 # Event listening interface
-│   │   └── base_listener.go      # Base listener interface
-│   ├── logutil/                  # Terminal logging utilities
-│   ├── solvers/                  # Solver implementations
-│   │   └── hyperlane7683/        # Hyperlane7683 solver
-│   │       ├── filler.go         # Main orchestrator - routes intents to chain-specific handlers
-│   │       ├── filler_starknet.go # Low-level Starknet operations (build/send transactions)
-│   │       ├── hyperlane_evm.go  # EVM chain handler (fill/settle/approvals)
+├── cmd/                              # CLI entry points
+│   ├── open-order/                   # Create orders (EVM & Starknet)
+│   │   ├── evm/                      # EVM order creation utilities
+│   │   └── starknet/                 # Starknet order creation utilities
+│   ├── setup-forks/                  # Setup local testnet forks
+│   │   ├── evm/                      # EVM fork setup (Anvil)
+│   │   └── starknet/                 # Starknet fork setup (Katana)
+│   └── solver/                       # Main solver binary
+├── internal/                         # Core solver logic
+│   ├── config/                       # Configuration management
+│   │   ├── config.go                 # Solver configuration
+│   │   └── networks.go               # Multi-chain network configs
+│   ├── contracts/                    # Go bindings for smart contracts
+│   │   ├── erc20_contract.go         # ERC20 contract bindings
+│   │   └── hyperlane7683.go          # Hyperlane7683 contract bindings
+│   ├── deployer/                     # Deployment state management
+│   │   └── deployment_state.go       # Contract deployment tracking
+│   ├── filler/                       # Intent filling interface
+│   │   └── base_filler.go            # Base filler interface
+│   ├── listener/                     # Event listening interface
+│   │   └── base_listener.go          # Base listener interface
+│   ├── logutil/                      # Terminal logging utilities
+│   ├── solvers/                      # Solver implementations
+│   │   └── hyperlane7683/            # Hyperlane7683 solver
+│   │       ├── filler.go             # Main orchestrator - routes intents to chain-specific handlers
+│   │       ├── filler_starknet.go    # Low-level Starknet operations (build/send transactions)
+│   │       ├── hyperlane_evm.go      # EVM chain handler (fill/settle/approvals)
 │   │       ├── hyperlane_starknet.go # Starknet chain handler (coordinates StarknetFiller)
-│   │       ├── listener_evm.go   # EVM Open event listener (polls blocks, parses events)
-│   │       ├── listener_starknet.go # Starknet Open event listener (Cairo event parsing)
-│   │       └── rules.go          # Intent validation rules (balance checks, allowlists)
-│   ├── types/                    # Cross-chain data structures
-│   │   ├── address_utils.go      # Address conversion utilities
-│   │   └── types.go              # Core type definitions
-│   └── solver_manager.go         # Solver orchestration & lifecycle
-├── pkg/                          # Public utilities
-│   └── ethutil/                  # Ethereum utilities (signing, gas, ERC20)
-├── state/                        # Persistent state storage
-│   └── network_state/            # Network deployment states
-├── bin/                          # Built binaries
-├── env.example                   # Environment configuration template
-├── Makefile                      # Build & deployment automation
-├── start-networks.sh             # Multi-network startup script
-└── go.mod                        # Go module dependencies
+│   │       ├── listener_evm.go       # EVM Open event listener (polls blocks, parses events)
+│   │       ├── listener_starknet.go  # Starknet Open event listener (Cairo event parsing)
+│   │       └── rules.go              # Intent validation rules (balance checks, allowlists)
+│   ├── types/                        # Cross-chain data structures
+│   │   ├── address_utils.go          # Address conversion utilities
+│   │   └── types.go                  # Core type definitions
+│   └── solver_manager.go             # Solver orchestration & lifecycle
+├── pkg/                              # Public utilities
+│   └── ethutil/                      # Ethereum utilities (signing, gas, ERC20)
+├── state/                            # Persistent state storage
+│   └── network_state/                # Network deployment states
+├── bin/                              # Built binaries
+├── env.example                       # Environment configuration template
+├── Makefile                          # Build & deployment automation
+├── start-networks.sh                 # Multi-network startup script
+└── go.mod                            # Go module dependencies
 ```
 
 ### Key Design Patterns
@@ -144,7 +144,6 @@ go func() {
 ## 🚀 Current Status
 
 **✅ SOLVING ORDERS ON LOCAL FORKS**
-
 
 ## Quick Start
 
