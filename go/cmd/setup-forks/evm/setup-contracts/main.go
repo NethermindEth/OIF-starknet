@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
+	erc20 "github.com/NethermindEth/oif-starknet/go/internal/contracts"
 	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
 	"github.com/NethermindEth/oif-starknet/go/pkg/ethutil"
 	"github.com/ethereum/go-ethereum"
@@ -157,7 +158,7 @@ func deployERC20(client *ethclient.Client, privateKey *ecdsa.PrivateKey, symbol,
 	fmt.Printf("   📝 Deploying %s...\n", symbol)
 
 	// Get the ERC20 contract configuration
-	contract := deployer.GetERC20Contract()
+	contract := erc20.GetERC20Contract()
 
 	// Parse the ABI
 	parsedABI, err := abi.JSON(strings.NewReader(contract.ABI))
@@ -251,7 +252,7 @@ func fundUsers(client *ethclient.Client, deployerKey, aliceKey, solverKey *ecdsa
 	fmt.Printf("   💰 Funding test users...\n")
 
 	// Get the ERC20 contract configuration
-	contract := deployer.GetERC20Contract()
+	contract := erc20.GetERC20Contract()
 
 	// Parse the ABI
 	parsedABI, err := abi.JSON(strings.NewReader(contract.ABI))
@@ -371,7 +372,7 @@ func setAllowances(client *ethclient.Client, aliceKey *ecdsa.PrivateKey, orcaCoi
 	fmt.Printf("   🔐 Setting allowances for Hyperlane7683...\n")
 
 	// Get the ERC20 contract configuration
-	contract := deployer.GetERC20Contract()
+	contract := erc20.GetERC20Contract()
 
 	// Parse the ABI
 	parsedABI, err := abi.JSON(strings.NewReader(contract.ABI))

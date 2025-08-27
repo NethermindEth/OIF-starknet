@@ -71,7 +71,7 @@ run: build
 
 # Start all testnet forks with color-coded logging
 start-networks:
-	./start-networks.sh
+	./cmd/setup-forks/start-networks.sh
 
 # Kill all running networks
 kill-networks:
