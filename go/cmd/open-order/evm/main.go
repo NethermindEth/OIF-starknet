@@ -190,7 +190,7 @@ func openRandomToEvm() {
 	fmt.Println("🎲 Opening Random Test Order...")
 
 	// Seed random number generator
-	rand.Seed(time.Now().UnixNano())
+	//rand.Seed(time.Now().UnixNano())
 
 	// Random origin and destination chains (exclude Starknet from origins)
 	var evmNetworks []NetworkConfig
@@ -206,7 +206,8 @@ func openRandomToEvm() {
 	originIdx := rand.Intn(len(evmNetworks))
 	destIdx := rand.Intn(len(networks)) // Can still have Starknet as destination
 	for destIdx == originIdx {
-		destIdx = rand.Intn(len(networks))
+		destIdx = (originIdx + 1) % len(networks) // Ensure different chain
+
 	}
 
 	// Always use Alice for orders
@@ -244,7 +245,7 @@ func openRandomToEvm() {
 
 func openRandomToStarknet() {
 	fmt.Println("🎲 Opening Random EVM → Starknet Test Order...")
-	rand.Seed(time.Now().UnixNano())
+	//rand.Seed(time.Now().UnixNano())
 
 	// Pick random EVM origin (exclude Starknet)
 	var evmNetworks []NetworkConfig
