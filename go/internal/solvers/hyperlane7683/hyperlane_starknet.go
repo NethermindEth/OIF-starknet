@@ -26,13 +26,13 @@ import (
 
 // HyperlaneStarknet contains all Starknet-specific logic for the Hyperlane 7683 protocol
 type HyperlaneStarknet struct {
-	rpcURL string
-	mu     sync.Mutex // Serialize operations to prevent nonce conflicts
-	///
 	provider *rpc.Provider
-	account  *account.Account
-	//hyperlaneAddr *felt.Felt
+	// Signer
+	account    *account.Account
 	solverAddr *felt.Felt
+
+	//hyperlaneAddr *felt.Felt
+	mu sync.Mutex // Serialize operations to prevent nonce conflicts
 }
 
 // NewHyperlaneStarknet creates a new Starknet handler for Hyperlane operations
@@ -72,7 +72,6 @@ func NewHyperlaneStarknet(rpcURL string) *HyperlaneStarknet {
 	}
 
 	return &HyperlaneStarknet{
-		rpcURL:     rpcURL,
 		account:    acct,
 		provider:   provider,
 		solverAddr: addrF,
@@ -154,7 +153,7 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 	}
 	fmt.Printf("   💰 Quoting gas payment for origin domain: %d\n", originDomain)
 
-	gasPayment, err := h.QuoteGasPayment(ctx, originDomain, hyperlaneAddress)
+	gasPayment, err := h.quoteGasPayment(ctx, originDomain, hyperlaneAddress)
 	if err != nil {
 		return fmt.Errorf("failed to quote gas payment: %w", err)
 	}
@@ -324,8 +323,8 @@ func (h *HyperlaneStarknet) isStarknetChain(chainID *big.Int) bool {
 	return false
 }
 
-// GetTokenBalance retrieves the token balance for an address on Starknet
-func (f *HyperlaneStarknet) GetTokenBalance(ctx context.Context, tokenAddressHex string, holderAddressHex string) (*big.Int, error) {
+// getTokenBalance retrieves the token balance for an address on Starknet
+func (f *HyperlaneStarknet) getTokenBalance(ctx context.Context, tokenAddressHex string, holderAddressHex string) (*big.Int, error) {
 	// Convert addresses to felt format
 	tokenAddr, err := utils.HexToFelt(tokenAddressHex)
 	if err != nil {
@@ -437,8 +436,8 @@ func (f *HyperlaneStarknet) fill(ctx context.Context, orderIDHex string, originD
 	return OrderActionSettle, nil
 }
 
-// QuoteGasPayment calls the Starknet contract's quote_gas_payment function
-func (f *HyperlaneStarknet) QuoteGasPayment(ctx context.Context, originDomain uint32, hyperlaneAddress *felt.Felt) (*big.Int, error) {
+// quoteGasPayment calls the Starknet contract's quote_gas_payment function
+func (f *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain uint32, hyperlaneAddress *felt.Felt) (*big.Int, error) {
 	// Convert origin domain to felt
 	domainFelt := utils.BigIntToFelt(big.NewInt(int64(originDomain)))
 

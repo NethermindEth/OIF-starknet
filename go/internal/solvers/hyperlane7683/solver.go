@@ -118,7 +118,7 @@ func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs, d
 			}
 
 			// Reuse existing instance or create new one
-			if f.hyperlaneStarknet == nil || f.hyperlaneStarknet.rpcURL != chainConfig.RPCURL {
+			if f.hyperlaneStarknet == nil {
 				f.hyperlaneStarknet = NewHyperlaneStarknet(chainConfig.RPCURL)
 			}
 
@@ -179,7 +179,7 @@ func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.Parsed
 		}
 
 		// Reuse existing instance or create new one
-		if f.hyperlaneStarknet == nil || f.hyperlaneStarknet.rpcURL != chainConfig.RPCURL {
+		if f.hyperlaneStarknet == nil {
 			f.hyperlaneStarknet = NewHyperlaneStarknet(chainConfig.RPCURL)
 		}
 
