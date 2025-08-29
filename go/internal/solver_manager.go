@@ -21,6 +21,17 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+// Module: Solver Manager for Hyperlane7683 Protocol
+// - Manages multiple protocol solvers (EVM and Starknet)
+// - Provides centralized client and signer management
+// - Coordinates solver initialization and lifecycle
+//
+// Design Principles:
+// - Consistent logging patterns across all operations
+// - Clear separation of concerns between EVM and Starknet
+// - Unified error handling and status reporting
+// - Configurable solver registry with enable/disable capabilities
+
 // SolverConfig defines configuration for a solver
 type SolverConfig struct {
 	Enabled bool                   `json:"enabled"`
@@ -71,6 +82,7 @@ func (sm *SolverManager) InitializeSolvers(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize Starknet client: %w", err)
 	}
 
+	// Initialize individual solvers
 	for solverName, config := range sm.solverRegistry {
 		if !config.Enabled {
 			fmt.Printf("   ⏭️  Solver %s is disabled, skipping...\n", solverName)
@@ -83,10 +95,10 @@ func (sm *SolverManager) InitializeSolvers(ctx context.Context) error {
 			return fmt.Errorf("failed to initialize solver %s: %w", solverName, err)
 		}
 
-		fmt.Printf("✅ Solver %s initialized successfully\n", solverName)
+		fmt.Printf("   ✅ Solver %s initialized successfully\n", solverName)
 	}
 
-	fmt.Printf("✅ All solvers initialized\n")
+	fmt.Printf("✅ All solvers initialized successfully\n")
 	return nil
 }
 
@@ -104,6 +116,7 @@ func (sm *SolverManager) initializeSolver(ctx context.Context, name string, conf
 func (sm *SolverManager) initializeEVMClients() error {
 	fmt.Printf("🔗 Initializing EVM clients...\n")
 
+	evmCount := 0
 	for networkName, networkConfig := range config.Networks {
 		// Check if this is NOT a Starknet network (i.e., it's an EVM network)
 		if !strings.Contains(strings.ToLower(networkName), "starknet") {
@@ -116,10 +129,11 @@ func (sm *SolverManager) initializeEVMClients() error {
 
 			sm.evmClients[networkConfig.ChainID] = client
 			fmt.Printf("   ✅ EVM client initialized for %s\n", networkName)
+			evmCount++
 		}
 	}
 
-	fmt.Printf("✅ All EVM clients initialized\n")
+	fmt.Printf("✅ All EVM clients initialized (%d networks)\n", evmCount)
 	return nil
 }
 
@@ -138,7 +152,7 @@ func (sm *SolverManager) initializeStarknetClients() error {
 			}
 
 			sm.starknetClient = provider
-			fmt.Printf("   ✅ Starknet client initialized for %s\n", networkName)
+			fmt.Printf("✅ Starknet client initialized successfully\n")
 			return nil // Only need one Starknet client
 		}
 	}
@@ -223,15 +237,7 @@ func (sm *SolverManager) GetStarknetSigner() (*account.Account, error) {
 
 // initializeHyperlane7683 starts the Hyperlane 7683 solver
 func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
-	// Create isolver with the first available EVM client
-	var defaultEVMClient *ethclient.Client
-	for _, client := range sm.evmClients {
-		defaultEVMClient = client
-		break
-	}
-	if defaultEVMClient == nil {
-		return fmt.Errorf("no EVM clients available")
-	}
+	fmt.Printf("   🔧 Setting up Hyperlane7683 solver components...\n")
 
 	// Create solver with client and signer getter functions
 	hyperlane7683Solver := contracts.NewHyperlane7683Solver(
@@ -248,10 +254,13 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 	}
 
 	// Start listeners for each intent source
+	fmt.Printf("   📡 Starting network listeners...\n")
+	listenerCount := 0
+	
 	for _, source := range []string{"Base", "Optimism", "Arbitrum", "Ethereum", "Starknet"} {
 		networkConfig, exists := config.Networks[source]
 		if !exists {
-			fmt.Printf("   ⚠️  Network %s not found in config, skipping...\n", source)
+			fmt.Printf("     ⚠️  Network %s not found in config, skipping...\n", source)
 			continue
 		}
 
@@ -304,9 +313,11 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 		}
 
 		sm.activeShutdowns = append(sm.activeShutdowns, shutdown)
-		//fmt.Printf("     📡 Started listener for %s\n", source)
+		listenerCount++
+		fmt.Printf("     ✅ Started listener for %s\n", source)
 	}
 
+	fmt.Printf("   📡 All network listeners started (%d networks)\n", listenerCount)
 	return nil
 }
 
@@ -339,13 +350,14 @@ func (sm *SolverManager) DisableSolver(name string) error {
 func (sm *SolverManager) Shutdown() {
 	fmt.Printf("🛑 Shutting down solvers...\n")
 
+	listenerCount := len(sm.activeShutdowns)
 	for i, shutdown := range sm.activeShutdowns {
-		fmt.Printf("   📡 Stopping listener %d\n", i+1)
+		fmt.Printf("   📡 Stopping listener %d/%d\n", i+1, listenerCount)
 		shutdown()
 	}
 
 	sm.activeShutdowns = make([]func(), 0)
-	fmt.Printf("✅ All solvers shut down\n")
+	fmt.Printf("✅ All solvers shut down successfully (%d listeners stopped)\n", listenerCount)
 }
 
 // GetSolverStatus returns the status of all solvers

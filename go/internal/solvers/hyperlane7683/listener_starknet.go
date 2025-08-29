@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/NethermindEth/starknet.go/utils"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/NethermindEth/oif-starknet/go/internal/base"
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
@@ -279,7 +280,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 					}
 
 					parsedArgs := types.ParsedArgs{
-						OrderID:       "", // leave as empty for now; filler will use origin_data hashing on EVM side
+						OrderID:       common.BytesToHash(ro.OrderID[:]).Hex(),
 						SenderAddress: ro.User,
 						Recipients:    []types.Recipient{{DestinationChainName: l.config.ChainName, RecipientAddress: "*"}},
 						ResolvedOrder: ro,
@@ -387,7 +388,6 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 		}
 		fi.DestinationSettler = readAddress()
 
-		// COMPREHENSIVE: Parse all Cairo event data into structured variables
 		// Parsing Cairo event data
 
 		// Parse the origin_data bytes (OrderData struct) from the event data
@@ -460,10 +460,12 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 	ro.OriginChainID = new(big.Int).SetUint64(uint64(readU32()))
 	ro.OpenDeadline = uint32(readU64())
 	ro.FillDeadline = uint32(readU64())
+
 	orderID := readU256()
 	var orderArr [32]byte
 	orderBytes := orderID.Bytes()
 	copy(orderArr[32-len(orderBytes):], orderBytes)
+
 	ro.OrderID = orderArr
 	ro.MaxSpent = readOutputs()
 	ro.MinReceived = readOutputs()
