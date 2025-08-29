@@ -17,7 +17,7 @@ import (
 
 	"github.com/NethermindEth/oif-starknet/go/internal/base"
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
-	hyperlane7683 "github.com/NethermindEth/oif-starknet/go/internal/contracts"
+	contracts "github.com/NethermindEth/oif-starknet/go/internal/contracts"
 	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
 	"github.com/NethermindEth/oif-starknet/go/internal/logutil"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
@@ -190,7 +190,7 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 		// Process each event in this block
 		for _, lg := range events {
 			// Use generated binding to parse Open events
-			filterer, err := hyperlane7683.NewHyperlane7683Filterer(l.contractAddress, l.client)
+			filterer, err := contracts.NewHyperlane7683Filterer(l.contractAddress, l.client)
 			if err != nil {
 				fmt.Printf("❌ Failed to bind filterer: %v\n", err)
 				continue
@@ -219,7 +219,7 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 }
 
 // handleParsedOpenEvent converts a typed binding event into our internal ParsedArgs and dispatches the handler
-func (l *evmListener) handleParsedOpenEvent(ev hyperlane7683.Hyperlane7683Open, handler base.EventHandler) (bool, error) {
+func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, handler base.EventHandler) (bool, error) {
 	p := logutil.Prefix(l.config.ChainName)
 
 	// Map ResolvedCrossChainOrder
