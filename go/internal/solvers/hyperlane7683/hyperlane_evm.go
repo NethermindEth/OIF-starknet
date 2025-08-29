@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -65,14 +67,18 @@ func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAc
 	}
 
 	// Pre-check: skip if order is already filled or settled
-	status, err := h.getOrderStatus(ctx, args)
+	status, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
+		fmt.Printf("   ⚠️  Status check failed: %v\n", err)
 		return OrderActionError, err
 	}
+	fmt.Printf("   📊 Order status check: %s\n", status)
 	if status == "FILLED" {
+		fmt.Printf("⏭️  Order already filled, proceeding to settlement\n")
 		return OrderActionSettle, nil
 	}
 	if status == "SETTLED" {
+		fmt.Printf("🎉  Order already settled, nothing to do\n")
 		return OrderActionSettle, nil
 	}
 
@@ -82,7 +88,7 @@ func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAc
 	}
 
 	// Execute the fill transaction
-	fmt.Printf("   🔄 Executing fill call to contract %s\n", instruction.DestinationSettler)
+	fmt.Printf("   🔄 Executing fill call to contract %s\n", destinationSettlerAddr.Hex())
 
 	// Set native token value if needed
 	originalValue := h.signer.Value
@@ -141,7 +147,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	}
 
 	// Pre-settle check: ensure order is FILLED
-	status, err := h.getOrderStatus(ctx, args)
+	status, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
 		return fmt.Errorf("failed to get order status: %w", err)
 	}
@@ -162,6 +168,28 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	originDomain, err := h.getOriginDomain(args)
 	if err != nil {
 		return fmt.Errorf("failed to get origin domain: %w", err)
+	}
+
+	// Check if origin is Starknet and we're on live networks (not forking)
+	starknetDomain := uint32(config.Networks["Starknet"].HyperlaneDomain)
+	if originDomain == starknetDomain {
+		// Check FORKING environment variable (default: true for local development)
+		forkingStr := strings.ToLower(os.Getenv("FORKING"))
+		if forkingStr == "" {
+			forkingStr = "true" // Default to forking mode
+		}
+		isForking, _ := strconv.ParseBool(forkingStr)
+
+		if !isForking {
+			// Live networks: Skip settlement until Starknet domain is registered
+			fmt.Printf("   ⚠️  Skipping EVM settlement for Starknet origin (domain %d) on live network\n", originDomain)
+			fmt.Printf("   ⏳ Starknet domain not yet registered on EVM contracts - waiting for Hyperlane team\n")
+			fmt.Printf("   📝 Order filled successfully, settlement will be available once domain is registered\n")
+			return nil // Skip settlement but don't treat as error
+		} else {
+			// Fork mode: Continue with settlement (domains are mocked/registered)
+			fmt.Printf("   🔧 Fork mode detected - proceeding with Starknet settlement (domain %d registered)\n", originDomain)
+		}
 	}
 
 	fmt.Printf("   💰 Quoting gas payment for origin domain: %d\n", originDomain)
@@ -208,8 +236,8 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	return nil
 }
 
-// getOrderStatus returns the current status of an order
-func (h *HyperlaneEVM) getOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
+// GetOrderStatus returns the current status of an order
+func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
 		return "UNKNOWN", fmt.Errorf("no fill instructions found")
 	}
@@ -254,7 +282,8 @@ func (h *HyperlaneEVM) getOrderStatus(ctx context.Context, args types.ParsedArgs
 	}
 
 	statusHash := common.BytesToHash(res[:32])
-	return h.interpretStatusHash(ctx, statusHash), nil
+	status := h.interpretStatusHash(ctx, statusHash)
+	return status, nil
 }
 
 // getOriginDomainFromArgs extracts the origin domain using the config system
@@ -283,9 +312,22 @@ func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs
 
 	fmt.Printf("   🔄 Setting up EVM token approvals for fill\n")
 
+	// Get destination chain ID from fill instruction
+	if len(args.ResolvedOrder.FillInstructions) == 0 {
+		return fmt.Errorf("no fill instructions found")
+	}
+	destinationChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
+
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
 		if maxSpent.Token == "" {
+			continue
+		}
+
+		// Only approve tokens that belong to this chain (destination chain)
+		if maxSpent.ChainID.Uint64() != destinationChainID {
+			fmt.Printf("   ⚠️  Skipping approval for token %s on chain %d (this handler is for chain %d)\n",
+				maxSpent.Token, maxSpent.ChainID.Uint64(), destinationChainID)
 			continue
 		}
 
@@ -343,6 +385,16 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 	result, err := h.client.CallContract(ctx, ethereum.CallMsg{To: &tokenAddr, Data: callData}, nil)
 	if err != nil {
 		return fmt.Errorf("allowance call failed: %w", err)
+	}
+
+	if len(result) == 0 {
+		// Token doesn't exist on this chain (likely cross-chain order) - skip approval
+		fmt.Printf("   ⚠️  Token %s not found on this chain, skipping approval (cross-chain order)\n", tokenAddr.Hex())
+		chainID, err := h.client.ChainID(ctx)
+		if err == nil {
+			fmt.Printf("   ⚠️  This chain ID: %s\n", chainID.String())
+		}
+		return nil
 	}
 
 	if len(result) < 32 {

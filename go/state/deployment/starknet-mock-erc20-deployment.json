@@ -1,0 +1,12 @@
+{
+  "deploymentTime": "2025-08-29T07:40:50-04:00",
+  "networkName": "Starknet",
+  "tokens": [
+    {
+      "name": "DogCoin",
+      "symbol": "DOG",
+      "address": "0x54e9179a4d2e69aeb2ea9fdb1296ccd0c73582866e5d1f075b7f93ae2f3ba7c",
+      "classHash": "0x5eb8e84b0d7a11a7c274f8af01c2ce10c8d15df54c28bbf01f9a8325bba07a9"
+    }
+  ]
+}

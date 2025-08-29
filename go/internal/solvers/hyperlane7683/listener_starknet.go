@@ -22,7 +22,6 @@ import (
 
 	"github.com/NethermindEth/oif-starknet/go/internal/base"
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
-	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
 	"github.com/NethermindEth/oif-starknet/go/internal/logutil"
 	"github.com/NethermindEth/oif-starknet/go/internal/types"
 )
@@ -41,32 +40,58 @@ type starknetListener struct {
 }
 
 // NewStarknetListener creates a new Starknet listener
-func NewStarknetListener(config *base.ListenerConfig, rpcURL string) (base.BaseListener, error) {
+func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.BaseListener, error) {
 	provider, err := rpc.NewProvider(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Starknet RPC: %w", err)
 	}
 
-	addrFelt, err := types.ToStarknetAddress(config.ContractAddress)
+	addrFelt, err := types.ToStarknetAddress(listenerConfig.ContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Starknet contract address: %w", err)
 	}
 
+	// Use the start block from config, but check if deployment state has a higher value
 	var lastProcessedBlock uint64
-	state, err := deployer.GetDeploymentState()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get deployment state: %w", err)
+	configStartBlock := listenerConfig.InitialBlock.Uint64()
+
+	// Special case: if start block is 0, use current block
+	if configStartBlock == 0 {
+		ctx := context.Background()
+		currentBlock, err := provider.BlockNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
+		}
+		configStartBlock = currentBlock
+		fmt.Printf("%s📚 Start block was 0, using current block: %d\n", 
+			logutil.Prefix(listenerConfig.ChainName), configStartBlock)
 	}
 
-	if networkState, exists := state.Networks[config.ChainName]; exists {
-		lastProcessedBlock = networkState.LastIndexedBlock
-		fmt.Printf("%s📚 Using LastIndexedBlock: %d\n", logutil.Prefix(config.ChainName), lastProcessedBlock)
+	state, err := config.GetSolverState()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get solver state: %w", err)
+	}
+
+	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
+		deploymentStateBlock := networkState.LastIndexedBlock
+
+		// Use the HIGHER of the two values - this respects updated .env values
+		// while also respecting any actual progress that's been saved
+		if deploymentStateBlock > configStartBlock {
+			lastProcessedBlock = deploymentStateBlock
+			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
+				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, configStartBlock)
+		} else {
+			lastProcessedBlock = configStartBlock
+			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n",
+				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, deploymentStateBlock)
+		}
 	} else {
-		return nil, fmt.Errorf("network %s not found in deployment state", config.ChainName)
+		return nil, fmt.Errorf("network %s not found in solver state", listenerConfig.ChainName)
 	}
 
 	return &starknetListener{
-		config:             config,
+		config:             listenerConfig,
 		provider:           provider,
 		contractAddress:    addrFelt,
 		lastProcessedBlock: lastProcessedBlock,
@@ -145,7 +170,7 @@ func (l *starknetListener) catchUpHistoricalBlocks(ctx context.Context, handler 
 			return fmt.Errorf("%sfailed to process historical blocks %d-%d: %v", p, start, end, err)
 		}
 		l.lastProcessedBlock = newLast
-		if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
+		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
 		} else {
 			fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
@@ -202,7 +227,7 @@ func (l *starknetListener) processCurrentBlockRange(ctx context.Context, handler
 
 	// Block processing complete
 	l.lastProcessedBlock = newLast
-	if err := deployer.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
+	if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 		fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", l.config.ChainName, err)
 	} else {
 		fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, l.config.ChainName)
@@ -319,8 +344,16 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 		return new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
 	}
 	readAddress := func() string {
-		b := readFelt().Bytes()
-		return "0x" + hex.EncodeToString(b[:])
+		feltBytes := readFelt().Bytes()
+		// Convert to slice to handle consistently
+		b := feltBytes[:]
+		// Pad to 32 bytes if shorter (for consistent bytes32 format)
+		if len(b) < 32 {
+			padded := make([]byte, 32)
+			copy(padded[32-len(b):], b)
+			return "0x" + hex.EncodeToString(padded)
+		}
+		return "0x" + hex.EncodeToString(b)
 	}
 
 	readOutput := func() types.Output {

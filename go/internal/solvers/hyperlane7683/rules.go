@@ -66,12 +66,12 @@ func (f *Hyperlane7683Solver) enoughBalanceOnDestination(args types.ParsedArgs, 
 
 	// Check balances for each EVM chain and token
 	for chainID, tokenAmounts := range amountByTokenByChain {
-		client, err := f.getClientForChain(big.NewInt(int64(chainID)))
+		client, err := f.getEVMClient(chainID)
 		if err != nil {
 			return fmt.Errorf("failed to get client for chain %d: %w", chainID, err)
 		}
 
-		signer, err := f.getSignerForChain(big.NewInt(int64(chainID)))
+		signer, err := f.getEVMSigner(chainID)
 		if err != nil {
 			return fmt.Errorf("failed to get signer for chain %d: %w", chainID, err)
 		}

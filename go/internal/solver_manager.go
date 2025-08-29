@@ -2,11 +2,9 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/NethermindEth/oif-starknet/go/internal/base"
@@ -362,58 +360,47 @@ func (sm *SolverManager) GetSolverStatus() map[string]bool {
 // getStarknetHyperlaneAddress gets the correct Starknet Hyperlane address based on FORKING mode
 // Note: This is needed until there is a final hyperlane deployment address
 func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, error) {
-	forkingStr := strings.ToLower(os.Getenv("FORKING"))
+	//forkingStr := strings.ToLower(os.Getenv("FORKING"))
 	// Check FORKING environment variable (default: true for local forks)
-	if forkingStr == "" {
-		forkingStr = "true"
-	}
-	isForking, _ := strconv.ParseBool(forkingStr)
+	//if forkingStr == "" {
+	//	forkingStr = "true"
+	//}
+	//	isForking, _ := strconv.ParseBool(forkingStr)
 
-	if isForking {
-		// Local forks: Use deployment state (fresh deployments)
-		if deploymentAddr := getStarknetHyperlaneFromDeploymentState(); deploymentAddr != "" {
-			fmt.Printf("🔄 FORKING=true: Using Starknet Hyperlane address from deployment state: %s\n", deploymentAddr)
-			return deploymentAddr, nil
-		} else {
-			return "", fmt.Errorf("FORKING=true but no Starknet Hyperlane address found in deployment state")
-		}
+	// Live networks: Read full Starknet address directly from .env (bypass common.Address truncation)
+	envAddr := os.Getenv("STARKNET_HYPERLANE_ADDRESS")
+	if envAddr != "" {
+		fmt.Printf("   🔄 Using Starknet Hyperlane address from .env: %s\n", envAddr)
+		return envAddr, nil
 	} else {
-		// Live networks: Use .env address (manually configured)
-		envAddr := networkConfig.HyperlaneAddress.Hex()
-		if envAddr != "0x0000000000000000000000000000000000000000" && envAddr != "" {
-			fmt.Printf("   🔄 FORKING=false: Using Starknet Hyperlane address from .env: %s\n", envAddr)
-			return envAddr, nil
-		} else {
-			return "", fmt.Errorf("FORKING=false but no STARKNET_HYPERLANE_ADDRESS set in .env")
-		}
+		return "", fmt.Errorf("no STARKNET_HYPERLANE_ADDRESS set in .env")
 	}
 }
 
-// getStarknetHyperlaneFromDeploymentState loads Starknet Hyperlane address from deployment state
-func getStarknetHyperlaneFromDeploymentState() string {
-	paths := []string{"state/network_state/deployment-state.json", "../state/network_state/deployment-state.json", "../../state/network_state/deployment-state.json"}
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		var deploymentState struct {
-			Networks map[string]struct {
-				ChainID          uint64 `json:"chainId"`
-				HyperlaneAddress string `json:"hyperlaneAddress"`
-				OrcaCoinAddress  string `json:"orcaCoinAddress"`
-				DogCoinAddress   string `json:"dogCoinAddress"`
-			} `json:"networks"`
-		}
-		if err := json.Unmarshal(data, &deploymentState); err != nil {
-			continue
-		}
-		if stark, ok := deploymentState.Networks["Starknet"]; ok && stark.HyperlaneAddress != "" {
-			return stark.HyperlaneAddress
-		}
-		if starkLegacy, ok := deploymentState.Networks["Starknet"]; ok && starkLegacy.HyperlaneAddress != "" {
-			return starkLegacy.HyperlaneAddress
-		}
-	}
-	return ""
-}
+//// getStarknetHyperlaneFromDeploymentState loads Starknet Hyperlane address from deployment state
+//func getStarknetHyperlaneFromDeploymentState() string {
+//	paths := []string{"state/network_state/deployment-state.json", "../state/network_state/deployment-state.json", "../../state/network_state/deployment-state.json"}
+//	for _, path := range paths {
+//		data, err := os.ReadFile(path)
+//		if err != nil {
+//			continue
+//		}
+//		var deploymentState struct {
+//			Networks map[string]struct {
+//				ChainID          uint64 `json:"chainId"`
+//				HyperlaneAddress string `json:"hyperlaneAddress"`
+//				DogCoinAddress   string `json:"dogCoinAddress"`
+//			} `json:"networks"`
+//		}
+//		if err := json.Unmarshal(data, &deploymentState); err != nil {
+//			continue
+//		}
+//		if stark, ok := deploymentState.Networks["Starknet"]; ok && stark.HyperlaneAddress != "" {
+//			return stark.HyperlaneAddress
+//		}
+//		if starkLegacy, ok := deploymentState.Networks["Starknet"]; ok && starkLegacy.HyperlaneAddress != "" {
+//			return starkLegacy.HyperlaneAddress
+//		}
+//	}
+//	return ""
+//}

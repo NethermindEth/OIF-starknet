@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,7 +18,6 @@ import (
 	"github.com/joho/godotenv"
 
 	githubConfig "github.com/NethermindEth/oif-starknet/go/internal/config"
-	githubDeployer "github.com/NethermindEth/oif-starknet/go/internal/deployer"
 )
 
 // Network configuration - will be loaded from deployment state
@@ -32,157 +29,140 @@ type NetworkConfig struct {
 	url              string
 	chainID          uint64
 	hyperlaneAddress string
-	orcaCoinAddress  string
 	dogCoinAddress   string
 }
 
 // loadNetworks loads network configuration from deployment state
 func loadNetworks() error {
-	// Get Starknet network name from environment
-	starknetNetworkName := getEnvWithDefault("STARKNET_NETWORK_NAME", "Starknet")
-
 	// Base network entry - completely configurable via env vars
 	networks = []NetworkConfig{
 		{
-			name:             starknetNetworkName,
+			name:             "Starknet",
 			url:              getEnvWithDefault("STARKNET_RPC_URL", "http://localhost:5050"),
 			chainID:          getEnvUint64("STARKNET_CHAIN_ID", 23448591),
 			hyperlaneAddress: "",
-			orcaCoinAddress:  "",
 			dogCoinAddress:   "",
 		},
 	}
 
 	// Check FORKING mode for address loading
-	forkingStr := strings.ToLower(getEnvWithDefault("FORKING", "true"))
-	isForking, _ := strconv.ParseBool(forkingStr)
+	//forkingStr := strings.ToLower(getEnvWithDefault("FORKING", "true"))
+	//isForking, _ := strconv.ParseBool(forkingStr)
 
-	if isForking {
-		// Local forks: Use deployment state
-		fmt.Printf("🔄 FORKING=true: Loading addresses from deployment state (fork mode)\n")
-		state, err := githubDeployer.GetDeploymentState()
-		if err == nil {
-			if sn, ok := state.Networks[starknetNetworkName]; ok {
-				for i := range networks {
-					if networks[i].name == starknetNetworkName {
-						networks[i].hyperlaneAddress = sn.HyperlaneAddress
-						networks[i].orcaCoinAddress = sn.OrcaCoinAddress
-						networks[i].dogCoinAddress = sn.DogCoinAddress
-						fmt.Printf("   🔍 Loaded centralized state for %s\n", networks[i].name)
-						fmt.Printf("   🔍 Hyperlane7683: %s\n", networks[i].hyperlaneAddress)
-						fmt.Printf("   🔍 OrcaCoin: %s\n", networks[i].orcaCoinAddress)
-						fmt.Printf("   🔍 DogCoin: %s\n", networks[i].dogCoinAddress)
-						return nil
-					}
-				}
+	//	if isForking {
+	//		// Local forks: Use deployment state
+	//		fmt.Printf("🔄 FORKING=true: Loading addresses from deployment state (fork mode)\n")
+	//		state, err := githubDeployer.GetDeploymentState()
+	//		if err == nil {
+	//			if sn, ok := state.Networks[starknetNetworkName]; ok {
+	//				for i := range networks {
+	//					if networks[i].name == starknetNetworkName {
+	//						networks[i].hyperlaneAddress = sn.HyperlaneAddress
+	//						networks[i].dogCoinAddress = sn.DogCoinAddress
+	//						fmt.Printf("   🔍 Loaded centralized state for %s\n", networks[i].name)
+	//						fmt.Printf("   🔍 Hyperlane7683: %s\n", networks[i].hyperlaneAddress)
+	//						fmt.Printf("   🔍 DogCoin: %s\n", networks[i].dogCoinAddress)
+	//						return nil
+	//					}
+	//				}
+	//			}
+	//		}
+	//	} else {
+	// Live networks: Use .env addresses
+	for i := range networks {
+		if networks[i].name == "Starknet" {
+			hyperlaneAddr := getEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")
+			dogAddr := getEnvWithDefault("STARKNET_DOG_COIN_ADDRESS", "")
+
+			if hyperlaneAddr == "" || dogAddr == "" {
+				return fmt.Errorf("missing STARKNET_HYPERLANE_ADDRESS or STARKNET_DOG_COIN_ADDRESS in .env")
 			}
-		}
-	} else {
-		// Live networks: Use .env addresses
-		fmt.Printf("   🔄 FORKING=false: Using addresses from .env (live network mode)\n")
-		for i := range networks {
-			if networks[i].name == starknetNetworkName {
-				hyperlaneAddr := getEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")
-				orcaAddr := getEnvWithDefault("STARKNET_ORCA_ADDRESS", "")
-				dogAddr := getEnvWithDefault("STARKNET_DOG_ADDRESS", "")
 
-				if hyperlaneAddr == "" {
-					return fmt.Errorf("FORKING=false but STARKNET_HYPERLANE_ADDRESS not set in .env")
-				}
-
-				networks[i].hyperlaneAddress = hyperlaneAddr
-				networks[i].orcaCoinAddress = orcaAddr
-				networks[i].dogCoinAddress = dogAddr
-				fmt.Printf("   🔄 Using %s Hyperlane7683 from .env: %s\n", networks[i].name, hyperlaneAddr)
-				if orcaAddr != "" {
-					fmt.Printf("   🔄 Using %s OrcaCoin from .env: %s\n", networks[i].name, orcaAddr)
-				}
-				if dogAddr != "" {
-					fmt.Printf("   🔄 Using %s DogCoin from .env: %s\n", networks[i].name, dogAddr)
-				}
-				return nil
+			networks[i].hyperlaneAddress = hyperlaneAddr
+			networks[i].dogCoinAddress = dogAddr
+			if dogAddr != "" {
+				fmt.Printf("   🔄 Using %s DogCoin from .env: %s\n", networks[i].name, dogAddr)
 			}
+			return nil
 		}
+		//		}
 	}
 
-	// If neither mode loaded addresses successfully, try fallback to legacy files
-	if networks[0].hyperlaneAddress == "" {
-		fmt.Printf("   ⚠️ Fallback: Trying legacy per-file state\n")
-		for i, network := range networks {
-			if network.name == starknetNetworkName {
-				if hyperlaneAddr, err := loadHyperlaneAddress(); err == nil && hyperlaneAddr != "" {
-					networks[i].hyperlaneAddress = hyperlaneAddr
-					fmt.Printf("   🔍 Loaded %s Hyperlane7683: %s\n", network.name, hyperlaneAddr)
-				}
-				if tokens, err := loadTokenAddresses(); err == nil {
-					for _, token := range tokens {
-						if token.Name == "OrcaCoin" {
-							networks[i].orcaCoinAddress = token.Address
-							fmt.Printf("   🔍 Loaded %s OrcaCoin: %s\n", network.name, token.Address)
-						} else if token.Name == "DogCoin" {
-							networks[i].dogCoinAddress = token.Address
-							fmt.Printf("   🔍 Loaded %s DogCoin: %s\n", network.name, token.Address)
-						}
-					}
-				}
-			}
-		}
-	}
+	//// If neither mode loaded addresses successfully, try fallback to legacy files
+	//if networks[0].hyperlaneAddress == "" {
+	//	fmt.Printf("   ⚠️ Fallback: Trying legacy per-file state\n")
+	//	for i, network := range networks {
+	//		if network.name == starknetNetworkName {
+	//			if hyperlaneAddr, err := loadHyperlaneAddress(); err == nil && hyperlaneAddr != "" {
+	//				networks[i].hyperlaneAddress = hyperlaneAddr
+	//				fmt.Printf("   🔍 Loaded %s Hyperlane7683: %s\n", network.name, hyperlaneAddr)
+	//			}
+	//			if tokens, err := loadTokenAddresses(); err == nil {
+	//				for _, token := range tokens {
+	//					if token.Name == "DogCoin" {
+	//						networks[i].dogCoinAddress = token.Address
+	//						fmt.Printf("   🔍 Loaded %s DogCoin: %s\n", network.name, token.Address)
+	//					}
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 
 	return nil
 }
 
-// loadHyperlaneAddress loads the Hyperlane7683 address from deployment file
-func loadHyperlaneAddress() (string, error) {
-	// Try multiple possible paths
-	paths := []string{
-		"state/network_state/starknet-sepolia-deployment.json",
-		"../state/network_state/starknet-sepolia-deployment.json",
-		"../../state/network_state/starknet-sepolia-deployment.json",
-	}
-
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err == nil {
-			fmt.Printf("   🔍 Loaded Hyperlane address from: %s\n", path)
-			var deployment struct {
-				DeployedAddress string `json:"deployedAddress"`
-			}
-			if err := json.Unmarshal(data, &deployment); err != nil {
-				continue
-			}
-			return deployment.DeployedAddress, nil
-		}
-	}
-
-	return "", fmt.Errorf("could not find Hyperlane deployment file in any of the expected paths")
-}
+//// loadHyperlaneAddress loads the Hyperlane7683 address from deployment file
+//func loadHyperlaneAddress() (string, error) {
+//	// Try multiple possible paths
+//	paths := []string{
+//		"state/network_state/starknet-sepolia-deployment.json",
+//		"../state/network_state/starknet-sepolia-deployment.json",
+//		"../../state/network_state/starknet-sepolia-deployment.json",
+//	}
+//
+//	for _, path := range paths {
+//		data, err := os.ReadFile(path)
+//		if err == nil {
+//			fmt.Printf("   🔍 Loaded Hyperlane address from: %s\n", path)
+//			var deployment struct {
+//				DeployedAddress string `json:"deployedAddress"`
+//			}
+//			if err := json.Unmarshal(data, &deployment); err != nil {
+//				continue
+//			}
+//			return deployment.DeployedAddress, nil
+//		}
+//	}
+//
+//	return "", fmt.Errorf("could not find Hyperlane deployment file in any of the expected paths")
+//}
 
 // loadTokenAddresses loads token addresses from deployment file
-func loadTokenAddresses() ([]TokenInfo, error) {
-	// Try multiple possible paths
-	paths := []string{
-		"state/network_state/starknet-mock-erc20-deployment.json",
-		"../state/network_state/starknet-mock-erc20-deployment.json",
-		"../../state/network_state/deployment-state.json",
-	}
-
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err == nil {
-			fmt.Printf("   🔍 Loaded token addresses from: %s\n", path)
-			var deployment struct {
-				Tokens []TokenInfo `json:"tokens"`
-			}
-			if err := json.Unmarshal(data, &deployment); err != nil {
-				continue
-			}
-			return deployment.Tokens, nil
-		}
-	}
-
-	return nil, fmt.Errorf("could not find token deployment file in any of the expected paths")
-}
+//func loadTokenAddresses() ([]TokenInfo, error) {
+//	// Try multiple possible paths
+//	paths := []string{
+//		"state/network_state/starknet-mock-erc20-deployment.json",
+//		"../state/network_state/starknet-mock-erc20-deployment.json",
+//		"../../state/network_state/deployment-state.json",
+//	}
+//
+//	for _, path := range paths {
+//		data, err := os.ReadFile(path)
+//		if err == nil {
+//			fmt.Printf("   🔍 Loaded token addresses from: %s\n", path)
+//			var deployment struct {
+//				Tokens []TokenInfo `json:"tokens"`
+//			}
+//			if err := json.Unmarshal(data, &deployment); err != nil {
+//				continue
+//			}
+//			return deployment.Tokens, nil
+//		}
+//	}
+//
+//	return nil, fmt.Errorf("could not find token deployment file in any of the expected paths")
+//}
 
 // TokenInfo represents token deployment information
 type TokenInfo struct {
@@ -193,13 +173,23 @@ type TokenInfo struct {
 }
 
 // Test user configuration (Alice-only for orders, Solver for fills)
-var testUsers = []struct {
+// NOTE: This gets initialized after .env is loaded to ensure addresses come from environment
+var testUsers []struct {
 	name       string
 	privateKey string
 	address    string
-}{
-	{"Alice", "STARKNET_ALICE_PRIVATE_KEY", getEnvWithDefault("STARKNET_ALICE_ADDRESS", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7")},
-	{"Solver", "STARKNET_SOLVER_PRIVATE_KEY", getEnvWithDefault("STARKNET_SOLVER_ADDRESS", "0x2af9427c5a277474c079a1283c880ee8a6f0f8fbf73ce969c08d88befec1bba")},
+}
+
+// initializeTestUsers initializes the test user configuration after .env is loaded
+func initializeTestUsers() {
+	testUsers = []struct {
+		name       string
+		privateKey string
+		address    string
+	}{
+		{"Alice", "STARKNET_ALICE_PRIVATE_KEY", getEnvWithDefault("STARKNET_ALICE_ADDRESS", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7")},
+		{"Solver", "STARKNET_SOLVER_PRIVATE_KEY", getEnvWithDefault("STARKNET_SOLVER_ADDRESS", "0x2af9427c5a277474c079a1283c880ee8a6f0f8fbf73ce969c08d88befec1bba")},
+	}
 }
 
 // Order configuration
@@ -245,6 +235,12 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("⚠️  No .env file found, using environment variables")
 	}
+
+	// Initialize network configuration after loading .env
+	githubConfig.InitializeNetworks()
+
+	// Initialize test users after .env is loaded
+	initializeTestUsers()
 
 	// Load network configuration
 	if err := loadNetworks(); err != nil {
@@ -297,7 +293,7 @@ func openRandomOrder() {
 	order := OrderConfig{
 		OriginChain:      originChain,
 		DestinationChain: destinationChain,
-		InputToken:       "OrcaCoin",
+		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      inputAmount,
 		OutputAmount:     outputAmount,
@@ -305,15 +301,6 @@ func openRandomOrder() {
 		OpenDeadline:     uint64(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
 	}
-
-	fmt.Printf("🎯 Random Order Generated:\n")
-	fmt.Printf("   Origin: %s\n", order.OriginChain)
-	fmt.Printf("   Destination: %s\n", order.DestinationChain)
-	fmt.Printf("   User: %s\n", order.User)
-	inputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.InputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-	outputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.OutputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-	fmt.Printf("   Input: %s OrcaCoins\n", inputFloat.Text('f', 0))
-	fmt.Printf("   Output: %s DogCoins\n", outputFloat.Text('f', 0))
 
 	executeOrder(order)
 }
@@ -328,7 +315,7 @@ func openDefaultStarknetToEvm() {
 	order := OrderConfig{
 		OriginChain:      originChain,
 		DestinationChain: destinationChain,
-		InputToken:       "OrcaCoin",
+		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
 		OutputAmount:     new(big.Int).Mul(big.NewInt(999), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),  // 999 tokens
@@ -336,13 +323,6 @@ func openDefaultStarknetToEvm() {
 		OpenDeadline:     uint64(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
 	}
-
-	fmt.Printf("🎯 Default Starknet→EVM Order (Nonce: 3):\n")
-	fmt.Printf("   Origin: %s\n", order.OriginChain)
-	fmt.Printf("   Destination: %s\n", order.DestinationChain)
-	fmt.Printf("   User: %s\n", order.User)
-	fmt.Printf("   Input: 1000 OrcaCoins\n")
-	fmt.Printf("   Output: 999 DogCoins\n")
 
 	executeOrder(order)
 }
@@ -389,9 +369,6 @@ func executeOrder(order OrderConfig) {
 		}
 	}
 
-	fmt.Printf("   🔗 Connected to %s (Chain ID: %d)\n", order.OriginChain, originNetwork.chainID)
-	fmt.Printf("   👤 User: %s (%s)\n", order.User, userAddr)
-
 	// Get domains from config
 	var originDomain, destinationDomain uint32
 	if originConfig, err := githubConfig.GetHyperlaneDomain(order.OriginChain); err == nil {
@@ -408,28 +385,16 @@ func executeOrder(order OrderConfig) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("   🔎 Origin Domain: %d\n", originDomain)
-	fmt.Printf("   🔎 Destination Domain: %d\n", destinationDomain)
-
 	// Preflight: check balances and allowances
-	inputToken := originNetwork.orcaCoinAddress
+	inputToken := originNetwork.dogCoinAddress
 	owner := userAddr
-	spender := originNetwork.hyperlaneAddress
 
 	// Get initial balances
-	initialUserBalance, err := getTokenBalanceFromRPC(client, inputToken, owner, "OrcaCoin")
+	initialUserBalance, err := getTokenBalanceFromRPC(client, inputToken, owner)
 	if err == nil {
 		fmt.Printf("   🔍 Initial InputToken balance(owner): %s\n", formatTokenAmount(initialUserBalance))
 	} else {
 		fmt.Printf("   ⚠️  Could not read initial balance: %v\n", err)
-	}
-
-	// Check allowance
-	allowance, err := getTokenAllowanceFromRPC(client, inputToken, owner, spender, "OrcaCoin")
-	if err == nil {
-		fmt.Printf("   🔍 InputToken allowance(owner→hyperlane): %s\n", formatTokenAmount(allowance))
-	} else {
-		fmt.Printf("   ⚠️  Could not read allowance: %v\n", err)
 	}
 
 	// Store initial balance for comparison
@@ -483,7 +448,6 @@ func executeOrder(order OrderConfig) {
 		os.Exit(1)
 	}
 
-	fmt.Println("\n📝 Now attempting to open the order...")
 	fmt.Printf("   📝 Sending open transaction...\n")
 
 	// Build the transaction calldata for open(fill_deadline: u64, order_data_type: u256, order_data: Bytes)
@@ -493,22 +457,6 @@ func executeOrder(order OrderConfig) {
 		crossChainOrder.OrderDataTypeHigh,
 	}
 	calldata = append(calldata, crossChainOrder.OrderData...)
-
-	// Log the complete calldata for debugging
-	fmt.Printf("   🧪 Open Function Calldata Debug:\n")
-	fmt.Printf("     • fill_deadline: %s\n", utils.Uint64ToFelt(crossChainOrder.FillDeadline).String())
-	fmt.Printf("     • order_data_type.low: %s\n", crossChainOrder.OrderDataTypeLow.String())
-	fmt.Printf("     • order_data_type.high: %s\n", crossChainOrder.OrderDataTypeHigh.String())
-	fmt.Printf("     • order_data size: %d felts\n", len(crossChainOrder.OrderData))
-	fmt.Printf("     • total calldata: %d felts\n", len(calldata))
-
-	// Log the first few calldata elements
-	for i := 0; i < len(calldata) && i < 8; i++ {
-		fmt.Printf("     • calldata[%d]: %s\n", i, calldata[i].String())
-	}
-	if len(calldata) > 8 {
-		fmt.Printf("     • ... and %d more calldata elements\n", len(calldata)-8)
-	}
 
 	tx, err := userAccnt.BuildAndSendInvokeTxn(
 		context.Background(),
@@ -535,13 +483,14 @@ func executeOrder(order OrderConfig) {
 	}
 
 	fmt.Printf("   ✅ Order opened successfully!\n")
+	fmt.Printf("   🎯 Order ID: %s\n", calculateOrderId(orderData))
 
 	// Verify that balances actually changed as expected
 	fmt.Printf("   🔍 Verifying balance changes...\n")
-	if err := verifyBalanceChangesFromRPC(client, inputToken, owner, spender, initialBalance, order.InputAmount); err != nil {
+	if err := verifyBalanceChangesFromRPC(client, inputToken, owner, initialBalance, order.InputAmount); err != nil {
 		fmt.Printf("   ⚠️  Balance verification failed: %v\n", err)
 	} else {
-		fmt.Printf("   ✅ Balance changes verified!\n")
+		fmt.Printf("   👍 Balance changes verified!\n")
 	}
 
 	fmt.Printf("\n🎉 Order execution completed!\n")
@@ -559,7 +508,7 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, originDomai
 
 	// Convert addresses to felt
 	userAddrFelt, _ := utils.HexToFelt(userAddr)
-	inputTokenFelt, _ := utils.HexToFelt(originNetwork.orcaCoinAddress)
+	inputTokenFelt, _ := utils.HexToFelt(originNetwork.dogCoinAddress)
 
 	// For recipient, since this is a Starknet order opener, destination is always EVM
 	// We need to map the Starknet user to their corresponding EVM address
@@ -590,41 +539,38 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, originDomai
 		// If destination is Starknet, use Starknet's DogCoin
 		outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
 	} else {
-		// If destination is EVM, get DogCoin address from destination network
-		if state, err := githubDeployer.GetDeploymentState(); err == nil {
-			if net, ok := state.Networks[destChainName]; ok && net.DogCoinAddress != "" {
+		// If destination is EVM, get DogCoin address from destination network config (.env)
+		if _, exists := githubConfig.Networks[destChainName]; exists {
+			dogCoinAddr := getEnvWithDefault(strings.ToUpper(destChainName)+"_DOG_COIN_ADDRESS", "")
+			if dogCoinAddr != "" {
 				// For EVM addresses, we need to left-pad to 32 bytes for Cairo ContractAddress
-				evmAddr := common.HexToAddress(net.DogCoinAddress)
+				evmAddr := common.HexToAddress(dogCoinAddr)
 				paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 				outputTokenFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
 				fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 			} else {
 				// Last resort - use origin network (this is wrong but prevents crash)
 				outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
-				fmt.Printf("   ⚠️  Warning: Using origin network DogCoin as fallback for destination\n")
+				fmt.Printf("   ⚠️  Warning: No %s_DOG_COIN_ADDRESS in .env, using origin network DogCoin as fallback\n", strings.ToUpper(destChainName))
 			}
 		} else {
-			// Fallback to origin network if deployment state unavailable
+			// Fallback to origin network if destination network not found
 			outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
-			fmt.Printf("   ⚠️  Warning: Using origin network DogCoin as fallback for destination\n")
+			fmt.Printf("   ⚠️  Warning: Destination network %s not found in config, using origin network DogCoin as fallback\n", destChainName)
 		}
 	}
 
 	// Destination settler must be the EVM Hyperlane address for the destination network
 	destSettlerHex := ""
-	if state, err := githubDeployer.GetDeploymentState(); err == nil {
-		if net, ok := state.Networks[destChainName]; ok {
-			destSettlerHex = net.HyperlaneAddress
-		}
-	}
-	if destSettlerHex == "" {
-		if staticAddr, err := githubConfig.GetHyperlaneAddress(destChainName); err == nil {
-			destSettlerHex = staticAddr.Hex()
-		}
+	if staticAddr, err := githubConfig.GetHyperlaneAddress(destChainName); err == nil {
+		destSettlerHex = staticAddr.Hex()
+	} else if destNetwork, exists := githubConfig.Networks[destChainName]; exists {
+		destSettlerHex = destNetwork.HyperlaneAddress.Hex()
 	}
 	if destSettlerHex == "" {
 		// As a last resort, keep previous behavior (but this is likely wrong for cross-chain)
 		destSettlerHex = originNetwork.hyperlaneAddress
+		fmt.Printf("   ⚠️  Warning: Using origin Hyperlane address as destination settler (may be incorrect)\n")
 	}
 
 	// Ensure destination settler is properly padded to 32 bytes for Cairo ContractAddress
@@ -672,20 +618,20 @@ func getOrderDataTypeHashU256() (low *felt.Felt, high *felt.Felt) {
 }
 
 func encodeOrderData(orderData OrderData) []*felt.Felt {
-	// Log the input values for debugging
-	fmt.Printf("   🧪 OrderData Input Debug:\n")
-	fmt.Printf("     • sender: %s\n", orderData.Sender.String())
-	fmt.Printf("     • recipient: %s\n", orderData.Recipient.String())
-	fmt.Printf("     • input_token: %s\n", orderData.InputToken.String())
-	fmt.Printf("     • output_token: %s\n", orderData.OutputToken.String())
-	fmt.Printf("     • amount_in: %s\n", orderData.AmountIn.String())
-	fmt.Printf("     • amount_out: %s\n", orderData.AmountOut.String())
-	fmt.Printf("     • sender_nonce: %s\n", orderData.SenderNonce.String())
-	fmt.Printf("     • origin_domain: %d (u32)\n", orderData.OriginDomain)
-	fmt.Printf("     • destination_domain: %d (u32)\n", orderData.DestinationDomain)
-	fmt.Printf("     • destination_settler: %s\n", orderData.DestinationSettler.String())
-	fmt.Printf("     • fill_deadline: %d (u64)\n", orderData.FillDeadline)
-	fmt.Printf("     • data: %d elements\n", len(orderData.Data))
+	//// Log the input values for debugging
+	//fmt.Printf("   🧪 OrderData Input Debug:\n")
+	//fmt.Printf("     • sender: %s\n", orderData.Sender.String())
+	//fmt.Printf("     • recipient: %s\n", orderData.Recipient.String())
+	//fmt.Printf("     • input_token: %s\n", orderData.InputToken.String())
+	//fmt.Printf("     • output_token: %s\n", orderData.OutputToken.String())
+	//fmt.Printf("     • amount_in: %s\n", orderData.AmountIn.String())
+	//fmt.Printf("     • amount_out: %s\n", orderData.AmountOut.String())
+	//fmt.Printf("     • sender_nonce: %s\n", orderData.SenderNonce.String())
+	//fmt.Printf("     • origin_domain: %d (u32)\n", orderData.OriginDomain)
+	//fmt.Printf("     • destination_domain: %d (u32)\n", orderData.DestinationDomain)
+	//fmt.Printf("     • destination_settler: %s\n", orderData.DestinationSettler.String())
+	//fmt.Printf("     • fill_deadline: %d (u64)\n", orderData.FillDeadline)
+	//fmt.Printf("     • data: %d elements\n", len(orderData.Data))
 
 	// Build Solidity ABI-compatible bytes for OrderData
 	// Head (12 words of 32 bytes), then tail for bytes data (length + data padded)
@@ -771,19 +717,6 @@ func encodeOrderData(orderData OrderData) []*felt.Felt {
 	// Tail: data length (32 bytes) then data padded to 32
 	// Currently no dynamic data, so encode zero length
 	writeWord(&raw, make([]byte, 0)) // length = 0 -> becomes 32 zero bytes
-	// no data to pad
-
-	// Log the ABI-encoded OrderData
-	fmt.Printf("   🔍 Encoded OrderData ABI bytes (%d): %s\n", len(raw), hex.EncodeToString(raw))
-
-	// Additional debug: show the first few 32-byte chunks to verify padding
-	fmt.Printf("   🧪 OrderData Field Debug (first 4 fields, 32 bytes each):\n")
-	if len(raw) >= 128 {
-		fmt.Printf("     • sender (bytes 0-31): %s\n", hex.EncodeToString(raw[0:32]))
-		fmt.Printf("     • recipient (bytes 32-63): %s\n", hex.EncodeToString(raw[32:64]))
-		fmt.Printf("     • input_token (bytes 64-95): %s\n", hex.EncodeToString(raw[64:96]))
-		fmt.Printf("     • output_token (bytes 96-127): %s\n", hex.EncodeToString(raw[96:128]))
-	}
 
 	// Now wrap into Cairo Bytes: size, words_len, then 16-byte words as felts
 	// split into u128 words (16 bytes)
@@ -804,13 +737,6 @@ func encodeOrderData(orderData OrderData) []*felt.Felt {
 	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(raw))))
 	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(words))))
 	bytesStruct = append(bytesStruct, words...)
-
-	// Log the final Cairo Bytes structure for debugging
-	fmt.Printf("   🧪 Cairo Bytes Structure Debug:\n")
-	fmt.Printf("     • size: %d bytes\n", len(raw))
-	fmt.Printf("     • words_len: %d words\n", len(words))
-	fmt.Printf("     • words: %d felts\n", len(words))
-	fmt.Printf("     • total felts: %d\n", len(bytesStruct))
 
 	// Log the first few words to see the structure
 	for i := 0; i < len(words) && i < 5; i++ {
@@ -846,7 +772,7 @@ func calculateOrderId(orderData OrderData) string {
 }
 
 // getTokenBalance gets the balance of a token for a specific address using RPC
-func getTokenBalanceFromRPC(client rpc.RpcProvider, tokenAddress, userAddress, tokenName string) (*big.Int, error) {
+func getTokenBalanceFromRPC(client rpc.RpcProvider, tokenAddress, userAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -883,7 +809,7 @@ func getTokenBalanceFromRPC(client rpc.RpcProvider, tokenAddress, userAddress, t
 }
 
 // getTokenAllowance gets the allowance of a token for a specific spender using RPC
-func getTokenAllowanceFromRPC(client rpc.RpcProvider, tokenAddress, ownerAddress, spenderAddress, tokenName string) (*big.Int, error) {
+func getTokenAllowanceFromRPC(client rpc.RpcProvider, tokenAddress, ownerAddress, spenderAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -936,12 +862,12 @@ func getTokenAllowanceFromRPC(client rpc.RpcProvider, tokenAddress, ownerAddress
 }
 
 // verifyBalanceChanges verifies that opening an order actually transferred tokens using RPC
-func verifyBalanceChangesFromRPC(client rpc.RpcProvider, tokenAddress, userAddress, hyperlaneAddress string, initialBalance *big.Int, expectedTransferAmount *big.Int) error {
+func verifyBalanceChangesFromRPC(client rpc.RpcProvider, tokenAddress, userAddress string, initialBalance, expectedTransferAmount *big.Int) error {
 	// Wait a moment for the transaction to be fully processed
 	time.Sleep(2 * time.Second)
 
 	// Get final balance
-	finalUserBalance, err := getTokenBalanceFromRPC(client, tokenAddress, userAddress, "OrcaCoin")
+	finalUserBalance, err := getTokenBalanceFromRPC(client, tokenAddress, userAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get final user balance: %w", err)
 	}

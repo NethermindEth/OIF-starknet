@@ -15,7 +15,7 @@ STARKNET_COLOR="\033[38;5;208m" # Orange
 RESET="\033[0m"                 # Reset
 
 # Network IDs
-ETHEREUM_ID="[SEP]"
+ETHEREUM_ID="[ETH]"
 OPT_ID="[OPT]"
 ARB_ID="[ARB]"
 BASE_ID="[BASE]"
@@ -41,7 +41,7 @@ reset_solver_state() {
 	OPTIMISM_SOLVER_BLOCK=${OPTIMISM_SOLVER_START_BLOCK:-27370000}
 	ARBITRUM_SOLVER_BLOCK=${ARBITRUM_SOLVER_START_BLOCK:-138020000}
 	BASE_SOLVER_BLOCK=${BASE_SOLVER_START_BLOCK:-25380000}
-	STARKNET_SOLVER_BLOCK=${STARKNET_SOLVER_START_BLOCK:-1530000}
+	STARKNET_SOLVER_BLOCK=${STARKNET_SOLVER_START_BLOCK:-1770800}
 
 	# Create the solver state JSON with only last indexed blocks
 	# Note: All addresses and chain IDs now come from .env file via config package
@@ -130,19 +130,19 @@ start_network() {
 	local fork_block
 	case $testnet_name in
 	"sepolia")
-		fork_block=${ETHEREUM_FORK_START_BLOCK:-8319000} # SolverStartBlock - 1
+		fork_block=${ETHEREUM_SOLVER_START_BLOCK:-8319000} # SolverStartBlock - 1
 		;;
 	"optimism-sepolia")
-		fork_block=${OPTIMISM_FORK_START_BLOCK:-27370000} # SolverStartBlock - 1
+		fork_block=${OPTIMISM_SOLVER_START_BLOCK:-27370000} # SolverStartBlock - 1
 		;;
 	"arbitrum-sepolia")
-		fork_block=${ARBITRUM_FORK_START_BLOCK:-138020000} # SolverStartBlock - 1
+		fork_block=${ARBITRUM_SOLVER_START_BLOCK:-138020000} # SolverStartBlock - 1
 		;;
 	"base-sepolia")
-		fork_block=${BASE_FORK_START_BLOCK:-25380000} # SolverStartBlock - 1
+		fork_block=${BASE_SOLVER_START_BLOCK:-25380000} # SolverStartBlock - 1
 		;;
 	*)
-		fork_block=${ETHEREUM_FORK_START_BLOCK:-8319000}
+		fork_block=${ETHEREUM_SOLVER_START_BLOCK:-8319000}
 		;;
 	esac
 	echo -e "${color}${id}${RESET} Forking ${testnet_name} from block ${fork_block} (SolverStartBlock - 1)"
@@ -185,8 +185,8 @@ start_starknet() {
 	fi
 
 	# Start Katana with state forking (SolverStartBlock - 1)
-	local fork_block=${STARKNET_FORK_START_BLOCK:-1530000}
-	katana --chain-id ${STARKNET_CHAIN_ID:-23448591} --fork.provider "$rpc_url" --fork.block ${fork_block} 2>&1 | while IFS= read -r line; do
+	local fork_block=${STARKNET_SOLVER_START_BLOCK:-1530000}
+	katana --chain-id $STARKNET_SOLVER_START_BLOCK --fork.provider "$rpc_url" --fork.block ${fork_block} 2>&1 | while IFS= read -r line; do
 		if [ "${LOG_LEVEL:-info}" = "debug" ]; then
 			echo -e "${color}${id}${RESET} $line"
 		else

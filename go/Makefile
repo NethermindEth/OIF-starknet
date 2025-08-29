@@ -53,11 +53,13 @@ deps:
 build:
 	go build -o bin/solver ./cmd/solver
 
-# Clean all built binaries
+# Clean all built binaries and solver state
 clean:
 	@echo "🧹 Cleaning all binaries..."
 	@rm -rf bin/*
-	@echo "✅ Clean complete"
+	@echo "🧹 Cleaning solver state..."
+	@rm -f state/solver_state/solver-state.json solver-state.json
+	@echo "✅ Clean complete (solver will start from .env start blocks)"
 
 # Build all tools
 build-all: build build-verify-hyperlane build-setup-evm-contracts build-open-order build-open-starknet-order build-deploy-hyperlane7683 build-declare-hyperlane7683 build-declare-mock-erc20 build-deploy-mock-erc20 build-setup-starknet-contracts build-register-evm-routers build-register-sn-routers
@@ -182,9 +184,12 @@ setup-evm-forks: verify-evm-hyperlane setup-evm-contracts build-register-evm-rou
 	@echo "✅ EVM forks setup complete!"
 
 # Setup Starknet fork (declare + deploy + setup contracts)
-setup-starknet-fork: declare-sn-hyperlane7683 declare-sn-mock-erc20 deploy-sn-hyperlane7683 deploy-sn-mock-erc20 setup-starknet-contracts build-register-sn-routers
-	./bin/register-sn-routers
+setup-starknet-fork: declare-sn-mock-erc20 deploy-sn-mock-erc20 setup-starknet-contracts
 	@echo "✅ Starknet fork setup complete!"
+# # Setup Starknet fork (declare + deploy + setup contracts)
+# setup-starknet-fork: declare-sn-hyperlane7683 declare-sn-mock-erc20 deploy-sn-hyperlane7683 deploy-sn-mock-erc20 setup-starknet-contracts build-register-sn-routers
+# 	./bin/register-sn-routers
+# 	@echo "✅ Starknet fork setup complete!"
 
 # Setup all forks (Starknet first so EVM can reference SN address), then EVM
 setup-forks: setup-starknet-fork setup-evm-forks

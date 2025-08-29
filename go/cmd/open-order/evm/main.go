@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -13,15 +12,13 @@ import (
 	"time"
 
 	"github.com/NethermindEth/oif-starknet/go/internal/config"
-	"github.com/NethermindEth/oif-starknet/go/internal/deployer"
+
 	"github.com/NethermindEth/oif-starknet/go/pkg/ethutil"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	contracts "github.com/NethermindEth/oif-starknet/go/internal/contracts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
@@ -36,47 +33,58 @@ type NetworkConfig struct {
 	url              string
 	chainID          uint64
 	hyperlaneAddress common.Address
-	orcaCoinAddress  common.Address
 	dogCoinAddress   common.Address
 }
 
-// loadNetworks loads network configuration from deployment state
+// loadNetworks loads network configuration from centralized config and environment variables
 func loadNetworks() error {
-	state, err := deployer.GetDeploymentState()
-	if err != nil {
-		return fmt.Errorf("failed to load deployment state: %w", err)
-	}
+	// Initialize networks from centralized config after .env is loaded
+	config.InitializeNetworks()
 
 	// Build networks from centralized config
 	networkNames := config.GetNetworkNames()
 	networks = make([]NetworkConfig, 0, len(networkNames))
 
 	for _, networkName := range networkNames {
+		// Skip non-EVM networks (like Starknet)
+		if networkName == "Starknet" {
+			continue
+		}
+
 		networkConfig := config.Networks[networkName]
+
+		// Load DogCoin address from environment variable
+		var envVarName string
+		switch networkName {
+		case "Ethereum":
+			envVarName = "ETHEREUM_DOG_COIN_ADDRESS"
+		case "Optimism":
+			envVarName = "OPTIMISM_DOG_COIN_ADDRESS"
+		case "Arbitrum":
+			envVarName = "ARBITRUM_DOG_COIN_ADDRESS"
+		case "Base":
+			envVarName = "BASE_DOG_COIN_ADDRESS"
+		default:
+			fmt.Printf("   ⚠️  Unknown network: %s\n", networkName)
+			continue
+		}
+
+		dogCoinAddr := os.Getenv(envVarName)
+		var dogCoinAddress common.Address
+		if dogCoinAddr != "" {
+			dogCoinAddress = common.HexToAddress(dogCoinAddr)
+			fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogCoinAddr)
+		} else {
+			fmt.Printf("   ⚠️  No DogCoin address found for %s (env var: %s)\n", networkName, envVarName)
+		}
+
 		networks = append(networks, NetworkConfig{
 			name:             networkConfig.Name,
 			url:              networkConfig.RPCURL,
 			chainID:          networkConfig.ChainID,
 			hyperlaneAddress: networkConfig.HyperlaneAddress,
-			orcaCoinAddress:  common.Address{},
-			dogCoinAddress:   common.Address{},
+			dogCoinAddress:   dogCoinAddress,
 		})
-	}
-
-	// Update with actual deployed addresses from state
-	for i, network := range networks {
-		if stateNetwork, exists := state.Networks[network.name]; exists {
-			if stateNetwork.OrcaCoinAddress != "" {
-				networks[i].orcaCoinAddress = common.HexToAddress(stateNetwork.OrcaCoinAddress)
-				fmt.Printf("   🔍 Loaded %s OrcaCoin: %s\n", network.name, stateNetwork.OrcaCoinAddress)
-			}
-			if stateNetwork.DogCoinAddress != "" {
-				networks[i].dogCoinAddress = common.HexToAddress(stateNetwork.DogCoinAddress)
-				fmt.Printf("   🔍 Loaded %s DogCoin: %s\n", network.name, stateNetwork.DogCoinAddress)
-			}
-		} else {
-			fmt.Printf("   ⚠️  No deployment state found for network: %s\n", network.name)
-		}
 	}
 
 	return nil
@@ -204,10 +212,9 @@ func openRandomToEvm() {
 	}
 
 	originIdx := rand.Intn(len(evmNetworks))
-	destIdx := rand.Intn(len(networks)) // Can still have Starknet as destination
+	destIdx := rand.Intn(len(evmNetworks)) // Only pick from EVM networks for EVM-EVM orders
 	for destIdx == originIdx {
-		destIdx = (originIdx + 1) % len(networks) // Ensure different chain
-
+		destIdx = (originIdx + 1) % len(evmNetworks) // Ensure different EVM chain
 	}
 
 	// Always use Alice for orders
@@ -221,8 +228,8 @@ func openRandomToEvm() {
 
 	order := OrderConfig{
 		OriginChain:      evmNetworks[originIdx].name,
-		DestinationChain: networks[destIdx].name,
-		InputToken:       "OrcaCoin",
+		DestinationChain: evmNetworks[destIdx].name,
+		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      inputAmount,
 		OutputAmount:     outputAmount,
@@ -230,15 +237,6 @@ func openRandomToEvm() {
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
 	}
-
-	fmt.Printf("🎯 Random Order Generated:\n")
-	fmt.Printf("   Origin: %s\n", order.OriginChain)
-	fmt.Printf("   Destination: %s\n", order.DestinationChain)
-	fmt.Printf("   User: %s\n", order.User)
-	inputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.InputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-	outputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.OutputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-	fmt.Printf("   Input: %s OrcaCoins\n", inputFloat.Text('f', 3))
-	fmt.Printf("   Output: %s DogCoins\n", outputFloat.Text('f', 3))
 
 	executeOrder(order)
 }
@@ -266,7 +264,7 @@ func openRandomToStarknet() {
 	order := OrderConfig{
 		OriginChain:      origin.name,
 		DestinationChain: "Starknet",
-		InputToken:       "OrcaCoin",
+		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      inputAmount,
 		OutputAmount:     outputAmount,
@@ -274,15 +272,6 @@ func openRandomToStarknet() {
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
 	}
-
-	fmt.Printf("🎯 Random Order Generated:\n")
-	fmt.Printf("   Origin: %s\n", order.OriginChain)
-	fmt.Printf("   Destination: %s\n", order.DestinationChain)
-	fmt.Printf("   User: %s\n", order.User)
-	inputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.InputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-	outputFloat := new(big.Float).Quo(new(big.Float).SetInt(order.OutputAmount), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)))
-	fmt.Printf("   Input: %s OrcaCoins\n", inputFloat.Text('f', 0))
-	fmt.Printf("   Output: %s DogCoins\n", outputFloat.Text('f', 0))
 
 	executeOrder(order)
 }
@@ -293,7 +282,7 @@ func openDefaultEvmToEvm() {
 	order := OrderConfig{
 		OriginChain:      "Ethereum",
 		DestinationChain: "Optimism",
-		InputToken:       "OrcaCoin",
+		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
 		OutputAmount:     new(big.Int).Mul(big.NewInt(999), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),  // 999 tokens
@@ -301,12 +290,6 @@ func openDefaultEvmToEvm() {
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
 	}
-
-	fmt.Printf("🎯 Default EVM→EVM Order:\n")
-	fmt.Printf("   %s -> %s", order.OriginChain, order.DestinationChain)
-	fmt.Printf("   User: %s\n", order.User)
-	fmt.Printf("   Input: 1000 OrcaCoins\n")
-	fmt.Printf("   Output: 999 DogCoins\n")
 
 	executeOrder(order)
 }
@@ -317,7 +300,7 @@ func openDefaultEvmToStarknet() {
 	order := OrderConfig{
 		OriginChain:      "Ethereum",
 		DestinationChain: "Starknet",
-		InputToken:       "OrcaCoin",
+		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      new(big.Int).Mul(big.NewInt(1000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)), // 1000 tokens
 		OutputAmount:     new(big.Int).Mul(big.NewInt(999), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)),  // 999 tokens
@@ -325,12 +308,6 @@ func openDefaultEvmToStarknet() {
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
 	}
-
-	fmt.Printf("🎯 Default EVM→Starknet Order:\n")
-	fmt.Printf("   %s -> %s\n", order.OriginChain, order.DestinationChain)
-	fmt.Printf("   User: %s\n", order.User)
-	fmt.Printf("   Input: 1000 OrcaCoins\n")
-	fmt.Printf("   Output: 999 DogCoins\n")
 
 	executeOrder(order)
 }
@@ -384,16 +361,27 @@ func executeOrder(order OrderConfig) {
 	}
 	auth.GasPrice = gasPrice
 
-	fmt.Printf("   🔗 Connected to %s (Chain ID: %d)\n", order.OriginChain, originNetwork.chainID)
-	fmt.Printf("   👤 User: %s (%s)\n", order.User, crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
-
-	// Find destination network
+	// Find destination network (check all networks, including Starknet)
 	var destinationNetwork *NetworkConfig
 
+	// First check EVM networks
 	for _, network := range networks {
 		if network.name == order.DestinationChain {
 			destinationNetwork = &network
 			break
+		}
+	}
+
+	// If not found in EVM networks, check if it's Starknet
+	if destinationNetwork == nil && order.DestinationChain == "Starknet" {
+		// Create NetworkConfig for Starknet destination
+		starknetConfig := config.Networks["Starknet"]
+		destinationNetwork = &NetworkConfig{
+			name:             "Starknet",
+			url:              starknetConfig.RPCURL,
+			chainID:          starknetConfig.ChainID,
+			hyperlaneAddress: starknetConfig.HyperlaneAddress,
+			dogCoinAddress:   common.HexToAddress(os.Getenv("STARKNET_DOG_COIN_ADDRESS")), // From env
 		}
 	}
 
@@ -406,10 +394,9 @@ func executeOrder(order OrderConfig) {
 	if err != nil {
 		log.Fatalf("Failed to read localDomain from origin contract: %v", err)
 	}
-	fmt.Printf("   🔎 localDomain (on-chain): %d\n", localDomain)
 
 	// Preflight: balances and allowances on origin for input token
-	inputToken := originNetwork.orcaCoinAddress
+	inputToken := originNetwork.dogCoinAddress
 	owner := auth.From
 	spender := originNetwork.hyperlaneAddress
 
@@ -426,13 +413,6 @@ func executeOrder(order OrderConfig) {
 		fmt.Printf("   🔍 Initial InputToken balance(hyperlane): %s\n", initialHyperlaneBalance.String())
 	} else {
 		fmt.Printf("   ⚠️  Could not read initial hyperlane balance: %v\n", err)
-	}
-
-	allowance, err := ethutil.ERC20Allowance(client, inputToken, owner, spender)
-	if err == nil {
-		fmt.Printf("   🔍 InputToken allowance(owner→settler): %s\n", allowance.String())
-	} else {
-		fmt.Printf("   ⚠️  Could not read allowance: %v\n", err)
 	}
 
 	// Store initial balances for comparison
@@ -453,19 +433,6 @@ func executeOrder(order OrderConfig) {
 	// Build the order data
 	orderData := buildOrderData(order, originNetwork, destinationNetwork, localDomain, senderNonce)
 
-	// Debug: Print the order data we're building
-	fmt.Printf("   📝 Order data details:\n")
-	fmt.Printf("      Sender: %x\n", orderData.Sender)
-	fmt.Printf("      Recipient: %x\n", orderData.Recipient)
-	fmt.Printf("      InputToken: %x\n", orderData.InputToken)
-	fmt.Printf("      OutputToken: %x\n", orderData.OutputToken)
-	fmt.Printf("      AmountIn: %s\n", orderData.AmountIn.String())
-	fmt.Printf("      AmountOut: %s\n", orderData.AmountOut.String())
-	fmt.Printf("      OriginDomain: %d (Hyperlane domain for %s)\n", orderData.OriginDomain, originNetwork.name)
-	fmt.Printf("      DestinationDomain: %d (Hyperlane domain for %s)\n", orderData.DestinationDomain, destinationNetwork.name)
-	fmt.Printf("      SenderNonce: %s\n", orderData.SenderNonce.String())
-	fmt.Printf("      DestinationSettler: %x\n", orderData.DestinationSettler)
-
 	// Build the OnchainCrossChainOrder
 	crossChainOrder := OnchainCrossChainOrder{
 		FillDeadline:  order.FillDeadline,
@@ -473,14 +440,7 @@ func executeOrder(order OrderConfig) {
 		OrderData:     encodeOrderData(orderData),
 	}
 
-	// Debug: Print the cross-chain order details
-	fmt.Printf("   📝 Cross-chain order details:\n")
-	fmt.Printf("      FillDeadline: %d\n", crossChainOrder.FillDeadline)
-	fmt.Printf("      OrderDataType: %x\n", crossChainOrder.OrderDataType)
-	fmt.Printf("      OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
-
 	// Use generated bindings for open()
-	fmt.Printf("   📝 Order data prepared\n")
 	contract, err := contracts.NewHyperlane7683(originNetwork.hyperlaneAddress, client)
 	if err != nil {
 		log.Fatalf("Failed to bind Hyperlane7683: %v", err)
@@ -504,32 +464,30 @@ func executeOrder(order OrderConfig) {
 	}
 
 	if receipt.Status == 1 {
-		fmt.Printf("   ✅ Order opened successfully!\n")
-		fmt.Printf("   📊 Gas used: %d\n", receipt.GasUsed)
-		fmt.Printf("   🎯 Order ID: %s\n", calculateOrderId(orderData))
+		fmt.Printf("✅ Order opened successfully!\n")
+		fmt.Printf("📊 Gas used: %d\n", receipt.GasUsed)
+		fmt.Printf("🎯 Order ID: %s\n", calculateOrderId(orderData))
 
 		// Verify that balances actually changed as expected
-		fmt.Printf("   🔍 Verifying balance changes...\n")
+		fmt.Printf("   🔍 Verifying input tokens were transferred...\n")
 		if err := verifyBalanceChanges(client, inputToken, owner, spender, initialBalances, order.InputAmount); err != nil {
-			fmt.Printf("   ⚠️  Balance verification failed: %v\n", err)
+			fmt.Printf("⚠️  Balance verification failed: %v\n", err)
 		} else {
-			fmt.Printf("   ✅ Balance changes verified - order was actually opened!\n")
+			fmt.Printf("👍 Balance changes verified\n")
 		}
 	} else {
-		fmt.Printf("   ❌ Order opening failed\n")
-		fmt.Printf("   🔍 Transaction hash: %s\n", tx.Hash().Hex())
-		fmt.Printf("   📊 Gas used: %d\n", receipt.GasUsed)
+		fmt.Printf("❌ Order opening failed\n")
+		fmt.Printf("🔍 Transaction hash: %s\n", tx.Hash().Hex())
+		fmt.Printf("📊 Gas used: %d\n", receipt.GasUsed)
 
 		// Try to get more details about the failure
 		fmt.Printf("   🔍 Checking transaction details...\n")
 		txDetails, _, err := client.TransactionByHash(context.Background(), tx.Hash())
 		if err != nil {
-			fmt.Printf("   ❌ Could not retrieve transaction details: %v\n", err)
+			fmt.Printf("❌ Could not retrieve transaction details: %v\n", err)
 		} else {
-			fmt.Printf("   📝 Transaction data: 0x%x\n", txDetails.Data())
+			fmt.Printf("📝 Transaction data: 0x%x\n", txDetails.Data())
 		}
-
-		// Optional: use bindings to simulate and decode custom errors if needed
 	}
 
 	fmt.Printf("\n🎉 Order execution completed!\n")
@@ -546,21 +504,23 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 	}
 
 	// Input token from origin network, output token from destination network
-	inputTokenAddr := originNetwork.orcaCoinAddress
+	inputTokenAddr := originNetwork.dogCoinAddress
 	outputTokenAddr := destinationNetwork.dogCoinAddress
 
 	// Convert destination settler depending on destination chain type
 	var destSettlerBytes [32]byte
 	if destinationNetwork.name == "Starknet" {
-		// Use Starknet Hyperlane address from centralized state as raw 32 bytes (felt)
-		state, err := deployer.GetDeploymentState()
-		if err == nil {
-			if sn, ok := state.Networks["Starknet"]; ok && sn.HyperlaneAddress != "" {
-				destSettlerBytes = hexToBytes32(sn.HyperlaneAddress)
+		// Use Starknet Hyperlane address from config (.env) as raw 32 bytes (felt)
+		if snNetwork, exists := config.Networks["Starknet"]; exists {
+			starknetHyperlaneAddr := os.Getenv("STARKNET_HYPERLANE_ADDRESS")
+			if starknetHyperlaneAddr != "" {
+				destSettlerBytes = hexToBytes32(starknetHyperlaneAddr)
+			} else if snNetwork.HyperlaneAddress.Hex() != "" {
+				destSettlerBytes = hexToBytes32(snNetwork.HyperlaneAddress.Hex())
 			}
 		}
 		if destSettlerBytes == ([32]byte{}) {
-			log.Printf("⚠️  Starknet Hyperlane address not found in state; destinationSettler will be zero")
+			log.Printf("⚠️  Starknet Hyperlane address not found in config; destinationSettler will be zero")
 		}
 	} else {
 		// EVM router is 20-byte address left-padded to 32
@@ -588,20 +548,17 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 			starknetUserAddr = getEnvWithDefault("STARKNET_ALICE_ADDRESS", "0x13d9ee239f33fea4f8785b9e3870ade909e20a9599ae7cd62c1c292b73af1b7")
 		}
 		recipientBytes = hexToBytes32(starknetUserAddr)
-		fmt.Printf("   🔍 Starknet recipient address for %s: %s\n", order.User, starknetUserAddr)
 	} else {
 		// If destination is EVM, recipient is the same EVM user
 		recipientBytes = userBytes
 	}
 	if destinationNetwork.name == "Starknet" {
-		if state, err := deployer.GetDeploymentState(); err == nil {
-			if sn, ok := state.Networks["Starknet"]; ok && sn.DogCoinAddress != "" {
-				outputTokenBytes = hexToBytes32(sn.DogCoinAddress)
-			} else {
-				log.Fatalf("missing Starknet DogCoin address in state for destination; refusing to fallback")
-			}
+		// Get Starknet DogCoin address from config (.env)
+		starknetDogCoinAddr := os.Getenv("STARKNET_DOG_COIN_ADDRESS")
+		if starknetDogCoinAddr != "" {
+			outputTokenBytes = hexToBytes32(starknetDogCoinAddr)
 		} else {
-			log.Fatalf("failed to load deployment state; refusing to fallback for Starknet output token")
+			log.Fatalf("missing STARKNET_DOG_COIN_ADDRESS in .env for destination; set this variable")
 		}
 	} else {
 		copy(outputTokenBytes[12:], outputTokenAddr.Bytes())
@@ -725,9 +682,9 @@ func getOrderDataTypeHash() [32]byte {
 	orderDataType := "OrderData(bytes32 sender,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 amountIn,uint256 amountOut,uint256 senderNonce,uint32 originDomain,uint32 destinationDomain,bytes32 destinationSettler,uint32 fillDeadline,bytes data)"
 	hash := crypto.Keccak256Hash([]byte(orderDataType))
 
-	// Debug: Print the hash we're generating
-	fmt.Printf("   🔍 Generated orderDataType hash: %x\n", hash)
-	fmt.Printf("   �� Expected hash from contract: 08d75650babf4de09c9273d48ef647876057ed91d4323f8a2e3ebc2cd8a63b5e\n")
+	//// Debug: Print the hash we're generating
+	//fmt.Printf("   🔍 Generated orderDataType hash: %x\n", hash)
+	//fmt.Printf("   �� Expected hash from contract: 08d75650babf4de09c9273d48ef647876057ed91d4323f8a2e3ebc2cd8a63b5e\n")
 
 	return hash
 }
@@ -759,7 +716,6 @@ func encodeOrderData(orderData OrderData) []byte {
 		log.Fatalf("Failed to ABI-pack OrderData tuple: %v", err)
 	}
 
-	fmt.Printf("   ✅ OrderData ABI encoding successful\n")
 	return encoded
 }
 
@@ -792,8 +748,6 @@ func encodeOpenFunctionCallDirect(selector []byte, fillDeadline uint32, orderDat
 		// Fallback to manual encoding
 		return encodeOpenFunctionCallDirectManual(selector, fillDeadline, orderDataType, orderData)
 	}
-
-	fmt.Printf("   ✅ Function ABI encoding successful using abi.Pack\n")
 
 	// abi.Pack() already includes the function selector, so we don't need to add it manually
 	return encoded
@@ -833,37 +787,37 @@ func encodeOpenFunctionCallDirectManual(selector []byte, fillDeadline uint32, or
 	return calldata
 }
 
-func sendOpenTransaction(client *ethclient.Client, auth *bind.TransactOpts, contractAddr common.Address, calldata []byte) (*types.Transaction, error) {
-	// Get current nonce
-	nonce, err := client.PendingNonceAt(context.Background(), auth.From)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %v", err)
-	}
-
-	// Create transaction
-	tx := types.NewTransaction(
-		nonce,
-		contractAddr,
-		big.NewInt(0),     // No ETH value
-		uint64(2_000_000), // Gas limit - bumped for debugging
-		auth.GasPrice,
-		calldata,
-	)
-
-	// Sign transaction
-	signedTx, err := auth.Signer(auth.From, tx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign transaction: %v", err)
-	}
-
-	// Send transaction
-	err = client.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send transaction: %v", err)
-	}
-
-	return signedTx, nil
-}
+//func sendOpenTransaction(client *ethclient.Client, auth *bind.TransactOpts, contractAddr common.Address, calldata []byte) (*types.Transaction, error) {
+//	// Get current nonce
+//	nonce, err := client.PendingNonceAt(context.Background(), auth.From)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to get nonce: %v", err)
+//	}
+//
+//	// Create transaction
+//	tx := types.NewTransaction(
+//		nonce,
+//		contractAddr,
+//		big.NewInt(0),     // No ETH value
+//		uint64(2_000_000), // Gas limit
+//		auth.GasPrice,
+//		calldata,
+//	)
+//
+//	// Sign transaction
+//	signedTx, err := auth.Signer(auth.From, tx)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to sign transaction: %v", err)
+//	}
+//
+//	// Send transaction
+//	err = client.SendTransaction(context.Background(), signedTx)
+//	if err != nil {
+//		return nil, fmt.Errorf("failed to send transaction: %v", err)
+//	}
+//
+//	return signedTx, nil
+//}
 
 func calculateOrderId(orderData OrderData) string {
 	// Match Solidity: keccak256(abi.encode(order))
@@ -896,15 +850,15 @@ func verifyBalanceChanges(client *ethclient.Client, tokenAddress, userAddress, h
 	hyperlaneBalanceChange := new(big.Int).Sub(finalHyperlaneBalance, initialBalances.hyperlaneBalance)
 
 	// Print balance changes
-	fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
-		ethutil.FormatTokenAmount(initialBalances.userBalance, 18),
-		ethutil.FormatTokenAmount(finalUserBalance, 18),
-		ethutil.FormatTokenAmount(userBalanceChange, 18))
+	//fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
+	//	ethutil.FormatTokenAmount(initialBalances.userBalance, 18),
+	//	ethutil.FormatTokenAmount(finalUserBalance, 18),
+	//	ethutil.FormatTokenAmount(userBalanceChange, 18))
 
-	fmt.Printf("     💰 Hyperlane balance change: %s → %s (Δ: %s)\n",
-		ethutil.FormatTokenAmount(initialBalances.hyperlaneBalance, 18),
-		ethutil.FormatTokenAmount(finalHyperlaneBalance, 18),
-		ethutil.FormatTokenAmount(hyperlaneBalanceChange, 18))
+	//fmt.Printf("     💰 Hyperlane balance change: %s → %s (Δ: %s)\n",
+	//	ethutil.FormatTokenAmount(initialBalances.hyperlaneBalance, 18),
+	//	ethutil.FormatTokenAmount(finalHyperlaneBalance, 18),
+	//	ethutil.FormatTokenAmount(hyperlaneBalanceChange, 18))
 
 	// Verify the changes match expectations
 	if userBalanceChange.Cmp(expectedTransferAmount) != 0 {
@@ -929,71 +883,71 @@ func verifyBalanceChanges(client *ethclient.Client, tokenAddress, userAddress, h
 	return nil
 }
 
-// simulateAndDecodeRevert runs an eth_call with the same calldata and decodes common custom errors
-func simulateAndDecodeRevert(client *ethclient.Client, to, from common.Address, data []byte) error {
-	msg := ethereum.CallMsg{To: &to, From: from, Data: data, Gas: 2_000_000}
-	_, err := client.CallContract(context.Background(), msg, nil)
-	if err == nil {
-		fmt.Printf("   ✅ eth_call succeeded (unexpected for a failing tx)\n")
-		return nil
-	}
-	// Expecting a "execution reverted"-style error; extract data if present
-	// go-ethereum attaches the revert data to the error string; we can do a second call with a custom tracer,
-	// or parse with the built-in helper. Simpler: do CallContract with a big gas and then fetch debug via error string.
-	// As a fallback, attempt to decode if the provider returns the revert data hex in err.Error().
-
-	errStr := err.Error()
-	// Look for "data: 0x..." substring
-	idx := strings.Index(errStr, "data: 0x")
-	if idx == -1 {
-		fmt.Printf("   ⚠️  No revert data found in error string: %s\n", errStr)
-		return nil
-	}
-	hexData := errStr[idx+6:]
-	// Trim trailing context
-	if sp := strings.Index(hexData, "]"); sp != -1 {
-		hexData = hexData[:sp]
-	}
-	hexData = strings.TrimSpace(hexData)
-	hexData = strings.TrimSuffix(hexData, ",")
-	hexData = strings.TrimSuffix(hexData, "0x")
-
-	revertData, decErr := hex.DecodeString(hexData)
-	if decErr != nil || len(revertData) < 4 {
-		fmt.Printf("   ⚠️  Could not parse revert data from error: %v\n", decErr)
-		return nil
-	}
-
-	// Known custom errors
-	errorABI := `[
-        {"type":"error","name":"InvalidOrderType","inputs":[{"type":"bytes32","name":"orderType"}]},
-        {"type":"error","name":"InvalidOriginDomain","inputs":[{"type":"uint32","name":"originDomain"}]},
-        {"type":"error","name":"InvalidOrderId","inputs":[]},
-        {"type":"error","name":"OrderFillExpired","inputs":[]},
-        {"type":"error","name":"InvalidOrderDomain","inputs":[]},
-        {"type":"error","name":"InvalidDomain","inputs":[]},
-        {"type":"error","name":"InvalidSender","inputs":[]},
-        {"type":"error","name":"InvalidNonce","inputs":[]},
-        {"type":"error","name":"InvalidNativeAmount","inputs":[]}
-    ]`
-	parsed, err := abi.JSON(strings.NewReader(errorABI))
-	if err != nil {
-		return err
-	}
-
-	sel := revertData[:4]
-	for name, def := range parsed.Errors {
-		if bytes.Equal(sel, def.ID.Bytes()[:4]) {
-			// Decode args
-			vals, decErr := def.Inputs.Unpack(revertData[4:])
-			if decErr != nil {
-				fmt.Printf("   🔍 Revert: %s (failed to unpack args: %v)\n", name, decErr)
-			} else {
-				fmt.Printf("   🔍 Revert: %s %v\n", name, vals)
-			}
-			return nil
-		}
-	}
-	fmt.Printf("   ⚠️  Unknown revert selector: 0x%x\n", sel)
-	return nil
-}
+//// simulateAndDecodeRevert runs an eth_call with the same calldata and decodes common custom errors
+//func simulateAndDecodeRevert(client *ethclient.Client, to, from common.Address, data []byte) error {
+//	msg := ethereum.CallMsg{To: &to, From: from, Data: data, Gas: 2_000_000}
+//	_, err := client.CallContract(context.Background(), msg, nil)
+//	if err == nil {
+//		fmt.Printf("   ✅ eth_call succeeded (unexpected for a failing tx)\n")
+//		return nil
+//	}
+//	// Expecting a "execution reverted"-style error; extract data if present
+//	// go-ethereum attaches the revert data to the error string; we can do a second call with a custom tracer,
+//	// or parse with the built-in helper. Simpler: do CallContract with a big gas and then fetch debug via error string.
+//	// As a fallback, attempt to decode if the provider returns the revert data hex in err.Error().
+//
+//	errStr := err.Error()
+//	// Look for "data: 0x..." substring
+//	idx := strings.Index(errStr, "data: 0x")
+//	if idx == -1 {
+//		fmt.Printf("   ⚠️  No revert data found in error string: %s\n", errStr)
+//		return nil
+//	}
+//	hexData := errStr[idx+6:]
+//	// Trim trailing context
+//	if sp := strings.Index(hexData, "]"); sp != -1 {
+//		hexData = hexData[:sp]
+//	}
+//	hexData = strings.TrimSpace(hexData)
+//	hexData = strings.TrimSuffix(hexData, ",")
+//	hexData = strings.TrimSuffix(hexData, "0x")
+//
+//	revertData, decErr := hex.DecodeString(hexData)
+//	if decErr != nil || len(revertData) < 4 {
+//		fmt.Printf("   ⚠️  Could not parse revert data from error: %v\n", decErr)
+//		return nil
+//	}
+//
+//	// Known custom errors
+//	errorABI := `[
+//        {"type":"error","name":"InvalidOrderType","inputs":[{"type":"bytes32","name":"orderType"}]},
+//        {"type":"error","name":"InvalidOriginDomain","inputs":[{"type":"uint32","name":"originDomain"}]},
+//        {"type":"error","name":"InvalidOrderId","inputs":[]},
+//        {"type":"error","name":"OrderFillExpired","inputs":[]},
+//        {"type":"error","name":"InvalidOrderDomain","inputs":[]},
+//        {"type":"error","name":"InvalidDomain","inputs":[]},
+//        {"type":"error","name":"InvalidSender","inputs":[]},
+//        {"type":"error","name":"InvalidNonce","inputs":[]},
+//        {"type":"error","name":"InvalidNativeAmount","inputs":[]}
+//    ]`
+//	parsed, err := abi.JSON(strings.NewReader(errorABI))
+//	if err != nil {
+//		return err
+//	}
+//
+//	sel := revertData[:4]
+//	for name, def := range parsed.Errors {
+//		if bytes.Equal(sel, def.ID.Bytes()[:4]) {
+//			// Decode args
+//			vals, decErr := def.Inputs.Unpack(revertData[4:])
+//			if decErr != nil {
+//				fmt.Printf("   🔍 Revert: %s (failed to unpack args: %v)\n", name, decErr)
+//			} else {
+//				fmt.Printf("   🔍 Revert: %s %v\n", name, vals)
+//			}
+//			return nil
+//		}
+//	}
+//	fmt.Printf("   ⚠️  Unknown revert selector: 0x%x\n", sel)
+//	return nil
+//}

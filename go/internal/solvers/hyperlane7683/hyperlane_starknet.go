@@ -103,14 +103,18 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 	}
 
 	// Pre-check: skip if order is already filled or settled
-	status, err := h.getOrderStatus(ctx, args)
+	status, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
+		fmt.Printf("   ⚠️  Status check failed: %v\n", err)
 		return OrderActionError, err
 	}
+	fmt.Printf("   📊 Order status check: %s\n", status)
 	if status == "FILLED" {
+		fmt.Printf("⏭️  Order already filled, proceeding to settlement\n")
 		return OrderActionSettle, nil
 	}
 	if status == "SETTLED" {
+		fmt.Printf("🎉  Order already settled, nothing to do\n")
 		return OrderActionSettle, nil
 	}
 
@@ -178,7 +182,7 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 	}
 
 	// Pre-settle check: ensure order is FILLED
-	status, err := h.getOrderStatus(ctx, args)
+	status, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
 		return fmt.Errorf("failed to get order status: %w", err)
 	}
@@ -206,6 +210,9 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 
 	// Prepare calldata
 	orderIDLow, orderIDHigh, err := convertSolidityOrderIDForStarknet(orderID)
+	if err != nil {
+		return fmt.Errorf("failed to convert solidity order ID for starknet: %w", err)
+	}
 	gasLow, gasHigh := convertBigIntToU256Felts(gasPayment)
 	calldata := []*felt.Felt{
 		utils.Uint64ToFelt(1),   // order ID array length
@@ -236,8 +243,8 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 	return nil
 }
 
-// getOrderStatus returns the current status of an order
-func (h *HyperlaneStarknet) getOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
+// GetOrderStatus returns the current status of an order
+func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
 		return "UNKNOWN", fmt.Errorf("no fill instructions found")
 	}
@@ -292,9 +299,22 @@ func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.Parse
 
 	fmt.Printf("   🔍 Setting up Starknet token approvals for fill\n")
 
+	// Get destination chain ID from fill instruction
+	if len(args.ResolvedOrder.FillInstructions) == 0 {
+		return fmt.Errorf("no fill instructions found")
+	}
+	destinationChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
+
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
 		if maxSpent.Token == "" {
+			continue
+		}
+
+		// Only approve tokens that belong to this chain (destination chain)
+		if maxSpent.ChainID.Uint64() != destinationChainID {
+			fmt.Printf("   ⚠️  Skipping approval for token %s on chain %d (this handler is for chain %d)\n", 
+				maxSpent.Token, maxSpent.ChainID.Uint64(), destinationChainID)
 			continue
 		}
 

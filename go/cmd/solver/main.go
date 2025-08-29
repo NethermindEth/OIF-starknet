@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/NethermindEth/oif-starknet/go/internal"
@@ -26,9 +27,43 @@ func main() {
 		logrus.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Initialize networks from centralized config after .env is loaded
+	config.InitializeNetworks()
+
 	// Setup logging
 	logger := setupLogger(cfg)
 	logger.Info("🙍 Intent Solver 📝")
+	
+	// Debug: Show what start blocks are being used
+	logger.Info("📊 Solver Start Blocks from .env:")
+	for networkName, networkConfig := range config.Networks {
+		startBlock := networkConfig.SolverStartBlock
+		logger.Infof("   %s: block %d", networkName, startBlock)
+		
+		// Warn about potentially old blocks that will cause expensive backfilling
+		if startBlock > 0 {
+			isOldBlock := false
+			switch networkName {
+			case "Ethereum":
+				isOldBlock = startBlock < 20000000 // Warn if older than ~2024
+			case "Optimism": 
+				isOldBlock = startBlock < 28000000 // Recent OP Sepolia blocks
+			case "Arbitrum":
+				isOldBlock = startBlock < 140000000 // Recent Arb Sepolia blocks
+			case "Base":
+				isOldBlock = startBlock < 27000000 // Recent Base Sepolia blocks  
+			case "Starknet":
+				isOldBlock = startBlock < 1600000 // Recent Starknet blocks
+			}
+			
+			if isOldBlock {
+				logger.Warnf("   ⚠️  %s start block %d seems old - may cause expensive backfilling!", networkName, startBlock)
+				logger.Warnf("   💡 Consider setting %s_SOLVER_START_BLOCK=0 in .env to start from latest", strings.ToUpper(networkName))
+			}
+		}
+	}
+
+
 
 	// Create ethereum client - use any EVM chain from config for the base client
 	// The solver manager will create specific clients for each chain as needed
