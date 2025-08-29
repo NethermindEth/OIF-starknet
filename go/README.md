@@ -79,9 +79,9 @@ XYZ Chain Event → ParsedArgs (easy to add)
 **Level 2: Common Format → Chain Operations**
 
 ```
-IntentData → EVM Fill Transaction (hyperlane_evm.go)
-IntentData → Starknet Fill Transaction (hyperlane_starknet.go)
-IntentData → XYZ Fill Transaction (hyperlane_xyz.go - easy to add)
+ParsedArgs → EVM Fill Transaction (hyperlane_evm.go)
+ParsedArgs → Starknet Fill Transaction (hyperlane_starknet.go)
+ParsedArgs → XYZ Fill Transaction (hyperlane_xyz.go - easy to add)
 ```
 
 #### 3. **Concurrent Multi-Network Processing**
@@ -96,14 +96,8 @@ To add support for a new blockchain (e.g., Solana):
 
 1. **Create listener**: `listener_solana.go` implementing `BaseListener`
 2. **Create operations**: `hyperlane_solana.go` with Solana-specific fill logic
-3. **Update routing**: Add Solana case in `filler.go` destination routing
+3. **Update routing**: Add Solana case in `solver.go` destination routing
 4. **Add config**: Network configuration in `internal/config/networks.go`
-
-**The core orchestration code doesn't need to change** - this is the power of the interface-based design.
-
-### Concurrency Architecture
-
-The solver uses **Go concurrency patterns** for high-performance multi-chain processing:
 
 #### **Context-Based Lifecycle Management**
 
@@ -130,20 +124,10 @@ go func() {
 - Maintains **order integrity** while enabling **parallel processing**
 - No blocking between networks - if one network is slow, others continue processing
 
-### Recommendations for Improvement
-
-#### **Architecture Enhancements**
-
-1. **Database integration**: Persist order state for crash recovery
-
-#### **Testing Infrastructure**
-
-1. **Integration tests**: End-to-end testing across multiple chains
-2. **Load testing**: Validate performance under high intent volumes
-
 ## 🚀 Current Status
 
-**✅ SOLVING ORDERS ON LOCAL FORKS**
+**✅ (LOCAL SEPOLIA) SOLVING ALL (3) ORDER TYPES ON LOCAL FORKS (EVM->EVM, EVM->SN, SN->EVM)**
+**✅ (LIVE SEPOLIA) SOLVING MOST (2) ORDER TYPES ON LOCAL FORKS (EVM->EVM, EVM->SN)**: Awaiting Hyperlane contract to register Starknet domain
 
 ## Quick Start
 
@@ -156,13 +140,13 @@ go func() {
 2. Configure your environment:
 
    ```bash
-   cp .env.example .env
+   cp example.env .env
    # Edit .env with your configuration
    ```
 
 3. Run the solver:
    ```bash
-   go run cmd/solver/main.go
+   make run
    ```
 
 ## Configuration
@@ -172,19 +156,60 @@ The solver uses environment variables to manage:
 - RPC endpoints for different chains
 - Private keys for transaction signing
 - Contract addresses
-- Rule parameters
-- Allow/block lists
-- Solver enable/disable flags
+- Operational parameters (polling intervals, gas limits, starting block numbers, etc.)
+
+## Running on Local Forks
+
+Besides an Alchemy API key, the `example.env` file has all of the values needed to run the solver locally on forks of Sepolia networks, just make sure you copy them over to a `.env` file. Make sure you have katana and anvil installed before continuing.
+
+For an efficient setup, it is recommended that you open 3 terminals and move each to the `go/` directory.
+
+In the first terminal, run the following command to make sure the state file is clean and the binaries are built:
+
+```bash
+make rebuild
+```
+
+After this is finished, run the following command to start local (Sepolia) forks of Ethereum, Optimism, Arbitrum, Base, and Starknet. You can leave this terminal running and watch transaction logs come in.
+
+```bash
+make start-networks
+```
+
+In the second terminal, run this command to deploy a mock ERC-20 token onto each network, fund the accounts on each network, and register the Starknet domain on each EVM Hyperlane7683 contract:
+
+```bash
+make setup-forks
+```
+
+Once this is finished, start the solver by running:
+
+```bash
+make run
+```
+
+We will use the third terminal to create orders. There are 3 order commands to choose from for each of the different order types. Run these at will.
+
+```bash
+make open-random-evm-order    # Opens a random order from one EVM chain to another
+
+make open-random-evm-sn-order # Opens a random order from an EVM chain to Starknet
+
+make open-random-sn-order     # Opens a random order from Starknet to an EVM chain
+
+```
 
 ## Extending
 
 This implementation is designed to be easily extensible:
 
-- Add new rules in `internal/solvers/hyperlane7683/rules.go`
-- Support new chains in `internal/config/networks.go`
-- Implement custom fillers in `internal/solvers/hyperlane7683/`
-- Add new solvers in `internal/solvers/`
+- Support new chains in `internal/config/networks.go` & `internal/solvers/hyperlane7683/`
+- Add new solvers (Eco, Polymer) in `internal/solvers/`
 
 ## License
 
 Apache-2.0
+
+```
+
+```
