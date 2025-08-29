@@ -10,6 +10,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 ```js
 go/
+├── bin/                              # Built binaries
 ├── cmd/                              # CLI entry points
 │   ├── open-order/                   # Create orders (EVM & Starknet)
 │   │   ├── evm/                      # EVM order creation utilities
@@ -19,28 +20,28 @@ go/
 │   │   └── starknet/                 # Starknet fork setup (Katana)
 │   └── solver/                       # Main solver binary
 ├── internal/                         # Core solver logic
+│   ├── base/                         # Core solver interfaces (base_listener & base_solver)
+│   │   └── base_listener.go          # Base listener interface
+│   │   └── base_solver.go            # Base solver interface
 │   ├── config/                       # Configuration management
 │   │   ├── config.go                 # Solver configuration
-│   │   └── networks.go               # Multi-chain network configs
-│   ├── contracts/                    # Go bindings for smart contracts
-│   │   ├── erc20_contract.go         # ERC20 contract bindings
-│   │   └── hyperlane7683.go          # Hyperlane7683 contract bindings
-│   ├── deployer/                     # Deployment state management
-│   │   └── deployment_state.go       # Contract deployment tracking
-│   ├── filler/                       # Intent filling interface
-│   │   └── base_filler.go            # Base filler interface
+│   │   ├── networks.go               # Multi-chain network configs
+│   │   └── solver_state.go           # Tracks last indexed blocks per network
+│   ├── contracts/                    # Go bindings/EVM code for contract interactions & deployments
+│   │   ├── erc20_contract.go         # ERC20 contract byte code and ABI
+│   │   └── hyperlane7683.go          # Hyperlane7683 contract bindings (EVM)
 │   ├── listener/                     # Event listening interface
 │   │   └── base_listener.go          # Base listener interface
 │   ├── logutil/                      # Terminal logging utilities
 │   ├── solvers/                      # Solver implementations
 │   │   └── hyperlane7683/            # Hyperlane7683 solver
-│   │       ├── filler.go             # Main orchestrator - routes intents to chain-specific handlers
-│   │       ├── filler_starknet.go    # Low-level Starknet operations (build/send transactions)
-│   │       ├── hyperlane_evm.go      # EVM chain handler (fill/settle/approvals)
-│   │       ├── hyperlane_starknet.go # Starknet chain handler (coordinates StarknetFiller)
-│   │       ├── listener_evm.go       # EVM Open event listener (polls blocks, parses events)
-│   │       ├── listener_starknet.go  # Starknet Open event listener (Cairo event parsing)
-│   │       └── rules.go              # Intent validation rules (balance checks, allowlists)
+│   │       ├── chain_handler.go      # Wrapper interface for solvers
+│   │       ├── hyperlane_evm.go      # EVM chain handler (fill and settle orders on EVM chains)
+│   │       ├── hyperlane_starknet.go # Starknet chain handler (fill and settle orders on Starknet)
+│   │       ├── listener_evm.go       # EVM Open event listener
+│   │       ├── listener_starknet.go  # Starknet Open event listener
+│   │       ├── rules.go              # Intent validation rules (balance checks, allowlists)
+│   │       └── solver.go             # Main Hyperlane7683 solver orchestration
 │   ├── types/                        # Cross-chain data structures
 │   │   ├── address_utils.go          # Address conversion utilities
 │   │   └── types.go                  # Core type definitions
@@ -48,11 +49,7 @@ go/
 ├── pkg/                              # Public utilities
 │   └── ethutil/                      # Ethereum utilities (signing, gas, ERC20)
 ├── state/                            # Persistent state storage
-│   └── network_state/                # Network deployment states
-├── bin/                              # Built binaries
-├── env.example                       # Environment configuration template
 ├── Makefile                          # Build & deployment automation
-├── start-networks.sh                 # Multi-network startup script
 └── go.mod                            # Go module dependencies
 ```
 
