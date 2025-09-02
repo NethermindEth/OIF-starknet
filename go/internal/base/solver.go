@@ -16,8 +16,8 @@ type SolverContext struct {
 	Metadata   interface{}
 }
 
-// BaseSolver defines the interface for intent solvers
-type BaseSolver interface {
+// Solver defines the interface for intent solvers
+type Solver interface {
 	// ProcessIntent processes an intent through the complete lifecycle
 	// Returns (success, error) where success=true means the order was fully settled
 	ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error)
@@ -38,16 +38,16 @@ type BaseSolver interface {
 	GetRules() []Rule
 }
 
-// BaseSolverImpl provides a base implementation of BaseSolver
-type BaseSolverImpl struct {
+// solverImpl provides a base implementation of Solver
+type solverImpl struct {
 	rules           []Rule
 	allowBlockLists types.AllowBlockLists
 	metadata        interface{}
 }
 
-// NewBaseSolver creates a new base solver
-func NewBaseSolver(allowBlockLists types.AllowBlockLists, metadata interface{}) *BaseSolverImpl {
-	return &BaseSolverImpl{
+// NewSolver creates a new base solver
+func NewSolver(allowBlockLists types.AllowBlockLists, metadata interface{}) *solverImpl {
+	return &solverImpl{
 		rules:           make([]Rule, 0),
 		allowBlockLists: allowBlockLists,
 		metadata:        metadata,
@@ -55,17 +55,17 @@ func NewBaseSolver(allowBlockLists types.AllowBlockLists, metadata interface{}) 
 }
 
 // AddRule adds a rule to the solver
-func (f *BaseSolverImpl) AddRule(rule Rule) {
+func (f *solverImpl) AddRule(rule Rule) {
 	f.rules = append(f.rules, rule)
 }
 
 // GetRules returns all rules
-func (f *BaseSolverImpl) GetRules() []Rule {
+func (f *solverImpl) GetRules() []Rule {
 	return f.rules
 }
 
 // ProcessIntent implements the complete intent processing lifecycle
-func (f *BaseSolverImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
+func (f *solverImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
 	// Step 1: Prepare intent (evaluate rules)
 	intent, err := f.PrepareIntent(ctx, args)
 	if err != nil {
@@ -90,7 +90,7 @@ func (f *BaseSolverImpl) ProcessIntent(ctx context.Context, args types.ParsedArg
 }
 
 // PrepareIntent evaluates rules to determine if intent should be filled
-func (f *BaseSolverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (*types.Result[types.IntentData], error) {
+func (f *solverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (*types.Result[types.IntentData], error) {
 	// Check allow/block lists first
 	if !f.isAllowedIntent(args) {
 		result := types.NewErrorResult[types.IntentData]("Intent blocked by allow/block lists")
@@ -120,19 +120,19 @@ func (f *BaseSolverImpl) PrepareIntent(ctx context.Context, args types.ParsedArg
 }
 
 // Fill executes the actual intent filling (to be implemented by concrete solvers)
-func (f *BaseSolverImpl) Fill(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error {
+func (f *solverImpl) Fill(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error {
 	// This is a placeholder - concrete implementations should override this
 	return nil
 }
 
 // SettleOrder handles post-fill settlement (to be implemented by concrete solvers)
-func (f *BaseSolverImpl) SettleOrder(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string) error {
+func (f *solverImpl) SettleOrder(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string) error {
 	// This is a placeholder - concrete implementations should override this
 	return nil
 }
 
 // isAllowedIntent checks if an intent is allowed based on allow/block lists
-func (f *BaseSolverImpl) isAllowedIntent(args types.ParsedArgs) bool {
+func (f *solverImpl) isAllowedIntent(args types.ParsedArgs) bool {
 	// Check block list first
 	for _, blockItem := range f.allowBlockLists.BlockList {
 		if f.matchesAllowBlockItem(blockItem, args) {
@@ -156,7 +156,7 @@ func (f *BaseSolverImpl) isAllowedIntent(args types.ParsedArgs) bool {
 }
 
 // matchesAllowBlockItem checks if args match an allow/block list item
-func (f *BaseSolverImpl) matchesAllowBlockItem(item types.AllowBlockListItem, args types.ParsedArgs) bool {
+func (f *solverImpl) matchesAllowBlockItem(item types.AllowBlockListItem, args types.ParsedArgs) bool {
 	// Check sender address
 	if item.SenderAddress != "*" && item.SenderAddress != args.SenderAddress {
 		return false

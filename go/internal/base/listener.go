@@ -14,8 +14,8 @@ type EventHandler func(args types.ParsedArgs, originChainName string, blockNumbe
 // ShutdownFunc is a function that stops the listener
 type ShutdownFunc func()
 
-// BaseListener defines the interface for event listeners
-type BaseListener interface {
+// Listener defines the interface for event listeners
+type Listener interface {
 	// Start begins listening for events
 	Start(ctx context.Context, handler EventHandler) (ShutdownFunc, error)
 
