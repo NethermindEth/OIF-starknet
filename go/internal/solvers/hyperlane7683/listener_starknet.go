@@ -29,7 +29,7 @@ import (
 // Open event topic
 var openEventSelector, _ = utils.HexToFelt("0x35D8BA7F4BF26B6E2E2060E5BD28107042BE35460FBD828C9D29A2D8AF14445")
 
-// starknetListener implements listener.BaseListener for Starknet chains
+// starknetListener implements listener.Listener for Starknet chains
 type starknetListener struct {
 	config             *base.ListenerConfig
 	provider           *rpc.Provider
@@ -40,7 +40,7 @@ type starknetListener struct {
 }
 
 // NewStarknetListener creates a new Starknet listener
-func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.BaseListener, error) {
+func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Listener, error) {
 	provider, err := rpc.NewProvider(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Starknet RPC: %w", err)
@@ -63,7 +63,7 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 			return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
 		}
 		configStartBlock = currentBlock
-		fmt.Printf("%s📚 Start block was 0, using current block: %d\n", 
+		fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
 			logutil.Prefix(listenerConfig.ChainName), configStartBlock)
 	}
 
@@ -185,7 +185,7 @@ func (l *starknetListener) startPolling(ctx context.Context, handler base.EventH
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("🔄 Context cancelled, stopping event polling\n")
+			fmt.Printf("🔄 Context canceled, stopping event polling\n")
 			return
 		case <-l.stopChan:
 			fmt.Printf("🔄 Stop signal received, stopping event polling\n")

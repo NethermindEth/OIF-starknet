@@ -35,7 +35,7 @@ type HyperlaneStarknet struct {
 	account    *account.Account
 	solverAddr *felt.Felt
 
-	//hyperlaneAddr *felt.Felt
+	// hyperlaneAddr *felt.Felt
 	mu sync.Mutex // Serialize operations to prevent nonce conflicts
 }
 
@@ -313,7 +313,7 @@ func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.Parse
 
 		// Only approve tokens that belong to this chain (destination chain)
 		if maxSpent.ChainID.Uint64() != destinationChainID {
-			fmt.Printf("   ⚠️  Skipping approval for token %s on chain %d (this handler is for chain %d)\n", 
+			fmt.Printf("   ⚠️  Skipping approval for token %s on chain %d (this handler is for chain %d)\n",
 				maxSpent.Token, maxSpent.ChainID.Uint64(), destinationChainID)
 			continue
 		}
@@ -339,7 +339,7 @@ func (h *HyperlaneStarknet) interpretStarknetStatus(status string) string {
 	case "0x534554544c4544":
 		return "SETTLED"
 	default:
-		return fmt.Sprintf("%s", status)
+		return status
 	}
 }
 

@@ -360,7 +360,7 @@ func (sm *SolverManager) GetSolverStatus() map[string]bool {
 // getStarknetHyperlaneAddress gets the correct Starknet Hyperlane address based on FORKING mode
 // Note: This is needed until there is a final hyperlane deployment address
 func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, error) {
-	//forkingStr := strings.ToLower(os.Getenv("FORKING"))
+	// forkingStr := strings.ToLower(os.Getenv("FORKING"))
 	// Check FORKING environment variable (default: true for local forks)
 	//if forkingStr == "" {
 	//	forkingStr = "true"
@@ -378,7 +378,7 @@ func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, er
 }
 
 //// getStarknetHyperlaneFromDeploymentState loads Starknet Hyperlane address from deployment state
-//func getStarknetHyperlaneFromDeploymentState() string {
+// func getStarknetHyperlaneFromDeploymentState() string {
 //	paths := []string{"state/network_state/deployment-state.json", "../state/network_state/deployment-state.json", "../../state/network_state/deployment-state.json"}
 //	for _, path := range paths {
 //		data, err := os.ReadFile(path)

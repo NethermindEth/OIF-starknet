@@ -154,7 +154,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	if status != "FILLED" {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
-	//if err := h.verifyOrderStatus(ctx, orderIdArr, destinationSettler, "FILLED"); err != nil {
+	// if err := h.verifyOrderStatus(ctx, orderIdArr, destinationSettler, "FILLED"); err != nil {
 	//	return fmt.Errorf("pre-settle check failed: %w", err)
 	//}
 
@@ -210,7 +210,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	defer func() { h.signer.Value = originalValue }()
 
 	//// Set gas price if not already set
-	//if h.signer.GasPrice == nil || h.signer.GasPrice.Sign() == 0 {
+	// if h.signer.GasPrice == nil || h.signer.GasPrice.Sign() == 0 {
 	//	if suggested, gerr := h.client.SuggestGasPrice(ctx); gerr == nil {
 	//		h.signer.GasPrice = suggested
 	//	}

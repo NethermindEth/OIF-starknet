@@ -198,7 +198,7 @@ func openRandomToEvm() {
 	fmt.Println("🎲 Opening Random Test Order...")
 
 	// Seed random number generator
-	//rand.Seed(time.Now().UnixNano())
+	// rand.Seed(time.Now().UnixNano())
 
 	// Random origin and destination chains (exclude Starknet from origins)
 	var evmNetworks []NetworkConfig
@@ -243,7 +243,7 @@ func openRandomToEvm() {
 
 func openRandomToStarknet() {
 	fmt.Println("🎲 Opening Random EVM → Starknet Test Order...")
-	//rand.Seed(time.Now().UnixNano())
+	// rand.Seed(time.Now().UnixNano())
 
 	// Pick random EVM origin (exclude Starknet)
 	var evmNetworks []NetworkConfig
@@ -683,7 +683,7 @@ func getOrderDataTypeHash() [32]byte {
 	hash := crypto.Keccak256Hash([]byte(orderDataType))
 
 	//// Debug: Print the hash we're generating
-	//fmt.Printf("   🔍 Generated orderDataType hash: %x\n", hash)
+	// fmt.Printf("   🔍 Generated orderDataType hash: %x\n", hash)
 	//fmt.Printf("   �� Expected hash from contract: 08d75650babf4de09c9273d48ef647876057ed91d4323f8a2e3ebc2cd8a63b5e\n")
 
 	return hash
@@ -719,75 +719,11 @@ func encodeOrderData(orderData OrderData) []byte {
 	return encoded
 }
 
-func encodeOpenFunctionCallDirect(selector []byte, fillDeadline uint32, orderDataType [32]byte, orderData []byte) []byte {
-	// Expert Go approach: Use the exact ABI from the compiled contract
-	// Function signature: open((uint32,bytes32,bytes)) - tuple parameter
 
-	// Use the exact ABI from the compiled Hyperlane7683 contract
-	functionABI := `[{"type":"function","name":"open","inputs":[{"type":"tuple","components":[{"type":"uint32","name":"fillDeadline"},{"type":"bytes32","name":"orderDataType"},{"type":"bytes","name":"orderData"}]}],"outputs":[],"stateMutability":"payable"}]`
 
-	// Parse the ABI
-	parsedABI, err := abi.JSON(strings.NewReader(functionABI))
-	if err != nil {
-		fmt.Printf("   ⚠️  Function ABI parsing failed: %v\n", err)
-		// Fallback to manual encoding
-		return encodeOpenFunctionCallDirectManual(selector, fillDeadline, orderDataType, orderData)
-	}
 
-	// Create the struct that matches the ABI exactly
-	orderParam := OnchainCrossChainOrder{
-		FillDeadline:  fillDeadline,
-		OrderDataType: orderDataType,
-		OrderData:     orderData,
-	}
 
-	// Use abi.Pack to encode the function call - this handles everything automatically
-	encoded, err := parsedABI.Pack("open", orderParam)
-	if err != nil {
-		fmt.Printf("   ⚠️  Function encoding failed: %v\n", err)
-		// Fallback to manual encoding
-		return encodeOpenFunctionCallDirectManual(selector, fillDeadline, orderDataType, orderData)
-	}
-
-	// abi.Pack() already includes the function selector, so we don't need to add it manually
-	return encoded
-}
-
-func encodeOpenFunctionCallDirectManual(selector []byte, fillDeadline uint32, orderDataType [32]byte, orderData []byte) []byte {
-	// Manual encoding fallback for the open() function
-	// Function signature: open(uint32 fillDeadline, bytes32 orderDataType, bytes calldata orderData)
-
-	calldata := make([]byte, 0)
-	calldata = append(calldata, selector...)
-
-	// Encode fillDeadline (uint32) - 4 bytes
-	deadlineBytes := make([]byte, 4)
-	big.NewInt(int64(fillDeadline)).FillBytes(deadlineBytes)
-	calldata = append(calldata, deadlineBytes...)
-
-	// Encode orderDataType (bytes32) - 32 bytes
-	calldata = append(calldata, orderDataType[:]...)
-
-	// Encode orderData (bytes) - offset + length + data
-	// Offset to the data (32 bytes)
-	offset := big.NewInt(68) // 4 + 32 + 32
-	offsetBytes := make([]byte, 32)
-	offset.FillBytes(offsetBytes)
-	calldata = append(calldata, offsetBytes...)
-
-	// Data length (32 bytes)
-	dataLen := big.NewInt(int64(len(orderData)))
-	dataLenBytes := make([]byte, 32)
-	dataLen.FillBytes(dataLenBytes)
-	calldata = append(calldata, dataLenBytes...)
-
-	// The actual data
-	calldata = append(calldata, orderData...)
-
-	return calldata
-}
-
-//func sendOpenTransaction(client *ethclient.Client, auth *bind.TransactOpts, contractAddr common.Address, calldata []byte) (*types.Transaction, error) {
+// func sendOpenTransaction(client *ethclient.Client, auth *bind.TransactOpts, contractAddr common.Address, calldata []byte) (*types.Transaction, error) {
 //	// Get current nonce
 //	nonce, err := client.PendingNonceAt(context.Background(), auth.From)
 //	if err != nil {
@@ -850,12 +786,12 @@ func verifyBalanceChanges(client *ethclient.Client, tokenAddress, userAddress, h
 	hyperlaneBalanceChange := new(big.Int).Sub(finalHyperlaneBalance, initialBalances.hyperlaneBalance)
 
 	// Print balance changes
-	//fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
+	// fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
 	//	ethutil.FormatTokenAmount(initialBalances.userBalance, 18),
 	//	ethutil.FormatTokenAmount(finalUserBalance, 18),
 	//	ethutil.FormatTokenAmount(userBalanceChange, 18))
 
-	//fmt.Printf("     💰 Hyperlane balance change: %s → %s (Δ: %s)\n",
+	// fmt.Printf("     💰 Hyperlane balance change: %s → %s (Δ: %s)\n",
 	//	ethutil.FormatTokenAmount(initialBalances.hyperlaneBalance, 18),
 	//	ethutil.FormatTokenAmount(finalHyperlaneBalance, 18),
 	//	ethutil.FormatTokenAmount(hyperlaneBalanceChange, 18))
@@ -884,7 +820,7 @@ func verifyBalanceChanges(client *ethclient.Client, tokenAddress, userAddress, h
 }
 
 //// simulateAndDecodeRevert runs an eth_call with the same calldata and decodes common custom errors
-//func simulateAndDecodeRevert(client *ethclient.Client, to, from common.Address, data []byte) error {
+// func simulateAndDecodeRevert(client *ethclient.Client, to, from common.Address, data []byte) error {
 //	msg := ethereum.CallMsg{To: &to, From: from, Data: data, Gas: 2_000_000}
 //	_, err := client.CallContract(context.Background(), msg, nil)
 //	if err == nil {

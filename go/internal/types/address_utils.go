@@ -49,7 +49,6 @@ func ToStarknetAddress(address string) (*felt.Felt, error) {
 	f, err := utils.HexToFelt(address)
 	if err == nil {
 		return f, nil
-
 	}
 
 	return nil, fmt.Errorf("failed to convert address to felt: %w", err)

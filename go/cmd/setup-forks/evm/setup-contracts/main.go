@@ -113,7 +113,7 @@ func main() {
 		fmt.Printf("   ✅ DogCoin deployed at: %s\n", dogCoinAddress)
 
 		// Note: Contract addresses are now managed via .env file, not deployment state
-		
+
 		// Update .env file with deployed address
 		if err := updateEnvFile(network.name, dogCoinAddress.Hex()); err != nil {
 			fmt.Printf("   ⚠️  Warning: Failed to update .env file: %v\n", err)
@@ -533,7 +533,6 @@ func approveUnlimited(client *ethclient.Client, auth *bind.TransactOpts, tokenAd
 
 // verifyBalancesAndAllowances verifies that users have the expected balances and allowances
 func verifyBalancesAndAllowances(client *ethclient.Client, aliceKey, solverKey *ecdsa.PrivateKey, dogCoinAddress common.Address, networkName string) error {
-
 	// Expected balance after funding
 	expectedBalance := new(big.Int).Mul(big.NewInt(100000), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)) // 100,000 tokens
 

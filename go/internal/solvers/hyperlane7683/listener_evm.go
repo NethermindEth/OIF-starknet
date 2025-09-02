@@ -29,7 +29,7 @@ import (
 // Open event topic
 var openEventTopic = common.HexToHash("0x3448bbc2203c608599ad448eeb1007cea04b788ac631f9f558e8dd01a3c27b3d")
 
-// evmListener implements listener.BaseListener for EVM chains
+// evmListener implements listener.Listener for EVM chains
 type evmListener struct {
 	config             *base.ListenerConfig
 	client             *ethclient.Client
@@ -39,7 +39,7 @@ type evmListener struct {
 	mu                 sync.RWMutex
 }
 
-func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.BaseListener, error) {
+func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Listener, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial RPC: %w", err)
@@ -53,7 +53,7 @@ func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Ba
 	// Use the start block from config, but check if deployment state has a higher value
 	var lastProcessedBlock uint64
 	configStartBlock := listenerConfig.InitialBlock.Uint64()
-	
+
 	// Special case: if start block is 0, use current block
 	if configStartBlock == 0 {
 		ctx := context.Background()
@@ -62,10 +62,10 @@ func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Ba
 			return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
 		}
 		configStartBlock = currentBlock
-		fmt.Printf("%s📚 Start block was 0, using current block: %d\n", 
+		fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
 			logutil.Prefix(listenerConfig.ChainName), configStartBlock)
 	}
-	
+
 	state, err := config.GetSolverState()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get solver state: %w", err)
@@ -73,16 +73,16 @@ func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Ba
 
 	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
 		deploymentStateBlock := networkState.LastIndexedBlock
-		
+
 		// Use the HIGHER of the two values - this respects updated .env values
 		// while also respecting any actual progress that's been saved
 		if deploymentStateBlock > configStartBlock {
 			lastProcessedBlock = deploymentStateBlock
-			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n", 
+			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
 				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, configStartBlock)
 		} else {
 			lastProcessedBlock = configStartBlock
-			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n", 
+			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n",
 				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, deploymentStateBlock)
 		}
 	} else {
@@ -189,7 +189,7 @@ func (l *evmListener) startPolling(ctx context.Context, handler base.EventHandle
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("🔄 Context cancelled, stopping event polling\n")
+			fmt.Printf("🔄 Context canceled, stopping event polling\n")
 			return
 		case <-l.stopChan:
 			fmt.Printf("🔄 Stop signal received, stopping event polling\n")
