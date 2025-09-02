@@ -43,7 +43,7 @@ type SolverManager struct {
 }
 
 // NewSolverManager creates a new solver manager
-func NewSolverManager(evmClient *ethclient.Client) *SolverManager {
+func NewSolverManager(cfg *config.Config) *SolverManager {
 	// Default solver registry - could be loaded from config file
 	registry := SolverRegistry{
 		"hyperlane7683": {
@@ -332,6 +332,21 @@ func (sm *SolverManager) DisableSolver(name string) error {
 		return nil
 	}
 	return fmt.Errorf("solver %s not found", name)
+}
+
+// Start initializes and runs all solvers
+func (sm *SolverManager) Start(ctx context.Context) error {
+	// Initialize all solvers
+	if err := sm.InitializeSolvers(ctx); err != nil {
+		return fmt.Errorf("failed to initialize solvers: %w", err)
+	}
+
+	// Wait for context cancellation (shutdown signal)
+	<-ctx.Done()
+	
+	// Graceful shutdown
+	sm.Shutdown()
+	return nil
 }
 
 // Shutdown stops all active solvers
