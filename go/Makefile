@@ -203,15 +203,15 @@ test:
 
 # Run linter
 lint:
-	$(HOME)/go/bin/golangci-lint run
+	golangci-lint run
 
 # Run linter with fix suggestions
 lint-fix:
-	$(HOME)/go/bin/golangci-lint run --fix
+	golangci-lint run --fix
 
 # Run linter on specific package
 lint-pkg:
-	$(HOME)/go/bin/golangci-lint run ./solvercore/...
+	golangci-lint run ./solvercore/...
 
 
 
