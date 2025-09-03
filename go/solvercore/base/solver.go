@@ -2,6 +2,7 @@ package base
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/oif-starknet/go/solvercore/types"
 )
@@ -93,7 +94,7 @@ func (f *solverImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, o
 func (f *solverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (*types.Result[types.IntentData], error) {
 	// Check allow/block lists first
 	if !f.isAllowedIntent(args) {
-		result := types.NewErrorResult[types.IntentData]("Intent blocked by allow/block lists")
+		result := types.NewErrorResult[types.IntentData](fmt.Errorf("Intent blocked by allow/block lists"))
 		return &result, nil
 	}
 
@@ -104,7 +105,7 @@ func (f *solverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (
 		}
 
 		if err := rule(args, context); err != nil {
-			result := types.NewErrorResult[types.IntentData](err.Error())
+			result := types.NewErrorResult[types.IntentData](err)
 			return &result, nil
 		}
 	}

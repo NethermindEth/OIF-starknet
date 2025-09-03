@@ -129,9 +129,57 @@ func NewSuccessResult[T any](data T) Result[T] {
 }
 
 // NewErrorResult creates an error result
-func NewErrorResult[T any](err string) Result[T] {
+func NewErrorResult[T any](err error) Result[T] {
 	return Result[T]{
 		Success: false,
-		Error:   err,
+		Error:   err.Error(),
 	}
+}
+
+// Matches checks if the given parameters match this allow/block list item
+func (a *AllowBlockListItem) Matches(sender, destination, recipient string) bool {
+	return matchesPattern(a.SenderAddress, sender) &&
+		matchesPattern(a.DestinationDomain, destination) &&
+		matchesPattern(a.RecipientAddress, recipient)
+}
+
+// matchesPattern checks if a value matches a pattern (supports wildcards)
+func matchesPattern(pattern, value string) bool {
+	if pattern == "*" {
+		return true
+	}
+	return pattern == value
+}
+
+// GetOrderIDBytes returns the order ID as bytes
+func (p *ParsedArgs) GetOrderIDBytes() [32]byte {
+	var result [32]byte
+	if len(p.OrderID) >= 2 && p.OrderID[:2] == "0x" {
+		hexStr := p.OrderID[2:]
+		if len(hexStr) == 64 {
+			for i := 0; i < 32; i++ {
+				if i*2+1 < len(hexStr) {
+					// Parse hex byte
+					high := hexStr[i*2]
+					low := hexStr[i*2+1]
+					result[i] = hexToByte(high)<<4 | hexToByte(low)
+				}
+			}
+		}
+	}
+	return result
+}
+
+// hexToByte converts a hex character to byte
+func hexToByte(c byte) byte {
+	if c >= '0' && c <= '9' {
+		return c - '0'
+	}
+	if c >= 'a' && c <= 'f' {
+		return c - 'a' + 10
+	}
+	if c >= 'A' && c <= 'F' {
+		return c - 'A' + 10
+	}
+	return 0
 }
