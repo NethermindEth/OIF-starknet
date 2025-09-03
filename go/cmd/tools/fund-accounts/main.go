@@ -35,10 +35,10 @@ func main() {
 	}
 
 	networkArg := strings.ToLower(os.Args[1])
-	
-	// Default funding amount (10,000 tokens with 18 decimals)
-	fundingAmount := createTokenAmount(10000, 18)
-	
+
+	// Default funding amount (420,690,000,000 tokens with 18 decimals)
+	fundingAmount := createTokenAmount(420_690_000_000, 18)
+
 	// Parse custom amount if provided
 	if len(os.Args) >= 3 {
 		if customAmount, ok := new(big.Int).SetString(os.Args[2], 10); ok {
@@ -73,7 +73,7 @@ func main() {
 
 func fundAllNetworks(amount *big.Int) {
 	networks := []string{"ethereum", "optimism", "arbitrum", "base"}
-	
+
 	for _, network := range networks {
 		fmt.Printf("📡 Funding %s network...\n", strings.Title(network))
 		fundNetwork(network, amount)
@@ -84,7 +84,7 @@ func fundAllNetworks(amount *big.Int) {
 func fundNetwork(networkName string, amount *big.Int) {
 	// Load network configuration
 	config.InitializeNetworks()
-	
+
 	var networkConfig *config.NetworkConfig
 	for name, cfg := range config.Networks {
 		if strings.ToLower(name) == networkName {
@@ -92,7 +92,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 			break
 		}
 	}
-	
+
 	if networkConfig == nil {
 		log.Fatalf("Network not found: %s", networkName)
 	}
@@ -123,7 +123,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 	} else {
 		minterPrivateKey = os.Getenv("ALICE_PRIVATE_KEY")
 	}
-	
+
 	if minterPrivateKey == "" {
 		log.Fatalf("Minter private key not found (Alice's key)")
 	}
@@ -148,11 +148,11 @@ func fundNetwork(networkName string, amount *big.Int) {
 
 	// Get recipient addresses
 	recipients := getRecipients(useLocalForks)
-	
+
 	// Fund each recipient using direct contract call (since Go bindings don't have Mint yet)
 	for _, recipient := range recipients {
 		fmt.Printf("   💸 Funding %s (%s)...\n", recipient.Name, recipient.Address.Hex())
-		
+
 		// Check current balance
 		currentBalance, err := ethutil.ERC20Balance(client, common.HexToAddress(tokenAddress), recipient.Address)
 		if err == nil {
@@ -183,7 +183,7 @@ type Recipient struct {
 
 func getRecipients(useLocalForks bool) []Recipient {
 	var recipients []Recipient
-	
+
 	// Alice
 	var aliceAddr string
 	if useLocalForks {
@@ -229,7 +229,7 @@ func createTokenAmount(tokens int64, decimals int) *big.Int {
 func mintTokensRaw(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress string, recipient common.Address, amount *big.Int) error {
 	// mint(address to, uint256 amount) function signature
 	mintABI := `[{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"mint","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
-	
+
 	parsedABI, err := abi.JSON(strings.NewReader(mintABI))
 	if err != nil {
 		return fmt.Errorf("failed to parse mint ABI: %w", err)
