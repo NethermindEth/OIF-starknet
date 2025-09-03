@@ -11,6 +11,7 @@ import (
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/oif-starknet/go/solvercore/types"
 	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/NethermindEth/starknet.go/utils"
 	"github.com/holiman/uint256"
@@ -178,18 +179,9 @@ func ERC20Approve(tokenAddress string, spenderAddress string, amount *big.Int) (
 }
 
 // FormatTokenAmount formats a token amount for display (converts from wei to tokens)
+// Uses the shared utility function from types package
 func FormatTokenAmount(amount *big.Int, decimals int) string {
-	if amount == nil {
-		return "0"
-	}
-
-	// Convert from wei to tokens
-	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
-	tokenAmount := new(big.Float).Quo(
-		new(big.Float).SetInt(amount),
-		new(big.Float).SetInt(divisor))
-
-	return tokenAmount.Text('f', 2) + " tokens"
+	return types.FormatTokenAmount(amount, decimals)
 }
 
 // ConvertBigIntToU256Felts converts a big.Int to two felts, one for the low 128 bits and one for the high 128 bits
@@ -217,7 +209,12 @@ func ConvertBigIntToU256Felts(value *big.Int) (low *felt.Felt, high *felt.Felt) 
 // ConvertSolidityOrderIDForStarknet converts a Solidity-style orderID (bytes32) into the low and high felts of a Starknet u256 orderID
 // Note: Assigns the left 16 bytes to the high felt and the right 16 bytes to the low felt
 func ConvertSolidityOrderIDForStarknet(orderID string) (low *felt.Felt, high *felt.Felt, err error) {
-	orderBytes := utils.HexToBN(orderID).Bytes()
+	orderBN := utils.HexToBN(orderID)
+	if orderBN == nil {
+		return nil, nil, fmt.Errorf("invalid hex string: %s", orderID)
+	}
+	
+	orderBytes := orderBN.Bytes()
 	if len(orderBytes) < Bytes32Length {
 		pad := make([]byte, Bytes32Length-len(orderBytes))
 		orderBytes = append(pad, orderBytes...)
