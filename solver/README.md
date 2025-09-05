@@ -10,7 +10,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 **🎉 (Local Sepolia) solves all 3 order types on local forks**: Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain
 
-**🎉 (Live Sepolia) solves 2/3 order types on live Sepolia:**: Only Opens & Fills Starknet->EVM orders. The Settle stop is awaiting Hyperlane contract to register the Starknet domain on each EVM contract.
+**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: Only Opens & Fills Starknet->EVM orders. The Settle call is awaiting Hyperlane contract to register the Starknet domain on each EVM contract.
 
 ## Quick Start
 
