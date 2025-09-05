@@ -39,7 +39,6 @@ For an efficient setup, open 3 terminals and move each to the `go/` directory. M
 **Terminal 1: Start networks (runs continuously)**
 
 ```bash
-make clean-state                # Reset solver state (last indexed blocks)
 make rebuild                    # Rebuild contracts & binaries
 make start-networks             # Start local forked networks (EVM + Starknet)
 ```
