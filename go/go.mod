@@ -8,8 +8,10 @@ require (
 	github.com/NethermindEth/juno v0.14.0
 	github.com/NethermindEth/starknet.go v0.13.1
 	github.com/ethereum/go-ethereum v1.16.2
+	github.com/holiman/uint256 v1.3.2
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
@@ -28,11 +30,8 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect
 	github.com/tklauser/numcpus v0.7.0 // indirect

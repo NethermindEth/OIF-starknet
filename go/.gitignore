@@ -5,3 +5,4 @@ fork.env
 sepolia.env
 
 coverage*
+*.out

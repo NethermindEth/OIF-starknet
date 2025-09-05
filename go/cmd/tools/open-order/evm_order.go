@@ -5,11 +5,11 @@ package openorder
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"math/big"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -30,9 +30,53 @@ import (
 
 // Common string constants
 const (
-	StarknetNetworkName = "Starknet"
+	StarknetNetworkName = starknetNetworkName
 	AliceUserName       = "Alice"
+	// Random number generation constants
+	randomBytesLength = 8
+	// Token amount generation constants
+	minTokenAmount = 100
+	maxTokenAmount = 10000
+	minDeltaAmount = 1
+	maxDeltaAmount = 10
+	// Token decimals (18 for most ERC20 tokens)
+	tokenDecimals = 18
+	// Order deadline (24 hours from now)
+	orderDeadlineHours = 24
+	// Token amount constants for test orders
+	testInputAmount  = 1001
+	testOutputAmount = 1000
+	testOutputAmountStarknet = 999
+	// Network name constants
+	starknetNetworkName = "Starknet"
 )
+
+// secureRandomInt generates a secure random integer in the range [0, max)
+func secureRandomInt(max int) int {
+	if max <= 0 {
+		return 0
+	}
+
+	// Generate random bytes
+	b := make([]byte, randomBytesLength)
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback to time-based seed if crypto/rand fails
+		return int(time.Now().UnixNano()) % max
+	}
+
+	// Convert bytes to int
+	var result int64
+	for i := 0; i < 8; i++ {
+		result = result*256 + int64(b[i])
+	}
+
+	if result < 0 {
+		result = -result
+	}
+
+	return int(result % int64(max))
+}
 
 // OrderData represents the data for creating an order
 type OrderData struct {
@@ -198,7 +242,7 @@ func initializeTestUsers() {
 	// Use conditional environment variable logic based on FORKING
 	aliceAddr := envutil.GetAlicePublicKey()
 	privateKeyVar := envutil.GetConditionalAccountEnv("ALICE_PRIVATE_KEY")
-	
+
 	testUsers = []struct {
 		name       string
 		privateKey string
@@ -233,7 +277,7 @@ func loadNetworks() []NetworkConfig {
 			envVarName = "ARBITRUM_DOG_COIN_ADDRESS"
 		case "Base":
 			envVarName = "BASE_DOG_COIN_ADDRESS"
-		case "Starknet":
+		case starknetNetworkName:
 			envVarName = "STARKNET_DOG_COIN_ADDRESS"
 		default:
 			fmt.Printf("   ⚠️  Unknown network: %s\n", networkName)
@@ -305,7 +349,7 @@ func openRandomToEvm(networks []NetworkConfig) {
 	// Random origin and destination chains (exclude Starknet from origins)
 	var evmNetworks []NetworkConfig
 	for _, n := range networks {
-		if n.name != "Starknet" {
+		if n.name != starknetNetworkName {
 			evmNetworks = append(evmNetworks, n)
 		}
 	}
@@ -313,8 +357,8 @@ func openRandomToEvm(networks []NetworkConfig) {
 		log.Fatalf("no EVM networks configured")
 	}
 
-	originIdx := rand.Intn(len(evmNetworks))
-	destIdx := rand.Intn(len(evmNetworks)) // Only pick from EVM networks for EVM-EVM orders
+	originIdx := secureRandomInt(len(evmNetworks))
+	destIdx := secureRandomInt(len(evmNetworks)) // Only pick from EVM networks for EVM-EVM orders
 	for destIdx == originIdx {
 		destIdx = (originIdx + 1) % len(evmNetworks) // Ensure different EVM chain
 	}
@@ -326,9 +370,9 @@ func openRandomToEvm(networks []NetworkConfig) {
 	// Alice provides InputAmount, receives OutputAmount
 	// Solver receives InputAmount (MinReceived), provides OutputAmount (MaxSpent)
 	// For profitability: InputAmount (MinReceived) > OutputAmount (MaxSpent)
-	outputAmount := CreateTokenAmount(int64(rand.Intn(9901)+100), 18) // 100-10000 tokens (what solver provides)
-	delta := CreateTokenAmount(int64(rand.Intn(10)+1), 18)            // 1-10 tokens profit margin
-	inputAmount := new(big.Int).Add(outputAmount, delta)              // slightly more to ensure solver profit
+			outputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount+1)+minTokenAmount), tokenDecimals) // 100-10000 tokens (what solver provides)
+		delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount+1)+minDeltaAmount), tokenDecimals)            // 1-10 tokens profit margin
+	inputAmount := new(big.Int).Add(outputAmount, delta)                    // slightly more to ensure solver profit
 
 	order := OrderConfig{
 		OriginChain:      evmNetworks[originIdx].name,
@@ -339,7 +383,7 @@ func openRandomToEvm(networks []NetworkConfig) {
 		OutputAmount:     outputAmount,
 		User:             user,
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
-		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
 	executeOrder(order, networks)
@@ -351,33 +395,33 @@ func openRandomToStarknet(networks []NetworkConfig) {
 	// Pick random EVM origin (exclude Starknet)
 	var evmNetworks []NetworkConfig
 	for _, n := range networks {
-		if n.name != "Starknet" {
+		if n.name != starknetNetworkName {
 			evmNetworks = append(evmNetworks, n)
 		}
 	}
 	if len(evmNetworks) == 0 {
 		log.Fatalf("no EVM networks configured")
 	}
-	origin := evmNetworks[rand.Intn(len(evmNetworks))]
+	origin := evmNetworks[secureRandomInt(len(evmNetworks))]
 
 	// Random amounts - ensure solver profitability
 	// Alice provides InputAmount, receives OutputAmount
 	// Solver receives InputAmount (MinReceived), provides OutputAmount (MaxSpent)
 	// For profitability: InputAmount (MinReceived) > OutputAmount (MaxSpent)
-	outputAmount := CreateTokenAmount(int64(rand.Intn(9901)+100), 18) // 100-10000 tokens (what solver provides)
-	delta := big.NewInt(int64(rand.Intn(90) + 1))                     // 1-90 tokens profit margin
-	inputAmount := new(big.Int).Add(outputAmount, delta)              // slightly more to ensure solver profit
+	    outputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount+1)+minTokenAmount), tokenDecimals) // 100-10000 tokens (what solver provides)
+    delta := big.NewInt(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount+1)+minDeltaAmount))                     // 1-10 tokens profit margin
+	inputAmount := new(big.Int).Add(outputAmount, delta)                    // slightly more to ensure solver profit
 
 	order := OrderConfig{
 		OriginChain:      origin.name,
-		DestinationChain: "Starknet",
+		DestinationChain: starknetNetworkName,
 		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      inputAmount,
 		OutputAmount:     outputAmount,
 		User:             AliceUserName,
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
-		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
 	executeOrder(order, networks)
@@ -391,11 +435,11 @@ func openDefaultEvmToEvm(networks []NetworkConfig) {
 		DestinationChain: "Optimism",
 		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
-		InputAmount:      CreateTokenAmount(1001, 18), // 1001 tokens (what solver receives)
+		            InputAmount:      CreateTokenAmount(testInputAmount, tokenDecimals), // 1001 tokens (what solver receives)
 		OutputAmount:     CreateTokenAmount(1000, 18), // 1000 tokens (what solver provides)
 		User:             AliceUserName,
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
-		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
 	executeOrder(order, networks)
@@ -406,14 +450,14 @@ func openDefaultEvmToStarknet(networks []NetworkConfig) {
 
 	order := OrderConfig{
 		OriginChain:      "Ethereum",
-		DestinationChain: "Starknet",
+		DestinationChain: starknetNetworkName,
 		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
-		InputAmount:      CreateTokenAmount(1001, 18), // 1001 tokens (what solver receives)
+		            InputAmount:      CreateTokenAmount(testInputAmount, tokenDecimals), // 1001 tokens (what solver receives)
 		OutputAmount:     CreateTokenAmount(1000, 18), // 1000 tokens (what solver provides)
 		User:             AliceUserName,
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
-		FillDeadline:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
 	executeOrder(order, networks)
@@ -485,11 +529,11 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	}
 
 	// If not found in EVM networks, check if it's Starknet
-	if destinationNetwork == nil && order.DestinationChain == "Starknet" {
+	if destinationNetwork == nil && order.DestinationChain == starknetNetworkName {
 		// Create NetworkConfig for Starknet destination
-		starknetConfig := config.Networks["Starknet"]
+		starknetConfig := config.Networks[starknetNetworkName]
 		destinationNetwork = &NetworkConfig{
-			name:             "Starknet",
+			name:             starknetNetworkName,
 			url:              starknetConfig.RPCURL,
 			chainID:          starknetConfig.ChainID,
 			hyperlaneAddress: starknetConfig.HyperlaneAddress,
@@ -530,7 +574,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// Check if Alice has sufficient tokens for the order
 	requiredAmount := order.InputAmount
 	if initialUserBalance == nil || initialUserBalance.Cmp(requiredAmount) < 0 {
-		fmt.Printf("   ⚠️  Insufficient balance! Alice needs %s tokens but has %s\n", 
+		fmt.Printf("   ⚠️  Insufficient balance! Alice needs %s tokens but has %s\n",
 			ethutil.FormatTokenAmount(requiredAmount, 18),
 			ethutil.FormatTokenAmount(initialUserBalance, 18))
 		fmt.Printf("   💡 Please mint tokens manually using the MockERC20 contract's mint() function\n")
@@ -553,26 +597,26 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	requiredAmount = order.InputAmount
 	if allowance.Cmp(requiredAmount) < 0 {
 		fmt.Printf("   🔄 Insufficient allowance, approving %s tokens...\n", requiredAmount.String())
-		
+
 		// Approve the Hyperlane contract to spend the required amount
 		approveTx, err := ethutil.ERC20Approve(client, auth, inputToken, spender, requiredAmount)
 		if err != nil {
 			log.Fatalf("Failed to approve tokens: %v", err)
 		}
-		
+
 		fmt.Printf("   🚀 Approval transaction sent: %s\n", approveTx.Hash().Hex())
 		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
-		
+
 		// Wait for approval transaction to be mined
 		receipt, err := ethutil.WaitForTransaction(client, approveTx)
 		if err != nil {
 			log.Fatalf("Failed to wait for approval transaction: %v", err)
 		}
-		
+
 		if receipt.Status != 1 {
 			log.Fatalf("Approval transaction failed")
 		}
-		
+
 		fmt.Printf("   ✅ Approval confirmed!\n")
 	} else {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
@@ -689,16 +733,15 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 
 func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
 
-
 	// Input token from origin network, output token from destination network
 	// inputTokenAddr := originNetwork.dogCoinAddress
 	// outputTokenAddr := destinationNetwork.dogCoinAddress
 
 	// Convert destination settler depending on destination chain type
 	var destSettlerBytes [32]byte
-	if destinationNetwork.name == "Starknet" {
+	if destinationNetwork.name == starknetNetworkName {
 		// Use Starknet Hyperlane address from config (.env) as raw 32 bytes (felt)
-		if snNetwork, exists := config.Networks["Starknet"]; exists {
+		if snNetwork, exists := config.Networks[starknetNetworkName]; exists {
 			starknetHyperlaneAddr := os.Getenv("STARKNET_HYPERLANE_ADDRESS")
 			if starknetHyperlaneAddr != "" {
 				destSettlerBytes = hexToBytes32(starknetHyperlaneAddr)
@@ -727,7 +770,7 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 	// - MinReceived: What the solver will receive (origin chain tokens)
 	var maxSpent, minReceived []TokenAmount
 
-	if destinationNetwork.name == "Starknet" {
+	if destinationNetwork.name == starknetNetworkName {
 		// EVM → Starknet order: solver provides Starknet tokens, receives EVM tokens
 		maxSpent = []TokenAmount{
 			{
@@ -856,15 +899,6 @@ func getOrderDataTypeHash() [32]byte {
 	return hash
 }
 
-// mustNewType creates a new ABI type, panicking on error
-func mustNewType(typ string) abi.Type {
-	t, err := abi.NewType(typ, "", nil)
-	if err != nil {
-		log.Fatalf("Failed to create ABI type %s: %v", typ, err)
-	}
-	return t
-}
-
 // min returns the minimum of two integers
 func min(a, b int) int {
 	if a < b {
@@ -897,17 +931,6 @@ func hexToBytes32(hexStr string) [32]byte {
 	var out [32]byte
 	copy(out[32-len(b):], b)
 	return out
-}
-
-// addressToBytes32String converts any address to a bytes32 hex string using address_utils
-func addressToBytes32String(address string) string {
-	// Use the address converter from address_utils
-	converter := types.NewAddressConverter()
-	bytes32, err := converter.ToBytes32(address)
-	if err != nil {
-		log.Fatalf("Failed to convert address to bytes32: %v", err)
-	}
-	return "0x" + hex.EncodeToString(bytes32[:])
 }
 
 // executeOrderWithParams executes an order using OrderParams with pre-formatted addresses
@@ -990,7 +1013,7 @@ func executeOrderWithParams(params OrderParams, originNetwork NetworkConfig) {
 	if err != nil {
 		log.Fatalf("Failed to approve tokens: %v", err)
 	}
-	
+
 	// Wait for approval confirmation
 	_, err = ethutil.WaitForTransaction(client, approveTx)
 	if err != nil {
@@ -1051,16 +1074,16 @@ func executeOrderWithParams(params OrderParams, originNetwork NetworkConfig) {
 // getNetworkNameByChainID returns network name for a given chain ID
 func getNetworkNameByChainID(chainID uint64) string {
 	switch chainID {
-	case 11155111:
+	case config.EthereumSepoliaChainID:
 		return "Ethereum"
-	case 11155420:
+	case config.OptimismSepoliaChainID:
 		return "Optimism"
-	case 421614:
+	case config.ArbitrumSepoliaChainID:
 		return "Arbitrum"
-	case 84532:
+	case config.BaseSepoliaChainID:
 		return "Base"
-	case 23448591:
-		return "Starknet"
+	case config.StarknetSepoliaChainID:
+		return starknetNetworkName
 	default:
 		return fmt.Sprintf("Chain_%d", chainID)
 	}
@@ -1215,7 +1238,7 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 
 		// For EVM→Starknet orders, recipient should be the Starknet user address
 		// For EVM→EVM orders, recipient can be the same as sender
-		if orderData.DestinationChainID.Uint64() == 23448591 { // Starknet
+		if orderData.DestinationChainID.Uint64() == config.StarknetSepoliaChainID { // Starknet
 			// Get Starknet user address from environment
 			starknetUserAddr := os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS")
 			if starknetUserAddr != "" {
@@ -1270,7 +1293,7 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 	}
 
 	// Special handling for Starknet destinations - need to get from environment
-	if destinationChainID == 23448591 { // Starknet
+	if destinationChainID == config.StarknetSepoliaChainID { // Starknet
 		starknetDogCoin := os.Getenv("STARKNET_DOG_COIN_ADDRESS")
 		if starknetDogCoin != "" {
 			destinationTokenAddr = common.HexToAddress(starknetDogCoin)
@@ -1283,7 +1306,7 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 	}
 
 	// Set OutputToken (destination chain token - what solver provides to Alice)
-	if destinationChainID == 23448591 { // Starknet destination
+	if destinationChainID == config.StarknetSepoliaChainID { // Starknet destination
 		// For Starknet, use the full address without padding
 		starknetDogCoin := os.Getenv("STARKNET_DOG_COIN_ADDRESS")
 		if starknetDogCoin != "" {
@@ -1296,7 +1319,7 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 
 	// Set destination settler address (Hyperlane contract on destination chain)
 	// This should be the Hyperlane contract address for the destination domain
-	if orderData.DestinationChainID.Uint64() == 23448591 { // Starknet
+	if orderData.DestinationChainID.Uint64() == config.StarknetSepoliaChainID { // Starknet
 		// Use Starknet Hyperlane address from environment
 		starknetHyperlaneAddr := os.Getenv("STARKNET_HYPERLANE_ADDRESS")
 		if starknetHyperlaneAddr != "" {
@@ -1326,7 +1349,6 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 		FillDeadline:       uint32(orderData.FillDeadline.Uint64()),
 		Data:               []byte{}, // Empty data for now
 	}
-
 }
 
 // verifyBalanceChanges verifies that opening an order actually transferred tokens
