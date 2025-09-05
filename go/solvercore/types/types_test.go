@@ -12,7 +12,7 @@ func TestResult(t *testing.T) {
 	t.Run("Success result", func(t *testing.T) {
 		data := "test data"
 		result := NewSuccessResult(data)
-		
+
 		assert.True(t, result.Success)
 		assert.Equal(t, data, result.Data)
 		assert.Empty(t, result.Error) // Error should be empty string, not nil
@@ -21,7 +21,7 @@ func TestResult(t *testing.T) {
 	t.Run("Error result", func(t *testing.T) {
 		err := assert.AnError
 		result := NewErrorResult[string](err)
-		
+
 		assert.False(t, result.Success)
 		assert.Empty(t, result.Data)
 		assert.Equal(t, err.Error(), result.Error) // Compare error strings
@@ -31,11 +31,11 @@ func TestResult(t *testing.T) {
 func TestAddressUtils(t *testing.T) {
 	t.Run("IsStarknetAddress", func(t *testing.T) {
 		tests := []struct {
-			address string
+			address  string
 			expected bool
 		}{
-			{"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", true}, // 66 chars with 0x = 64 hex chars
-			{"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde", false}, // 64 chars with 0x = 62 hex chars (too short)
+			{"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", true},   // 66 chars with 0x = 64 hex chars
+			{"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde", false},   // 64 chars with 0x = 62 hex chars (too short)
 			{"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1", false}, // too long
 			{"invalid", false},
 			{"", false},
@@ -51,11 +51,11 @@ func TestAddressUtils(t *testing.T) {
 
 	t.Run("IsEVMAddress", func(t *testing.T) {
 		tests := []struct {
-			address string
+			address  string
 			expected bool
 		}{
 			{"0x1234567890123456789012345678901234567890", true},
-			{"0x123456789012345678901234567890123456789", false}, // too short
+			{"0x123456789012345678901234567890123456789", false},   // too short
 			{"0x12345678901234567890123456789012345678901", false}, // too long
 			{"invalid", false},
 			{"", false},
@@ -200,7 +200,7 @@ func TestToEVMAddress(t *testing.T) {
 	t.Run("Valid EVM address", func(t *testing.T) {
 		address := "0x1234567890123456789012345678901234567890"
 		result, err := ToEVMAddress(address)
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, address, result.Hex())
 	})
@@ -208,14 +208,14 @@ func TestToEVMAddress(t *testing.T) {
 	t.Run("Invalid address format", func(t *testing.T) {
 		address := "invalid"
 		_, err := ToEVMAddress(address)
-		
+
 		assert.Error(t, err)
 	})
 
 	t.Run("Empty address", func(t *testing.T) {
 		address := ""
 		_, err := ToEVMAddress(address)
-		
+
 		assert.Error(t, err)
 	})
 }
@@ -224,7 +224,7 @@ func TestToStarknetAddress(t *testing.T) {
 	t.Run("Valid Starknet address", func(t *testing.T) {
 		address := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde"
 		result, err := ToStarknetAddress(address)
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, address, result.String())
 	})
@@ -232,64 +232,64 @@ func TestToStarknetAddress(t *testing.T) {
 	t.Run("Invalid address format", func(t *testing.T) {
 		address := "invalid"
 		_, err := ToStarknetAddress(address)
-		
+
 		assert.Error(t, err)
 	})
 
 	t.Run("Empty address", func(t *testing.T) {
 		address := ""
 		_, err := ToStarknetAddress(address)
-		
+
 		assert.Error(t, err)
 	})
 }
 
 func TestIsBytes32Address(t *testing.T) {
 	ac := NewAddressConverter()
-	
+
 	t.Run("Valid bytes32 address", func(t *testing.T) {
 		address := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 		result := ac.IsBytes32Address(address)
-		
+
 		assert.True(t, result)
 	})
 
 	t.Run("Invalid bytes32 address", func(t *testing.T) {
 		address := "0x1234567890123456789012345678901234567890" // EVM address
 		result := ac.IsBytes32Address(address)
-		
+
 		assert.False(t, result)
 	})
 
 	t.Run("Empty address", func(t *testing.T) {
 		address := ""
 		result := ac.IsBytes32Address(address)
-		
+
 		assert.False(t, result)
 	})
 }
 
 func TestFormatAddress(t *testing.T) {
 	ac := NewAddressConverter()
-	
+
 	t.Run("Format Starknet address", func(t *testing.T) {
 		address := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde"
 		result := ac.FormatAddress(address)
-		
+
 		assert.Equal(t, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde", result)
 	})
 
 	t.Run("Format EVM address", func(t *testing.T) {
 		address := "0x1234567890123456789012345678901234567890"
 		result := ac.FormatAddress(address)
-		
+
 		assert.Equal(t, "1234567890123456789012345678901234567890", result)
 	})
 
 	t.Run("Format address without 0x prefix", func(t *testing.T) {
 		address := "1234567890123456789012345678901234567890"
 		result := ac.FormatAddress(address)
-		
+
 		assert.Equal(t, "1234567890123456789012345678901234567890", result)
 	})
 }
@@ -298,34 +298,34 @@ func TestFormatTokenAmount(t *testing.T) {
 	t.Run("Format token amount with 18 decimals", func(t *testing.T) {
 		amount := big.NewInt(1000000000000000000) // 1 token with 18 decimals
 		result := FormatTokenAmount(amount, 18)
-		
+
 		assert.Equal(t, "1.00 tokens", result)
 	})
 
 	t.Run("Format token amount with 6 decimals", func(t *testing.T) {
 		amount := big.NewInt(1000000) // 1 token with 6 decimals
 		result := FormatTokenAmount(amount, 6)
-		
+
 		assert.Equal(t, "1.00 tokens", result)
 	})
 
 	t.Run("Format zero amount", func(t *testing.T) {
 		amount := big.NewInt(0)
 		result := FormatTokenAmount(amount, 18)
-		
+
 		assert.Equal(t, "0.00 tokens", result)
 	})
 
 	t.Run("Format large amount", func(t *testing.T) {
 		amount, _ := big.NewInt(0).SetString("123456789012345678901234567890", 10)
 		result := FormatTokenAmount(amount, 18)
-		
+
 		assert.Equal(t, "123456789012.35 tokens", result)
 	})
 
 	t.Run("Format nil amount", func(t *testing.T) {
 		result := FormatTokenAmount(nil, 18)
-		
+
 		assert.Equal(t, "0", result)
 	})
 }
@@ -336,7 +336,7 @@ func TestGetOrderIDBytes(t *testing.T) {
 			OrderID: "0x1234567890123456789012345678901234567890123456789012345678901234",
 		}
 		result := args.GetOrderIDBytes()
-		
+
 		assert.Len(t, result, 32)
 		// Check that the first few bytes are correct
 		assert.Equal(t, byte(0x12), result[0])
@@ -348,7 +348,7 @@ func TestGetOrderIDBytes(t *testing.T) {
 			OrderID: "invalid",
 		}
 		result := args.GetOrderIDBytes()
-		
+
 		// Should return zero bytes for invalid format
 		expected := [32]byte{}
 		assert.Equal(t, expected, result)
@@ -359,7 +359,7 @@ func TestGetOrderIDBytes(t *testing.T) {
 			OrderID: "",
 		}
 		result := args.GetOrderIDBytes()
-		
+
 		// Should return zero bytes for empty order ID
 		expected := [32]byte{}
 		assert.Equal(t, expected, result)
@@ -370,7 +370,7 @@ func TestGetOrderIDBytes(t *testing.T) {
 			OrderID: "0x1234",
 		}
 		result := args.GetOrderIDBytes()
-		
+
 		// Should return zero bytes for too short order ID
 		expected := [32]byte{}
 		assert.Equal(t, expected, result)

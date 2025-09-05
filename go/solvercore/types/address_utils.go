@@ -13,12 +13,12 @@ import (
 
 // Address length constants
 const (
-	StarknetAddressLength = 64
-	EthereumAddressLength = 40
+	StarknetAddressLength           = 64
+	EthereumAddressLength           = 40
 	StarknetAddressLengthWithPrefix = 62
 	EthereumAddressLengthWithPrefix = 42
-	Bytes32Length = 32
-	Bytes31Length = 31
+	Bytes32Length                   = 32
+	Bytes31Length                   = 31
 )
 
 // AddressConverter handles conversion between different address formats

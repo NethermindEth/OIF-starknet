@@ -73,7 +73,7 @@ func LogOrderProcessing(args types.ParsedArgs, operation string) {
 }
 
 // LogFillOperation logs a fill operation with network context
-func LogFillOperation(networkName string, orderID string, success bool) {
+func LogFillOperation(networkName, orderID string, success bool) {
 	tag := Prefix(networkName)
 	if success {
 		fmt.Printf("%s✅ Fill completed (Order: %s)\n", tag, orderID[:8]+"...")

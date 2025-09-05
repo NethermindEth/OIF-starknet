@@ -18,6 +18,17 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+const (
+	// Default funding amount (420,690,000,000 tokens)
+	defaultFundingAmount = 420_690_000_000
+	// Token decimals (18 for most ERC20 tokens)
+	tokenDecimals = 18
+	// Gas limit for transactions
+	defaultGasLimit = 300000
+	// Base 10 for string parsing
+	base10 = 10
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("🏦 MockERC20 Token Funding Tool")
@@ -38,12 +49,12 @@ func main() {
 	networkArg := strings.ToLower(os.Args[1])
 
 	// Default funding amount (420,690,000,000 tokens with 18 decimals)
-	fundingAmount := createTokenAmount(420_690_000_000, 18)
+	fundingAmount := createTokenAmount(defaultFundingAmount, tokenDecimals)
 
 	// Parse custom amount if provided
 	if len(os.Args) >= 3 {
-		if customAmount, ok := new(big.Int).SetString(os.Args[2], 10); ok {
-			fundingAmount = createTokenAmount(customAmount.Int64(), 18)
+		if customAmount, ok := new(big.Int).SetString(os.Args[2], base10); ok {
+			fundingAmount = createTokenAmount(customAmount.Int64(), tokenDecimals)
 		} else {
 			log.Fatalf("Invalid amount: %s", os.Args[2])
 		}
@@ -55,7 +66,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	fmt.Printf("🏦 Funding Alice and Solver accounts with %s tokens each\n", ethutil.FormatTokenAmount(fundingAmount, 18))
+	fmt.Printf("🏦 Funding Alice and Solver accounts with %s tokens each\n", ethutil.FormatTokenAmount(fundingAmount, tokenDecimals))
 	fmt.Printf("💰 Using conditional environment variables (FORKING=%s)\n", os.Getenv("FORKING"))
 	fmt.Println()
 
@@ -157,7 +168,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 		// Check current balance
 		currentBalance, err := ethutil.ERC20Balance(client, common.HexToAddress(tokenAddress), recipient.Address)
 		if err == nil {
-			fmt.Printf("     📊 Current balance: %s\n", ethutil.FormatTokenAmount(currentBalance, 18))
+			                    fmt.Printf("     📊 Current balance: %s\n", ethutil.FormatTokenAmount(currentBalance, tokenDecimals))
 		}
 
 		// Call mint function directly using raw transaction
@@ -167,12 +178,12 @@ func fundNetwork(networkName string, amount *big.Int) {
 			continue
 		}
 
-		fmt.Printf("     ✅ Minted %s tokens\n", ethutil.FormatTokenAmount(amount, 18))
+		            fmt.Printf("     ✅ Minted %s tokens\n", ethutil.FormatTokenAmount(amount, tokenDecimals))
 
 		// Verify new balance
 		newBalance, err := ethutil.ERC20Balance(client, common.HexToAddress(tokenAddress), recipient.Address)
 		if err == nil {
-			fmt.Printf("     💰 New balance: %s\n", ethutil.FormatTokenAmount(newBalance, 18))
+			fmt.Printf("     💰 New balance: %s\n", ethutil.FormatTokenAmount(newBalance, tokenDecimals))
 		}
 	}
 }
@@ -214,7 +225,7 @@ func getRecipients(useLocalForks bool) []Recipient {
 
 func createTokenAmount(tokens int64, decimals int) *big.Int {
 	amount := big.NewInt(tokens)
-	multiplier := big.NewInt(10)
+	    multiplier := big.NewInt(base10)
 	multiplier.Exp(multiplier, big.NewInt(int64(decimals)), nil)
 	return amount.Mul(amount, multiplier)
 }
@@ -252,7 +263,7 @@ func mintTokensRaw(client *ethclient.Client, auth *bind.TransactOpts, tokenAddre
 		nonce,
 		common.HexToAddress(tokenAddress),
 		big.NewInt(0), // No ETH value
-		300000,        // Gas limit for mint
+		            defaultGasLimit,        // Gas limit for mint
 		gasPrice,
 		data,
 	)

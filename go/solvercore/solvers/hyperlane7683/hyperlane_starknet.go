@@ -54,7 +54,7 @@ func NewHyperlaneStarknet(rpcURL string, chainID uint64) *HyperlaneStarknet {
 	pub := envutil.GetStarknetSolverPublicKey()
 	addrHex := envutil.GetStarknetSolverAddress()
 	priv := envutil.GetStarknetSolverPrivateKey()
-	
+
 	if pub == "" || addrHex == "" || priv == "" {
 		fmt.Printf("missing STARKNET_SOLVER_* env vars for Starknet signer")
 		return nil

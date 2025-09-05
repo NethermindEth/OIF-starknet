@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/starknet.go/utils"
 )
 
+
 func fundStarknet(amount *big.Int) {
 	fmt.Printf("📡 Funding Starknet network...\n")
 
@@ -80,7 +81,7 @@ func fundStarknet(amount *big.Int) {
 		// Check current balance
 		currentBalance, err := starknetutil.ERC20Balance(client, tokenAddress, recipient.Address)
 		if err == nil {
-			fmt.Printf("     📊 Current balance: %s\n", starknetutil.FormatTokenAmount(currentBalance, 18))
+			fmt.Printf("     📊 Current balance: %s\n", starknetutil.FormatTokenAmount(currentBalance, tokenDecimals))
 		}
 
 		// Convert addresses to felts for the mint call
@@ -125,12 +126,12 @@ func fundStarknet(amount *big.Int) {
 			continue
 		}
 
-		fmt.Printf("     ✅ Minted %s tokens\n", starknetutil.FormatTokenAmount(amount, 18))
+		fmt.Printf("     ✅ Minted %s tokens\n", starknetutil.FormatTokenAmount(amount, tokenDecimals))
 
 		// Verify new balance
 		newBalance, err := starknetutil.ERC20Balance(client, tokenAddress, recipient.Address)
 		if err == nil {
-			fmt.Printf("     💰 New balance: %s\n", starknetutil.FormatTokenAmount(newBalance, 18))
+			fmt.Printf("     💰 New balance: %s\n", starknetutil.FormatTokenAmount(newBalance, tokenDecimals))
 		}
 	}
 }

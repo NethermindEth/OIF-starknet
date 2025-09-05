@@ -36,8 +36,8 @@ func TestNetworkConfig(t *testing.T) {
 			{
 				name: "Valid config",
 				config: NetworkConfig{
-					Name:   "TestNetwork",
-					RPCURL: "http://localhost:8545",
+					Name:    "TestNetwork",
+					RPCURL:  "http://localhost:8545",
 					ChainID: 12345,
 				},
 				isValid: true,
@@ -45,8 +45,8 @@ func TestNetworkConfig(t *testing.T) {
 			{
 				name: "Empty name",
 				config: NetworkConfig{
-					Name:   "",
-					RPCURL: "http://localhost:8545",
+					Name:    "",
+					RPCURL:  "http://localhost:8545",
 					ChainID: 12345,
 				},
 				isValid: false,
@@ -54,8 +54,8 @@ func TestNetworkConfig(t *testing.T) {
 			{
 				name: "Empty RPC URL",
 				config: NetworkConfig{
-					Name:   "TestNetwork",
-					RPCURL: "",
+					Name:    "TestNetwork",
+					RPCURL:  "",
 					ChainID: 12345,
 				},
 				isValid: false,
@@ -63,8 +63,8 @@ func TestNetworkConfig(t *testing.T) {
 			{
 				name: "Zero chain ID",
 				config: NetworkConfig{
-					Name:   "TestNetwork",
-					RPCURL: "http://localhost:8545",
+					Name:    "TestNetwork",
+					RPCURL:  "http://localhost:8545",
 					ChainID: 0,
 				},
 				isValid: false,
@@ -84,9 +84,9 @@ func TestNetworkConfig(t *testing.T) {
 func TestEnvironmentLoading(t *testing.T) {
 	t.Run("Environment variable loading", func(t *testing.T) {
 		// Set test environment variables
-		os.Setenv("TEST_NETWORK_NAME", "TestNetwork")
-		os.Setenv("TEST_RPC_URL", "https://test.example.com")
-		os.Setenv("TEST_CHAIN_ID", "12345")
+		t.Setenv("TEST_NETWORK_NAME", "TestNetwork")
+		t.Setenv("TEST_RPC_URL", "https://test.example.com")
+		t.Setenv("TEST_CHAIN_ID", "12345")
 
 		defer func() {
 			os.Unsetenv("TEST_NETWORK_NAME")
@@ -124,7 +124,7 @@ func TestEnvironmentLoading(t *testing.T) {
 		assert.Equal(t, "default_value", result)
 
 		// Test with set variable
-		os.Setenv("SET_VAR", "actual_value")
+		t.Setenv("SET_VAR", "actual_value")
 		defer os.Unsetenv("SET_VAR")
 		result = getEnvWithDefault("SET_VAR", "default_value")
 		assert.Equal(t, "actual_value", result)
@@ -160,7 +160,7 @@ func TestNetworkValidation(t *testing.T) {
 		for _, network := range invalidNetworks {
 			t.Run(network, func(t *testing.T) {
 				// Basic validation
-				isValid := network != "" && len(strings.TrimSpace(network)) > 0
+				isValid := network != "" && strings.TrimSpace(network) != ""
 				assert.False(t, isValid)
 			})
 		}
@@ -168,8 +168,8 @@ func TestNetworkValidation(t *testing.T) {
 
 	t.Run("RPC URL validation", func(t *testing.T) {
 		tests := []struct {
-			url      string
-			isValid  bool
+			url     string
+			isValid bool
 		}{
 			{"http://localhost:8545", true},
 			{"https://test.example.com", true},
@@ -182,11 +182,11 @@ func TestNetworkValidation(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.url, func(t *testing.T) {
 				// Basic URL validation
-				isValid := tt.url != "" && 
-					(strings.HasPrefix(tt.url, "http://") || 
-					 strings.HasPrefix(tt.url, "https://") || 
-					 strings.HasPrefix(tt.url, "ws://") || 
-					 strings.HasPrefix(tt.url, "wss://"))
+				isValid := tt.url != "" &&
+					(strings.HasPrefix(tt.url, "http://") ||
+						strings.HasPrefix(tt.url, "https://") ||
+						strings.HasPrefix(tt.url, "ws://") ||
+						strings.HasPrefix(tt.url, "wss://"))
 				assert.Equal(t, tt.isValid, isValid)
 			})
 		}
@@ -196,12 +196,12 @@ func TestNetworkValidation(t *testing.T) {
 func TestChainIDValidation(t *testing.T) {
 	t.Run("Valid chain IDs", func(t *testing.T) {
 		validChainIDs := []uint64{
-			12345,  // Test chain ID
-			54321,  // Test chain ID
-			99999,  // Test chain ID
-			1,      // Ethereum mainnet (for reference)
-			8453,   // Base mainnet (for reference)
-			42161,  // Arbitrum mainnet (for reference)
+			12345, // Test chain ID
+			54321, // Test chain ID
+			99999, // Test chain ID
+			1,     // Ethereum mainnet (for reference)
+			8453,  // Base mainnet (for reference)
+			42161, // Arbitrum mainnet (for reference)
 		}
 
 		for _, chainID := range validChainIDs {
@@ -228,8 +228,8 @@ func TestChainIDValidation(t *testing.T) {
 func TestConfigurationDefaults(t *testing.T) {
 	t.Run("Default confirmation blocks", func(t *testing.T) {
 		config := NetworkConfig{
-			Name:   "Test",
-			RPCURL: "https://test.example.com",
+			Name:    "Test",
+			RPCURL:  "https://test.example.com",
 			ChainID: 12345,
 		}
 
@@ -242,8 +242,8 @@ func TestConfigurationDefaults(t *testing.T) {
 
 	t.Run("Default poll interval", func(t *testing.T) {
 		config := NetworkConfig{
-			Name:   "Test",
-			RPCURL: "https://test.example.com",
+			Name:    "Test",
+			RPCURL:  "https://test.example.com",
 			ChainID: 12345,
 		}
 
@@ -256,8 +256,8 @@ func TestConfigurationDefaults(t *testing.T) {
 
 	t.Run("Default max block range", func(t *testing.T) {
 		config := NetworkConfig{
-			Name:   "Test",
-			RPCURL: "https://test.example.com",
+			Name:    "Test",
+			RPCURL:  "https://test.example.com",
 			ChainID: 12345,
 		}
 
@@ -272,14 +272,14 @@ func TestConfigurationDefaults(t *testing.T) {
 func TestNetworkConfigComparison(t *testing.T) {
 	t.Run("Equal configurations", func(t *testing.T) {
 		config1 := NetworkConfig{
-			Name:   "TestNetwork",
-			RPCURL: "http://localhost:8545",
+			Name:    "TestNetwork",
+			RPCURL:  "http://localhost:8545",
 			ChainID: 12345,
 		}
 
 		config2 := NetworkConfig{
-			Name:   "TestNetwork",
-			RPCURL: "http://localhost:8545",
+			Name:    "TestNetwork",
+			RPCURL:  "http://localhost:8545",
 			ChainID: 12345,
 		}
 
@@ -288,21 +288,17 @@ func TestNetworkConfigComparison(t *testing.T) {
 
 	t.Run("Different configurations", func(t *testing.T) {
 		config1 := NetworkConfig{
-			Name:   "TestNetwork1",
-			RPCURL: "http://localhost:8545",
+			Name:    "TestNetwork1",
+			RPCURL:  "http://localhost:8545",
 			ChainID: 12345,
 		}
 
 		config2 := NetworkConfig{
-			Name:   "TestNetwork2",
-			RPCURL: "http://localhost:8546",
+			Name:    "TestNetwork2",
+			RPCURL:  "http://localhost:8546",
 			ChainID: 54321,
 		}
 
 		assert.NotEqual(t, config1, config2)
 	})
 }
-
-
-
-

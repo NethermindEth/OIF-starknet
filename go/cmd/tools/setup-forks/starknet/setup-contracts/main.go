@@ -45,14 +45,14 @@ func loadCentralAddresses(networkName string) (hyperlane string, dog string, err
 	// Get addresses from environment variables
 	hyperlane = os.Getenv("STARKNET_HYPERLANE_ADDRESS")
 	dog = os.Getenv("STARKNET_DOG_COIN_ADDRESS")
-	
+
 	if hyperlane == "" {
 		return "", "", fmt.Errorf("STARKNET_HYPERLANE_ADDRESS not found in .env")
 	}
 	if dog == "" {
 		return "", "", fmt.Errorf("STARKNET_DOG_COIN_ADDRESS not found in .env")
 	}
-	
+
 	return hyperlane, dog, nil
 }
 
@@ -140,7 +140,7 @@ func main() {
 	}
 
 	// Prepare TokenInfo based on centralized state
-	dogCoin := TokenInfo{Name: "DogCoin", Symbol: "DOG", Address: dogAddr}
+	dogCoin := TokenInfo{Name: "DogCoin", Symbol: "DOG", Address: dogAddr, ClassHash: ""}
 
 	fmt.Printf("📋 DogCoin: %s\n", dogCoin.Address)
 
@@ -174,9 +174,6 @@ func main() {
 	fmt.Printf("   • Environment variables updated\n")
 	fmt.Printf("   • Ready for cross-chain operations!\n")
 }
-
-
-
 
 // fundUsers funds test users with DogCoin tokens using the mint function
 func fundUsers(accnt *account.Account, dogCoin TokenInfo, aliceAddr, solverAddr string) error {
@@ -295,8 +292,6 @@ func mintTokens(accnt *account.Account, tokenAddress, recipient, amount, tokenNa
 	fmt.Printf("     ✅ Mint transaction confirmed\n")
 	return nil
 }
-
-
 
 // getTokenBalance gets the balance of a token for a specific address
 func getTokenBalance(accnt *account.Account, tokenAddress, userAddress, tokenName string) (*big.Int, error) {
@@ -571,5 +566,3 @@ func formatTokenAmount(amount *big.Int) string {
 	tokens := new(big.Float).Quo(new(big.Float).SetInt(amount), new(big.Float).SetInt(decimals))
 	return tokens.Text('f', 0) + " tokens"
 }
-
-

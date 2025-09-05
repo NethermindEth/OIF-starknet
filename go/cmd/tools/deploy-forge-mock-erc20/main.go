@@ -12,9 +12,9 @@ import (
 
 // NetworkInfo contains deployment information for each network
 type NetworkInfo struct {
-	Name     string
-	ChainID  string
-	EnvVar   string
+	Name    string
+	ChainID string
+	EnvVar  string
 }
 
 func main() {
@@ -30,13 +30,13 @@ func main() {
 			EnvVar:  "ETHEREUM_DOG_COIN_ADDRESS",
 		},
 		{
-			Name:    "Optimism Sepolia", 
+			Name:    "Optimism Sepolia",
 			ChainID: "11155420",
 			EnvVar:  "OPTIMISM_DOG_COIN_ADDRESS",
 		},
 		{
 			Name:    "Arbitrum Sepolia",
-			ChainID: "421614", 
+			ChainID: "421614",
 			EnvVar:  "ARBITRUM_DOG_COIN_ADDRESS",
 		},
 		{
@@ -73,7 +73,7 @@ func main() {
 
 	for _, network := range targetNetworks {
 		fmt.Printf("📡 Deploying to %s (Chain ID: %s)...\n", network.Name, network.ChainID)
-		
+
 		address, err := deployWithForge(network.ChainID)
 		if err != nil {
 			fmt.Printf("   ❌ Failed to deploy: %v\n\n", err)
@@ -83,14 +83,14 @@ func main() {
 		fmt.Printf("   ✅ Deployed at: %s\n", address)
 		fmt.Printf("   🔗 Explorer: %s\n", getExplorerURL(network.ChainID, address))
 		fmt.Printf("   📝 Update .env: %s=%s\n\n", network.EnvVar, address)
-		
+
 		deployedAddresses = append(deployedAddresses, fmt.Sprintf("%s=%s", network.EnvVar, address))
 		successCount++
 	}
 
 	fmt.Printf("🎯 Deployment Summary:\n")
 	fmt.Printf("   ✅ Successful: %d/%d\n", successCount, len(targetNetworks))
-	
+
 	if len(deployedAddresses) > 0 {
 		fmt.Printf("\n📝 Update your .env file with these new addresses:\n")
 		for _, addr := range deployedAddresses {
@@ -104,15 +104,15 @@ func main() {
 func deployWithForge(chainID string) (string, error) {
 	// Change to solidity directory
 	solidityDir := "../solidity"
-	
+
 	// Get RPC URL based on chain ID
 	rpcURL := getRPCURL(chainID)
 	if rpcURL == "" {
 		return "", fmt.Errorf("no RPC URL configured for chain ID %s", chainID)
 	}
-	
+
 	// Run forge script with broadcast and verify
-	cmd := exec.Command("forge", "script", 
+	cmd := exec.Command("forge", "script",
 		"script/DeployMockERC20.s.sol:DeployMockERC20",
 		"--rpc-url", rpcURL,
 		"--chain", chainID,
@@ -121,17 +121,17 @@ func deployWithForge(chainID string) (string, error) {
 		"--slow",
 		"-v",
 	)
-	
+
 	cmd.Dir = solidityDir
-	
+
 	// Capture output
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
-	
+
 	if err != nil {
 		return "", fmt.Errorf("forge deployment failed: %v\nOutput: %s", err, outputStr)
 	}
-	
+
 	// Extract deployed address from output
 	lines := strings.Split(outputStr, "\n")
 	for _, line := range lines {
@@ -142,7 +142,7 @@ func deployWithForge(chainID string) (string, error) {
 			}
 		}
 	}
-	
+
 	return "", fmt.Errorf("could not extract deployed address from output")
 }
 

@@ -101,7 +101,9 @@ func (f *solverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (
 	// Evaluate all rules
 	for _, rule := range f.rules {
 		context := &SolverContext{
-			Metadata: f.metadata,
+			Metadata:   f.metadata,
+			OriginInfo: nil, // Not used in this context
+			TargetInfo: nil, // Not used in this context
 		}
 
 		if err := rule(args, context); err != nil {

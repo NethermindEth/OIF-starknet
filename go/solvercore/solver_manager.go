@@ -186,7 +186,7 @@ func (sm *SolverManager) GetEVMClient(chainID uint64) (*ethclient.Client, error)
 func (sm *SolverManager) GetEVMSigner(chainID uint64) (*bind.TransactOpts, error) {
 	// For now, create a new signer for each chain
 	// In the future, this could be cached per chain
-	
+
 	// Use conditional environment variable based on FORKING
 	solverPrivateKey := envutil.GetConditionalAccountEnv("SOLVER_PRIVATE_KEY")
 	if solverPrivateKey == "" {
@@ -219,7 +219,7 @@ func (sm *SolverManager) GetStarknetSigner() (*account.Account, error) {
 	pub := envutil.GetStarknetSolverPublicKey()
 	addrHex := envutil.GetStarknetSolverAddress()
 	priv := envutil.GetStarknetSolverPrivateKey()
-	
+
 	if pub == "" || addrHex == "" || priv == "" {
 		return nil, fmt.Errorf("missing STARKNET_SOLVER_* env vars for Starknet signer")
 	}
@@ -365,7 +365,7 @@ func (sm *SolverManager) Start(ctx context.Context) error {
 
 	// Wait for context cancellation (shutdown signal)
 	<-ctx.Done()
-	
+
 	// Graceful shutdown
 	sm.Shutdown()
 	return nil

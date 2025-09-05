@@ -20,10 +20,10 @@ const (
 // implementing this interface and registering the handler in the solver.
 //
 // Usage for adding new chains:
-//   1. Create hyperlane_newchain.go implementing ChainHandler
-//   2. Create listener_newchain.go for event listening
-//   3. Add chain detection logic to solver.go
-//   4. Register in solver manager - that's it!
+//  1. Create hyperlane_newchain.go implementing ChainHandler
+//  2. Create listener_newchain.go for event listening
+//  3. Add chain detection logic to solver.go
+//  4. Register in solver manager - that's it!
 type ChainHandler interface {
 	// Fill executes a fill operation on the chain
 	// Returns OrderAction indicating next step (settle, complete, or error)
@@ -43,10 +43,10 @@ type ChainHandler interface {
 type ChainHandlerFactory interface {
 	// CreateHandler creates a new chain handler for the given chain configuration
 	CreateHandler(chainID uint64, rpcURL string) (ChainHandler, error)
-	
+
 	// SupportsChain returns true if this factory can handle the given chain ID
 	SupportsChain(chainID uint64) bool
-	
+
 	// GetChainType returns a human-readable name for this chain type (e.g., "EVM", "Starknet")
 	GetChainType() string
 }

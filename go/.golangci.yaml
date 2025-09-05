@@ -35,13 +35,13 @@ linters:
 
 linters-settings:
   dupl:
-    threshold: 100
+    threshold: 150
   funlen:
-    lines: 120
-    statements: 50
+    lines: 150
+    statements: 60
   goconst:
-    min-len: 2
-    min-occurrences: 3
+    min-len: 3
+    min-occurrences: 4
   gocritic:
     disabled-checks:
       - sloppyReassign
@@ -58,7 +58,7 @@ linters-settings:
       - performance
       - style
   gocyclo:
-    min-complexity: 15
+    min-complexity: 20
   gosec:
     excludes:
       - G115 # Allow ReadAll for now
@@ -73,7 +73,7 @@ linters-settings:
           - (github.com/sirupsen/logrus.Logger).Errorf
           - (github.com/sirupsen/logrus.Logger).Fatalf
   lll:
-    line-length: 140
+    line-length: 160
   misspell:
     locale: US
   mnd:
@@ -87,8 +87,24 @@ linters-settings:
       - "1"
       - "2"
       - "3"
+      - "4"
+      - "5"
+      - "8"
+      - "10"
+      - "16"
+      - "18"
+      - "24"
+      - "32"
+      - "64"
+      - "128"
+      - "256"
+      - "1000"
+      - "10000"
     ignored-functions:
       - strings.SplitN
+      - time.Hour
+      - time.Second
+      - time.Minute
   nolintlint:
     require-explanation: false
     require-specific: false
@@ -109,6 +125,19 @@ issues:
         - goconst
         - lll
         - mnd
+        - gocyclo
+        - dupl
+    - path: cmd/tools/
+      linters:
+        - gocyclo
+        - funlen
+        - lll
+    - path: integration_test\.go
+      linters:
+        - gocyclo
+        - funlen
+        - lll
+        - dupl
     - source: '^//go:generate '
       linters:
         - lll

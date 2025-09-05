@@ -33,7 +33,7 @@ func main() {
 
 	// Initialize networks from config after .env is loaded
 	config.InitializeNetworks()
-	
+
 	// Get Starknet Hyperlane address from config (.env)
 	starknetHyperlaneAddr := os.Getenv("STARKNET_HYPERLANE_ADDRESS")
 	if starknetHyperlaneAddr == "" {

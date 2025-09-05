@@ -213,21 +213,19 @@ func saveDeploymentInfo(classHash, deployedAddress, txHash, salt, networkName st
 
 	// Ensure deployment directory exists
 	deploymentDir := filepath.Clean(filepath.Join("state", "deployment"))
-	if err := os.MkdirAll(deploymentDir, 0755); err != nil {
+	if err := os.MkdirAll(deploymentDir, 0700); err != nil {
 		fmt.Printf("⚠️  Failed to create deployment directory: %s\n", err)
 		return
 	}
 
 	filename := filepath.Join(deploymentDir, "starknet-hyperlane7683-deployment.json")
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := os.WriteFile(filename, data, 0600); err != nil {
 		fmt.Printf("⚠️  Failed to save deployment info: %s\n", err)
 		return
 	}
 
 	fmt.Printf("💾 Deployment info saved to %s\n", filename)
 }
-
-
 
 // buildConstructorCalldata builds the constructor calldata for Hyperlane7683
 func buildConstructorCalldata(permit2Addr, mailboxAddr, ownerAddr, hookAddr, ismAddr string) []*felt.Felt {
@@ -253,5 +251,3 @@ func buildConstructorCalldata(permit2Addr, mailboxAddr, ownerAddr, hookAddr, ism
 
 	return []*felt.Felt{permit2, mailbox, owner, hook, ism}
 }
-
-

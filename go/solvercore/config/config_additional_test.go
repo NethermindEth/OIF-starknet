@@ -12,16 +12,16 @@ import (
 func TestLoadConfig(t *testing.T) {
 	t.Run("LoadConfig with valid environment", func(t *testing.T) {
 		// Set up test environment variables
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -90,7 +90,7 @@ func TestIsSolverEnabled(t *testing.T) {
 
 func TestGetEnvWithDefault(t *testing.T) {
 	t.Run("Get existing environment variable", func(t *testing.T) {
-		os.Setenv("TEST_VAR", "test_value")
+		t.Setenv("TEST_VAR", "test_value")
 		defer os.Unsetenv("TEST_VAR")
 
 		value := envutil.GetEnvWithDefault("TEST_VAR", "default_value")
@@ -107,8 +107,8 @@ func TestGetEnvWithDefault(t *testing.T) {
 
 func TestGetConditionalUint64(t *testing.T) {
 	t.Run("Get conditional uint64 with FORKING=true", func(t *testing.T) {
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_TEST_VAR", "123")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_TEST_VAR", "123")
 		defer func() {
 			os.Unsetenv("FORKING")
 			os.Unsetenv("LOCAL_TEST_VAR")
@@ -119,8 +119,8 @@ func TestGetConditionalUint64(t *testing.T) {
 	})
 
 	t.Run("Get conditional uint64 with FORKING=false", func(t *testing.T) {
-		os.Setenv("FORKING", "false")
-		os.Setenv("TEST_VAR", "789")
+		t.Setenv("FORKING", "false")
+		t.Setenv("TEST_VAR", "789")
 		defer func() {
 			os.Unsetenv("FORKING")
 			os.Unsetenv("TEST_VAR")
@@ -131,8 +131,8 @@ func TestGetConditionalUint64(t *testing.T) {
 	})
 
 	t.Run("Get conditional uint64 with invalid value", func(t *testing.T) {
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_TEST_VAR", "invalid")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_TEST_VAR", "invalid")
 		defer func() {
 			os.Unsetenv("FORKING")
 			os.Unsetenv("LOCAL_TEST_VAR")
@@ -146,16 +146,16 @@ func TestGetConditionalUint64(t *testing.T) {
 func TestInitializeNetworks(t *testing.T) {
 	t.Run("Initialize networks", func(t *testing.T) {
 		// Set up test environment
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -184,16 +184,16 @@ func TestInitializeNetworks(t *testing.T) {
 func TestGetNetworkConfig(t *testing.T) {
 	t.Run("Get existing network config", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -228,16 +228,16 @@ func TestGetNetworkConfig(t *testing.T) {
 func TestGetRPCURL(t *testing.T) {
 	t.Run("Get RPC URL for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -269,16 +269,16 @@ func TestGetRPCURL(t *testing.T) {
 func TestGetChainID(t *testing.T) {
 	t.Run("Get Chain ID for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -310,16 +310,16 @@ func TestGetChainID(t *testing.T) {
 func TestGetHyperlaneAddress(t *testing.T) {
 	t.Run("Get Hyperlane address for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -351,16 +351,16 @@ func TestGetHyperlaneAddress(t *testing.T) {
 func TestGetHyperlaneDomain(t *testing.T) {
 	t.Run("Get Hyperlane domain for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -392,16 +392,16 @@ func TestGetHyperlaneDomain(t *testing.T) {
 func TestGetForkStartBlock(t *testing.T) {
 	t.Run("Get fork start block for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -433,16 +433,16 @@ func TestGetForkStartBlock(t *testing.T) {
 func TestGetSolverStartBlock(t *testing.T) {
 	t.Run("Get solver start block for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -474,16 +474,16 @@ func TestGetSolverStartBlock(t *testing.T) {
 func TestGetListenerConfig(t *testing.T) {
 	t.Run("Get listener config for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -519,16 +519,16 @@ func TestGetListenerConfig(t *testing.T) {
 func TestGetRPCURLByChainID(t *testing.T) {
 	t.Run("Get RPC URL by chain ID for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -560,16 +560,16 @@ func TestGetRPCURLByChainID(t *testing.T) {
 func TestGetHyperlaneAddressByChainID(t *testing.T) {
 	t.Run("Get Hyperlane address by chain ID for existing network", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -601,16 +601,16 @@ func TestGetHyperlaneAddressByChainID(t *testing.T) {
 func TestGetNetworkNames(t *testing.T) {
 	t.Run("Get network names", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")
@@ -636,16 +636,16 @@ func TestGetNetworkNames(t *testing.T) {
 func TestValidateNetworkName(t *testing.T) {
 	t.Run("Validate existing network name", func(t *testing.T) {
 		// Initialize networks first
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
-		os.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
-		os.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
-		os.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
-		os.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
-		os.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
-		os.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
-		os.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_BASE_RPC_URL", "http://localhost:8545")
+		t.Setenv("LOCAL_BASE_CHAIN_ID", "84532")
+		t.Setenv("LOCAL_BASE_HYPERLANE_ADDRESS", "0x1234567890123456789012345678901234567890")
+		t.Setenv("LOCAL_BASE_HYPERLANE_DOMAIN", "84532")
+		t.Setenv("LOCAL_BASE_FORK_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "1000")
+		t.Setenv("LOCAL_BASE_CONFIRMATION_BLOCKS", "1")
+		t.Setenv("LOCAL_BASE_POLL_INTERVAL", "1000")
+		t.Setenv("LOCAL_BASE_MAX_BLOCK_RANGE", "1000")
 
 		defer func() {
 			os.Unsetenv("FORKING")

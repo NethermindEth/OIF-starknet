@@ -45,7 +45,7 @@ type SolverNetworkState struct {
 func getDefaultSolverState() SolverState {
 	// Ensure config is loaded before accessing Networks
 	InitializeNetworks()
-	
+
 	return SolverState{
 		Networks: map[string]SolverNetworkState{
 			"Ethereum": {
@@ -154,7 +154,7 @@ func readSolverStateLocked() (*SolverState, error) {
 			time.Sleep(25 * time.Millisecond)
 			continue
 		}
-		
+
 		// Handle empty/corrupted file - fall back to default state
 		if len(data) == 0 {
 			fmt.Printf("⚠️  Solver state file is empty, creating default state\n")
@@ -164,7 +164,7 @@ func readSolverStateLocked() (*SolverState, error) {
 			}
 			return &defaultState, nil
 		}
-		
+
 		var state SolverState
 		if err := json.Unmarshal(data, &state); err != nil {
 			// If JSON parsing fails, treat as corrupted and fall back to default

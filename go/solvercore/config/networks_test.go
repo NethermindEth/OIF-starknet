@@ -11,9 +11,9 @@ import (
 func TestConditionalEnvironment(t *testing.T) {
 	t.Run("FORKING=true uses LOCAL_ variables", func(t *testing.T) {
 		// Set up test environment
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
-		os.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
+		t.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
 		defer func() {
 			os.Unsetenv("FORKING")
 			os.Unsetenv("LOCAL_ETHEREUM_RPC_URL")
@@ -27,9 +27,9 @@ func TestConditionalEnvironment(t *testing.T) {
 
 	t.Run("FORKING=false uses regular variables", func(t *testing.T) {
 		// Set up test environment
-		os.Setenv("FORKING", "false")
-		os.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
-		os.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
+		t.Setenv("FORKING", "false")
+		t.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
+		t.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
 		defer func() {
 			os.Unsetenv("FORKING")
 			os.Unsetenv("LOCAL_ETHEREUM_RPC_URL")
@@ -44,8 +44,8 @@ func TestConditionalEnvironment(t *testing.T) {
 	t.Run("FORKING unset defaults to regular variables", func(t *testing.T) {
 		// Set up test environment
 		os.Unsetenv("FORKING")
-		os.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
-		os.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
+		t.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
+		t.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
 		defer func() {
 			os.Unsetenv("LOCAL_ETHEREUM_RPC_URL")
 			os.Unsetenv("ETHEREUM_RPC_URL")
@@ -58,7 +58,7 @@ func TestConditionalEnvironment(t *testing.T) {
 
 	t.Run("Missing variables fall back to default", func(t *testing.T) {
 		// Set up test environment
-		os.Setenv("FORKING", "true")
+		t.Setenv("FORKING", "true")
 		defer os.Unsetenv("FORKING")
 
 		// Test that default is used when neither LOCAL_ nor regular version exists
@@ -70,9 +70,9 @@ func TestConditionalEnvironment(t *testing.T) {
 func TestGetConditionalAccountEnv(t *testing.T) {
 	t.Run("Account variables work with conditional logic", func(t *testing.T) {
 		// Set up test environment
-		os.Setenv("FORKING", "true")
-		os.Setenv("LOCAL_SOLVER_PUB_KEY", "0x1234567890123456789012345678901234567890")
-		os.Setenv("SOLVER_PUB_KEY", "0x0987654321098765432109876543210987654321")
+		t.Setenv("FORKING", "true")
+		t.Setenv("LOCAL_SOLVER_PUB_KEY", "0x1234567890123456789012345678901234567890")
+		t.Setenv("SOLVER_PUB_KEY", "0x0987654321098765432109876543210987654321")
 		defer func() {
 			os.Unsetenv("FORKING")
 			os.Unsetenv("LOCAL_SOLVER_PUB_KEY")
@@ -88,7 +88,7 @@ func TestGetConditionalAccountEnv(t *testing.T) {
 func TestUtilityFunctions(t *testing.T) {
 	t.Run("getEnvUint64", func(t *testing.T) {
 		// Set up environment
-		os.Setenv("TEST_UINT", "123")
+		t.Setenv("TEST_UINT", "123")
 		defer func() {
 			os.Unsetenv("TEST_UINT")
 		}()
@@ -104,7 +104,7 @@ func TestUtilityFunctions(t *testing.T) {
 
 	t.Run("getEnvUint64 with invalid value", func(t *testing.T) {
 		// Set up environment
-		os.Setenv("INVALID_UINT", "not_a_number")
+		t.Setenv("INVALID_UINT", "not_a_number")
 		defer func() {
 			os.Unsetenv("INVALID_UINT")
 		}()
@@ -115,8 +115,8 @@ func TestUtilityFunctions(t *testing.T) {
 
 	t.Run("getEnvUint64Any", func(t *testing.T) {
 		// Set up environment
-		os.Setenv("KEY1", "100")
-		os.Setenv("KEY2", "200")
+		t.Setenv("KEY1", "100")
+		t.Setenv("KEY2", "200")
 		defer func() {
 			os.Unsetenv("KEY1")
 			os.Unsetenv("KEY2")
@@ -133,7 +133,7 @@ func TestUtilityFunctions(t *testing.T) {
 
 	t.Run("getEnvInt", func(t *testing.T) {
 		// Set up environment
-		os.Setenv("TEST_INT", "123")
+		t.Setenv("TEST_INT", "123")
 		defer func() {
 			os.Unsetenv("TEST_INT")
 		}()
@@ -149,7 +149,7 @@ func TestUtilityFunctions(t *testing.T) {
 
 	t.Run("getEnvInt with invalid value", func(t *testing.T) {
 		// Set up environment
-		os.Setenv("INVALID_INT", "not_a_number")
+		t.Setenv("INVALID_INT", "not_a_number")
 		defer func() {
 			os.Unsetenv("INVALID_INT")
 		}()

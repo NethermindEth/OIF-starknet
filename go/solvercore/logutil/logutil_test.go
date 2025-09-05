@@ -51,7 +51,7 @@ func TestNetworkNameByChainID(t *testing.T) {
 		// The actual result depends on configuration
 		name := NetworkNameByChainID(1)
 		assert.NotNil(t, name) // Should return something, even if empty
-		
+
 		name2 := NetworkNameByChainID(84532)
 		assert.NotNil(t, name2)
 	})
@@ -66,7 +66,7 @@ func TestNetworkTagFormatting(t *testing.T) {
 	t.Run("Network tag consistency", func(t *testing.T) {
 		// Test that network tags are consistently formatted
 		networks := []string{"Base", "Ethereum", "Arbitrum", "Optimism", "Starknet"}
-		
+
 		for _, network := range networks {
 			tag := Prefix(network)
 			assert.Contains(t, tag, "[")
@@ -122,7 +122,7 @@ func TestSolverLogger(t *testing.T) {
 	t.Run("GetNetworkTagByChainID with unknown chain ID", func(t *testing.T) {
 		tag := GetNetworkTagByChainID(999999)
 		// Unknown chain IDs get formatted as "chain-XXXXX" which gets processed by Prefix()
-		assert.Contains(t, tag, "[CHA]") // "chain-999999" -> "[CHA]"
+		assert.Contains(t, tag, "[CHA]")    // "chain-999999" -> "[CHA]"
 		assert.Contains(t, tag, "\033[36m") // cyan color
 	})
 }
@@ -132,7 +132,7 @@ func TestCrossChainOperation(t *testing.T) {
 		output := captureOutput(func() {
 			CrossChainOperation("Fill Order", 84532, 11155111, "0x1234567890abcdef1234567890abcdef12345678")
 		})
-		
+
 		assert.Contains(t, output, "→")
 		assert.Contains(t, output, "🔄")
 		assert.Contains(t, output, "Fill Order")
@@ -379,7 +379,7 @@ func TestLogPersistence(t *testing.T) {
 	t.Run("LogPersistence first call", func(t *testing.T) {
 		// Reset counter for test
 		persistenceCounters["TestNetwork"] = 0
-		
+
 		output := captureOutput(func() {
 			LogPersistence("TestNetwork", 12345)
 		})
@@ -391,7 +391,7 @@ func TestLogPersistence(t *testing.T) {
 	t.Run("LogPersistence subsequent calls", func(t *testing.T) {
 		// Reset counter for test
 		persistenceCounters["TestNetwork2"] = 0
-		
+
 		// First call should log
 		output1 := captureOutput(func() {
 			LogPersistence("TestNetwork2", 12345)
@@ -445,8 +445,8 @@ func TestDeriveTag(t *testing.T) {
 func TestTagColorByName(t *testing.T) {
 	t.Run("tagColorByName known networks", func(t *testing.T) {
 		tests := []struct {
-			name         string
-			expectedTag  string
+			name          string
+			expectedTag   string
 			expectedColor string
 		}{
 			{"ethereum", "[ETH]", green},
@@ -474,30 +474,30 @@ func TestTagColorByName(t *testing.T) {
 func TestBindEnvChain(t *testing.T) {
 	t.Run("bindEnvChain with valid env var", func(t *testing.T) {
 		// Set up test environment
-		os.Setenv("TEST_CHAIN_ID", "12345")
+		t.Setenv("TEST_CHAIN_ID", "12345")
 		defer os.Unsetenv("TEST_CHAIN_ID")
-		
+
 		// Reset the mapping to test initialization
 		colorByChainID = make(map[uint64]string)
 		tagByChainID = make(map[uint64]string)
-		
+
 		bindEnvChain("TEST_CHAIN_ID", "[TEST]", cyan)
-		
+
 		assert.Equal(t, cyan, colorByChainID[12345])
 		assert.Equal(t, "[TEST]", tagByChainID[12345])
 	})
 
 	t.Run("bindEnvChain with invalid env var", func(t *testing.T) {
 		// Set up test environment with invalid chain ID
-		os.Setenv("TEST_CHAIN_ID_INVALID", "not-a-number")
+		t.Setenv("TEST_CHAIN_ID_INVALID", "not-a-number")
 		defer os.Unsetenv("TEST_CHAIN_ID_INVALID")
-		
+
 		// Reset the mapping to test initialization
 		colorByChainID = make(map[uint64]string)
 		tagByChainID = make(map[uint64]string)
-		
+
 		bindEnvChain("TEST_CHAIN_ID_INVALID", "[TEST]", cyan)
-		
+
 		// Should not add anything to maps
 		assert.Empty(t, colorByChainID)
 		assert.Empty(t, tagByChainID)
@@ -507,9 +507,9 @@ func TestBindEnvChain(t *testing.T) {
 		// Reset the mapping to test initialization
 		colorByChainID = make(map[uint64]string)
 		tagByChainID = make(map[uint64]string)
-		
+
 		bindEnvChain("NONEXISTENT_CHAIN_ID", "[TEST]", cyan)
-		
+
 		// Should not add anything to maps
 		assert.Empty(t, colorByChainID)
 		assert.Empty(t, tagByChainID)

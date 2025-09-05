@@ -67,24 +67,24 @@ func main() {
 		name   string
 	}
 	var entries []routerEntry
-	
+
 	// Add ALL networks including Starknet itself
 	for name, cfg := range config.Networks {
 		if name == networkName {
 			// Add Starknet itself - it needs to know about itself as a destination
 			starknetB32 := hexToBytes32(starknetHyperlaneAddr)
 			entries = append(entries, routerEntry{
-				domain: uint32(cfg.HyperlaneDomain), 
-				b32: starknetB32,
-				name: name,
+				domain: uint32(cfg.HyperlaneDomain),
+				b32:    starknetB32,
+				name:   name,
 			})
 			fmt.Printf("   🏠 Starknet self-registration: domain %d -> router %s\n", cfg.HyperlaneDomain, starknetHyperlaneAddr)
 		} else {
 			// Add EVM networks
 			entries = append(entries, routerEntry{
-				domain: uint32(cfg.HyperlaneDomain), 
-				b32: evmAddrToBytes32(cfg.HyperlaneAddress.Bytes()),
-				name: name,
+				domain: uint32(cfg.HyperlaneDomain),
+				b32:    evmAddrToBytes32(cfg.HyperlaneAddress.Bytes()),
+				name:   name,
 			})
 			fmt.Printf("   🔗 EVM %s: domain %d -> router %s\n", name, cfg.HyperlaneDomain, cfg.HyperlaneAddress.Hex())
 		}
@@ -121,17 +121,17 @@ func main() {
 
 	// Now set destination gas for all domains in a single batch call
 	fmt.Printf("   ⚡ Setting destination gas configs (batch mode)...\n")
-	
+
 	// Gas values for different networks (from real event analysis)
-	gasEVM := big.NewInt(64000)      // 64,000 wei for EVM networks
+	gasEVM := big.NewInt(64000)       // 64,000 wei for EVM networks
 	gasStarknet := big.NewInt(100000) // 100,000 wei for Starknet
-	
+
 	// Build gas_configs array: Option<Array<GasRouterConfig>>
 	// Each GasRouterConfig contains: { destination: u32, gas: u256 }
-	
+
 	// Array length
 	gasConfigsCalldata := []*felt.Felt{utils.Uint64ToFelt(uint64(len(entries)))} // gas_configs array length
-	
+
 	// Add each GasRouterConfig struct to the array
 	for _, entry := range entries {
 		// Use different gas amounts based on network type
@@ -141,48 +141,48 @@ func main() {
 		} else {
 			gasAmount = gasEVM
 		}
-		
+
 		fmt.Printf("   ⚡ %s (domain %d): %s units\n", entry.name, entry.domain, gasAmount.String())
-		
+
 		// Convert gas amount to u256 (low, high felts)
 		gasLow, gasHigh := bigIntToU256Felts(gasAmount)
-		
+
 		// GasRouterConfig struct: { destination: u32, gas: u256 }
-		gasConfigsCalldata = append(gasConfigsCalldata, 
+		gasConfigsCalldata = append(gasConfigsCalldata,
 			utils.Uint64ToFelt(uint64(entry.domain)), // destination
-			gasLow,  // gas amount low
-			gasHigh, // gas amount high
+			gasLow,                                   // gas amount low
+			gasHigh,                                  // gas amount high
 		)
 	}
-	
+
 	// For the function signature:
 	// set_destination_gas(gas_configs: Option<Array<GasRouterConfig>>, domain: Option<u32>, gas: Option<u256>)
 	// We pass: Some(gas_configs), None, None
-	
+
 	finalCalldata := []*felt.Felt{
 		// gas_configs: Some(Array<GasRouterConfig>) - we pass 0 to indicate Some variant
 		utils.Uint64ToFelt(0), // Some variant
 	}
 	finalCalldata = append(finalCalldata, gasConfigsCalldata...) // append the array data
-	
-	// domain: None - we pass 1 to indicate None variant  
+
+	// domain: None - we pass 1 to indicate None variant
 	finalCalldata = append(finalCalldata, utils.Uint64ToFelt(1))
-	
+
 	// gas: None - we pass 1 to indicate None variant
 	finalCalldata = append(finalCalldata, utils.Uint64ToFelt(1))
-	
+
 	gasCall := rpc.InvokeFunctionCall{
-		ContractAddress: hlAddrF, 
-		FunctionName: "set_destination_gas", 
-		CallData: finalCalldata,
+		ContractAddress: hlAddrF,
+		FunctionName:    "set_destination_gas",
+		CallData:        finalCalldata,
 	}
-	
+
 	tx2, err := acct.BuildAndSendInvokeTxn(context.Background(), []rpc.InvokeFunctionCall{gasCall}, nil)
 	if err != nil {
 		panic(fmt.Errorf("batch set_destination_gas failed: %w", err))
 	}
 	fmt.Printf("   ⛽ Batch set_destination_gas tx: %s\n", tx2.Hash.String())
-	
+
 	// Wait for gas config to complete
 	_, err = acct.WaitForTransactionReceipt(context.Background(), tx2.Hash, time.Second)
 	if err != nil {
@@ -199,8 +199,6 @@ func mustEnv(k string) string {
 	return v
 }
 
-
-
 func evmAddrToBytes32(addr20 []byte) (out [32]byte) { copy(out[12:], addr20); return }
 
 func hexToBytes32(hexStr string) (out [32]byte) {
@@ -208,13 +206,13 @@ func hexToBytes32(hexStr string) (out [32]byte) {
 	if len(hexStr) > 2 && hexStr[:2] == "0x" {
 		hexStr = hexStr[2:]
 	}
-	
+
 	// Decode hex string to bytes
 	bytes, err := hex.DecodeString(hexStr)
 	if err != nil {
 		return out
 	}
-	
+
 	// Copy to 32-byte array (right-aligned for addresses)
 	if len(bytes) <= 32 {
 		copy(out[32-len(bytes):], bytes)
@@ -234,19 +232,19 @@ func bytes32ToU256Felts(b32 [32]byte) (*felt.Felt, *felt.Felt) {
 func bigIntToU256Felts(num *big.Int) (*felt.Felt, *felt.Felt) {
 	// Convert a big.Int to u256 representation (low and high felts)
 	// u256 is represented as two felt.Felt values where:
-	// - low contains the first 128 bits  
+	// - low contains the first 128 bits
 	// - high contains the remaining 128 bits
-	
+
 	// Create a mask for 128 bits (2^128 - 1)
 	mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
-	
+
 	// Extract low part (first 128 bits)
 	lowBigInt := new(big.Int).And(num, mask)
 	low := utils.BigIntToFelt(lowBigInt)
-	
+
 	// Extract high part (remaining bits)
-	highBigInt := new(big.Int).Rsh(num, 128)  
+	highBigInt := new(big.Int).Rsh(num, 128)
 	high := utils.BigIntToFelt(highBigInt)
-	
+
 	return low, high
 }

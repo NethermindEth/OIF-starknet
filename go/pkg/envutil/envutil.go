@@ -5,13 +5,17 @@ import (
 	"os"
 )
 
+const (
+	trueValue = "true"
+)
+
 // GetConditionalEnv gets an environment variable based on FORKING flag
 // If FORKING=true, uses LOCAL_* version, otherwise uses regular version
 func GetConditionalEnv(key, defaultValue string) string {
 	forking := os.Getenv("FORKING")
 
 	var targetKey string
-	if forking == "true" {
+	if forking == trueValue {
 		targetKey = "LOCAL_" + key
 	} else {
 		targetKey = key
@@ -36,7 +40,7 @@ func GetConditionalUint64(key string, liveDefault, localDefault uint64) uint64 {
 
 	var targetKey string
 	var defaultValue uint64
-	if forking == "true" {
+	if forking == trueValue {
 		targetKey = "LOCAL_" + key
 		defaultValue = localDefault
 	} else {

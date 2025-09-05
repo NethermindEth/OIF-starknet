@@ -35,7 +35,7 @@ type FillInstruction struct {
 
 // ResolvedCrossChainOrder contains the order details
 type ResolvedCrossChainOrder struct {
-	User             string    `json:"user"`             // User initiating the transfer
+	User             string            `json:"user"`             // User initiating the transfer
 	OriginChainID    *big.Int          `json:"originChainId"`    // Origin chain ID
 	OpenDeadline     uint32            `json:"openDeadline"`     // Timestamp by which order must be opened
 	FillDeadline     uint32            `json:"fillDeadline"`     // Timestamp by which order must be filled
@@ -97,7 +97,8 @@ type RuleConfig struct {
 // AllowBlockListItem represents a single allow/block list item
 // Use "*" as a wildcard to match any value for a field
 // Example: {SenderAddress: "*", DestinationDomain: "Ethereum", RecipientAddress: "*"}
-//          would allow/block all orders from any sender to any recipient on Ethereum
+//
+//	would allow/block all orders from any sender to any recipient on Ethereum
 type AllowBlockListItem struct {
 	SenderAddress     string `json:"senderAddress"`     // Order sender address (use "*" for any)
 	DestinationDomain string `json:"destinationDomain"` // Destination chain name (use "*" for any)
@@ -107,7 +108,8 @@ type AllowBlockListItem struct {
 // AllowBlockLists contains allow and block lists for controlling order processing
 // BlockList: Orders matching these patterns will be rejected
 // AllowList: If specified, only orders matching these patterns will be processed
-//           If empty, all orders (not in BlockList) will be processed
+//
+//	If empty, all orders (not in BlockList) will be processed
 type AllowBlockLists struct {
 	AllowList []AllowBlockListItem `json:"allowList"` // Patterns to allow (empty = allow all)
 	BlockList []AllowBlockListItem `json:"blockList"` // Patterns to block
@@ -125,12 +127,15 @@ func NewSuccessResult[T any](data T) Result[T] {
 	return Result[T]{
 		Data:    data,
 		Success: true,
+		Error:   "",
 	}
 }
 
 // NewErrorResult creates an error result
 func NewErrorResult[T any](err error) Result[T] {
+	var zero T
 	return Result[T]{
+		Data:    zero,
 		Success: false,
 		Error:   err.Error(),
 	}

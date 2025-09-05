@@ -140,7 +140,8 @@ func initializeNetworks() {
 			SolverStartBlock:   envutil.GetConditionalUint64("STARKNET_SOLVER_START_BLOCK", StarknetDefaultStartBlock, StarknetLocalStartBlock),
 			PollInterval:       envutil.GetEnvInt("STARKNET_POLL_INTERVAL_MS", envutil.GetEnvInt("POLL_INTERVAL_MS", StarknetDefaultPollIntervalMs)),
 			ConfirmationBlocks: envutil.GetEnvUint64("STARKNET_CONFIRMATION_BLOCKS", 0),
-			MaxBlockRange:      envutil.GetEnvUint64("STARKNET_MAX_BLOCK_RANGE", envutil.GetEnvUint64("MAX_BLOCK_RANGE", StarknetDefaultMaxBlockRange)),
+			MaxBlockRange: envutil.GetEnvUint64("STARKNET_MAX_BLOCK_RANGE",
+				envutil.GetEnvUint64("MAX_BLOCK_RANGE", StarknetDefaultMaxBlockRange)),
 		},
 	}
 	networksInitialized = true

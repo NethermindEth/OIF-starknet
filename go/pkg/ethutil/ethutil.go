@@ -17,6 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+const (
+	// Gas limit constants
+	transferGasLimit = 100000
+	approveGasLimit  = 200000
+)
+
 // ERC20ABI contains the minimal ABI for ERC20 operations
 var ERC20ABI = `[
 	{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
@@ -143,7 +149,7 @@ func ERC20Transfer(client *ethclient.Client, auth *bind.TransactOpts, tokenAddre
 		nonce,
 		tokenAddress,
 		big.NewInt(0), // No ETH value
-		100000,        // Gas limit
+		                transferGasLimit,        // Gas limit
 		gasPrice,
 		data,
 	)
@@ -192,7 +198,7 @@ func ERC20Approve(client *ethclient.Client, auth *bind.TransactOpts, tokenAddres
 		nonce,
 		tokenAddress,
 		big.NewInt(0), // No ETH value
-		200000,        // Gas limit
+		                approveGasLimit,        // Gas limit
 		gasPrice,
 		data,
 	)

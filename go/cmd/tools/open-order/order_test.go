@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,7 +16,7 @@ func TestOrderOpening(t *testing.T) {
 	baseURL := os.Getenv("BASE_RPC_URL")
 	ethereumURL := os.Getenv("ETHEREUM_RPC_URL")
 	starknetURL := os.Getenv("STARKNET_RPC_URL")
-	
+
 	if baseURL == "" || ethereumURL == "" || starknetURL == "" {
 		t.Skip("Skipping integration tests - missing RPC URLs (BASE_RPC_URL, ETHEREUM_RPC_URL, STARKNET_RPC_URL)")
 	}
@@ -37,60 +35,7 @@ func TestOrderOpening(t *testing.T) {
 }
 
 func testEVMEVMOrderOpening(t *testing.T) {
-	// This is a high-level integration test
-	// It would require:
-	// 1. Connected EVM clients
-	// 2. Funded accounts
-	// 3. Deployed contracts
-	// 4. Actual order opening
-	
 	t.Skip("Integration test - requires running network and contracts")
-	
-	// Example test structure using existing env vars:
-	/*
-	ethereumURL := os.Getenv("ETHEREUM_RPC_URL")
-	baseURL := os.Getenv("BASE_RPC_URL")
-	
-	client, err := ethclient.Dial(ethereumURL)
-	require.NoError(t, err)
-	defer client.Close()
-
-	// Get initial balances
-	aliceAddr := common.HexToAddress("0x...") // Alice's address
-	hyperlaneAddr := common.HexToAddress(os.Getenv("ETHEREUM_HYPERLANE_ADDR"))
-	tokenAddr := common.HexToAddress(os.Getenv("ETHEREUM_TOKEN_ADDR"))
-
-	initialAliceBalance, err := getTokenBalance(client, tokenAddr, aliceAddr)
-	require.NoError(t, err)
-
-	initialHyperlaneBalance, err := getTokenBalance(client, tokenAddr, hyperlaneAddr)
-	require.NoError(t, err)
-
-	// Open order
-	orderAmount := uint256.NewInt(1000) // 1000 tokens
-	err = openEVMEVMOrder(orderAmount)
-	require.NoError(t, err)
-
-	// Wait for transaction confirmation
-	time.Sleep(5 * time.Second)
-
-	// Check balances
-	finalAliceBalance, err := getTokenBalance(client, tokenAddr, aliceAddr)
-	require.NoError(t, err)
-
-	finalHyperlaneBalance, err := getTokenBalance(client, tokenAddr, hyperlaneAddr)
-	require.NoError(t, err)
-
-	// Verify balance changes
-	expectedAliceDecrease := orderAmount
-	expectedHyperlaneIncrease := orderAmount
-
-	actualAliceDecrease := new(uint256.Int).Sub(initialAliceBalance, finalAliceBalance)
-	actualHyperlaneIncrease := new(uint256.Int).Sub(finalHyperlaneBalance, initialHyperlaneBalance)
-
-	assert.Equal(t, expectedAliceDecrease, actualAliceDecrease, "Alice's balance should decrease by order amount")
-	assert.Equal(t, expectedHyperlaneIncrease, actualHyperlaneIncrease, "Hyperlane contract balance should increase by order amount")
-	*/
 }
 
 func testEVMStarknetOrderOpening(t *testing.T) {
@@ -101,13 +46,6 @@ func testEVMStarknetOrderOpening(t *testing.T) {
 func testStarknetEVMOrderOpening(t *testing.T) {
 	t.Skip("Integration test - requires running network and contracts")
 	// Similar structure but for Starknet origin orders
-}
-
-// Helper function to get token balance (would be implemented)
-func getTokenBalance(client *ethclient.Client, tokenAddr, accountAddr common.Address) (*uint256.Int, error) {
-	// This would call the ERC20 balanceOf function
-	// For now, return a mock value
-	return uint256.NewInt(10000), nil
 }
 
 // TestOrderDataValidation tests the order data creation and validation

@@ -105,7 +105,7 @@ func initializeStarknetTestUsers() {
 	solverAddr := envutil.GetStarknetSolverAddress()
 	alicePrivateKeyVar := envutil.GetConditionalAccountEnv("STARKNET_ALICE_PRIVATE_KEY")
 	solverPrivateKeyVar := envutil.GetConditionalAccountEnv("STARKNET_SOLVER_PRIVATE_KEY")
-	
+
 	starknetTestUsers = []struct {
 		name       string
 		privateKey string
@@ -236,7 +236,7 @@ func openDefaultStarknetToEvm(networks []StarknetNetworkConfig) {
 		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
 		InputAmount:      CreateTokenAmount(1000, 18), // 1000 tokens
-		OutputAmount:     CreateTokenAmount(999, 18),  // 999 tokens
+		                OutputAmount:     CreateTokenAmount(testOutputAmountStarknet, tokenDecimals),  // 999 tokens
 		User:             aliceAddress,                // Recipient address on destination chain
 		OpenDeadline:     uint64(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
@@ -273,7 +273,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	// The order.User field contains the recipient address (destination chain), not the signer
 	userKey := envutil.GetStarknetAlicePrivateKey()
 	userPublicKey := envutil.GetStarknetAlicePublicKey()
-	
+
 	if userKey == "" || userPublicKey == "" {
 		fmt.Printf("❌ Missing Alice's Starknet credentials (FORKING=%v)\n", envutil.IsForking())
 		if envutil.IsForking() {
@@ -480,7 +480,6 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	fmt.Printf("   Output Amount: %s\n", order.OutputAmount.String())
 	fmt.Printf("   Origin Chain: %s\n", order.OriginChain)
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
-
 }
 
 func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {

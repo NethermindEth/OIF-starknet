@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	reset        = "\033[0m"
-	green        = "\033[32m"
-	pastelRed    = "\033[91m"
-	purple       = "\033[35m"
-	royalBlue    = "\033[38;5;27m"
-	orange       = "\033[38;5;208m"
-	cyan         = "\033[36m"
+	reset     = "\033[0m"
+	green     = "\033[32m"
+	pastelRed = "\033[91m"
+	purple    = "\033[35m"
+	royalBlue = "\033[38;5;27m"
+	orange    = "\033[38;5;208m"
+	cyan      = "\033[36m"
 )
 
 var (
@@ -60,7 +60,7 @@ func initMapping() {
 	}
 }
 
-func bindEnvChain(key string, tag, color string) {
+func bindEnvChain(key, tag, color string) {
 	if v := os.Getenv(key); v != "" {
 		if id, err := strconv.ParseUint(v, 10, 64); err == nil {
 			colorByChainID[id] = color
@@ -132,5 +132,3 @@ func NetworkNameByChainID(chainID uint64) string {
 	}
 	return fmt.Sprintf("chain-%d", chainID)
 }
-
-

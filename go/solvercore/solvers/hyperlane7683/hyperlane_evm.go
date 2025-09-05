@@ -30,6 +30,20 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+const (
+	// Order status constants
+	orderStatusFilled  = "FILLED"
+	orderStatusSettled = "SETTLED"
+	orderStatusUnknown = "UNKNOWN"
+)
+
+const (
+	// Maximum retry attempts for order status checks
+	maxRetryAttempts = 5
+	// Gas limit for approve transactions
+	approveGasLimit = 200000
+)
+
 // HyperlaneEVM contains all EVM-specific logic for the Hyperlane7683 protocol
 type HyperlaneEVM struct {
 	client  *ethclient.Client
@@ -80,11 +94,11 @@ func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAc
 	networkName := logutil.NetworkNameByChainID(h.chainID)
 	logutil.LogStatusCheck(networkName, 1, 1, status, "UNKNOWN")
 
-	if status == "FILLED" {
+	if status == orderStatusFilled {
 		fmt.Printf("⏭️  Order already filled, proceeding to settlement\n")
 		return OrderActionSettle, nil
 	}
-	if status == "SETTLED" {
+	if status == orderStatusSettled {
 		fmt.Printf("🎉  Order already settled, nothing to do\n")
 		return OrderActionSettle, nil
 	}
@@ -157,7 +171,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	}
 
 	// Pre-settle check: ensure order is FILLED with retry logic
-	status, err := h.waitForOrderStatus(ctx, args, "FILLED", 5, 2*time.Second)
+	status, err := h.waitForOrderStatus(ctx, args, "FILLED", maxRetryAttempts, 2*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to get order status after retries: %w", err)
 	}
@@ -245,7 +259,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 // GetOrderStatus returns the current status of an order
 func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
-		return "UNKNOWN", fmt.Errorf("no fill instructions found")
+		return orderStatusUnknown, fmt.Errorf("no fill instructions found")
 	}
 
 	instruction := args.ResolvedOrder.FillInstructions[0]
@@ -445,7 +459,7 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 		nonce,
 		tokenAddr,
 		big.NewInt(0),
-		200000, // Gas limit for approve
+		approveGasLimit, // Gas limit for approve
 		gasPrice,
 		approveData,
 	)

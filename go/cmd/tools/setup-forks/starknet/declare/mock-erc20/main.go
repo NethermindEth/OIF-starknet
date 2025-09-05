@@ -22,6 +22,10 @@ import (
 const (
 	sierraContractFilePath = "../cairo/target/dev/oif_starknet_MockERC20.contract_class.json"
 	casmContractFilePath   = "../cairo/target/dev/oif_starknet_MockERC20.compiled_contract_class.json"
+	// Directory permissions for deployment folder
+	deploymentDirPerms = 0755
+	// File permissions for deployment files
+	deploymentFilePerms = 0600
 )
 
 func main() {
@@ -154,18 +158,16 @@ func saveDeclarationInfo(txHash, classHash, networkName string) {
 
 	// Ensure deployment directory exists (local go/state/deployment)
 	deploymentDir := filepath.Clean(filepath.Join("state", "deployment"))
-	if err := os.MkdirAll(deploymentDir, 0755); err != nil {
+	if err := os.MkdirAll(deploymentDir, deploymentDirPerms); err != nil {
 		fmt.Printf("⚠️  Failed to create deployment directory: %s\n", err)
 		return
 	}
 
 	filename := filepath.Join(deploymentDir, "starknet-mock-erc20-declaration.json")
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := os.WriteFile(filename, data, deploymentFilePerms); err != nil {
 		fmt.Printf("⚠️  Failed to save declaration info: %s\n", err)
 		return
 	}
 
 	fmt.Printf("💾 Declaration info saved to %s\n", filename)
 }
-
-

@@ -94,7 +94,7 @@ func runOpenOrder() {
 	}
 
 	chain := os.Args[3]
-	
+
 	switch strings.ToLower(chain) {
 	case "starknet":
 		// Get the command (default to random if not provided)
