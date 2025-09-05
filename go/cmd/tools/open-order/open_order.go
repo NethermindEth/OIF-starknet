@@ -9,30 +9,30 @@ import (
 	"strings"
 )
 
-// RunOpenOrder runs the order creation tool
-func RunOpenOrder(chain string) {
-	switch strings.ToLower(chain) {
+// RunOpenOrder runs Alice's order creation tool
+func RunOpenOrder(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: open-order <chain> [command]")
+		fmt.Println("Available chains: starknet, evm")
+		os.Exit(1)
+	}
+
+	chain := strings.ToLower(args[0])
+	command := "default"
+	if len(args) > 1 {
+		command = args[1]
+	}
+
+	switch chain {
 	case "starknet":
-		fmt.Println("🎯 Running Starknet order creation...")
-		// This will call the Starknet order creation logic
-		runStarknetOrder()
+		fmt.Println("🎯 Running Alice's Starknet order creation...")
+		RunStarknetOrder(command)
 	case "evm":
-		fmt.Println("🎯 Running EVM order creation...")
-		// This will call the EVM order creation logic
-		runEVMOrder()
+		fmt.Println("🎯 Running Alice's EVM order creation...")
+		RunEVMOrder(command)
 	default:
 		fmt.Printf("Unknown chain: %s\n", chain)
 		fmt.Println("Available chains: starknet, evm")
 		os.Exit(1)
 	}
-}
-
-func runStarknetOrder() {
-	// Run the Starknet order creation logic with default command
-	RunStarknetOrder("default")
-}
-
-func runEVMOrder() {
-	// Run the EVM order creation logic with default command
-	RunEVMOrder("default-evm-evm")
 }
