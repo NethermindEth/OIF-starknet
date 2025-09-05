@@ -49,27 +49,40 @@ func getDefaultSolverState() SolverState {
 	return SolverState{
 		Networks: map[string]SolverNetworkState{
 			"Ethereum": {
-				LastIndexedBlock: Networks["Ethereum"].SolverStartBlock,
+				LastIndexedBlock: resolveSolverStartBlock(Networks["Ethereum"].SolverStartBlock),
 				LastUpdated:      "",
 			},
 			"Optimism": {
-				LastIndexedBlock: Networks["Optimism"].SolverStartBlock,
+				LastIndexedBlock: resolveSolverStartBlock(Networks["Optimism"].SolverStartBlock),
 				LastUpdated:      "",
 			},
 			"Arbitrum": {
-				LastIndexedBlock: Networks["Arbitrum"].SolverStartBlock,
+				LastIndexedBlock: resolveSolverStartBlock(Networks["Arbitrum"].SolverStartBlock),
 				LastUpdated:      "",
 			},
 			"Base": {
-				LastIndexedBlock: Networks["Base"].SolverStartBlock,
+				LastIndexedBlock: resolveSolverStartBlock(Networks["Base"].SolverStartBlock),
 				LastUpdated:      "",
 			},
 			"Starknet": {
-				LastIndexedBlock: Networks["Starknet"].SolverStartBlock,
+				LastIndexedBlock: resolveSolverStartBlock(Networks["Starknet"].SolverStartBlock),
 				LastUpdated:      "",
 			},
 		},
 	}
+}
+
+// resolveSolverStartBlock resolves a solver start block to a valid uint64
+// - Positive numbers: use as-is
+// - Zero: use 0 (will be resolved to current block by listeners)
+// - Negative numbers: use 0 (will be resolved to current block - N by listeners)
+func resolveSolverStartBlock(solverStartBlock int64) uint64 {
+	if solverStartBlock >= 0 {
+		return uint64(solverStartBlock)
+	}
+	// For negative values, return 0 - the actual resolution will happen in the listener
+	// when it has access to the current block number
+	return 0
 }
 
 // process-local lock to serialize state file access

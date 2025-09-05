@@ -53,18 +53,42 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 
 	// Use the start block from config, but check if deployment state has a higher value
 	var lastProcessedBlock uint64
-	configStartBlock := listenerConfig.InitialBlock.Uint64()
+	configStartBlock := listenerConfig.InitialBlock.Int64()
 
-	// Special case: if start block is 0, use current block
-	if configStartBlock == 0 {
+	// Handle different start block scenarios
+	var resolvedStartBlock uint64
+	if configStartBlock >= 0 {
+		// Positive number or zero - use as-is
+		resolvedStartBlock = uint64(configStartBlock)
+		if configStartBlock == 0 {
+			// Zero means start at current block
+			ctx := context.Background()
+			currentBlock, err := provider.BlockNumber(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
+			}
+			resolvedStartBlock = currentBlock
+			fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
+				logutil.Prefix(listenerConfig.ChainName), resolvedStartBlock)
+		}
+	} else {
+		// Negative number - start N blocks before current block
 		ctx := context.Background()
 		currentBlock, err := provider.BlockNumber(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
+			return nil, fmt.Errorf("failed to get current block for negative start block: %w", err)
 		}
-		configStartBlock = currentBlock
-		fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
-			logutil.Prefix(listenerConfig.ChainName), configStartBlock)
+		
+		// Calculate start block: current - abs(configStartBlock)
+		resolvedStartBlock = currentBlock - uint64(-configStartBlock)
+		
+		// Ensure we don't go below block 0
+		if resolvedStartBlock > currentBlock {
+			resolvedStartBlock = 0
+		}
+		
+		fmt.Printf("%s📚 Start block was %d, using current block %d - %d = %d\n",
+			logutil.Prefix(listenerConfig.ChainName), configStartBlock, currentBlock, -configStartBlock, resolvedStartBlock)
 	}
 
 	state, err := config.GetSolverState()
@@ -77,12 +101,13 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 
 		// Use the HIGHER of the two values - this respects updated .env values
 		// while also respecting any actual progress that's been saved
-		if deploymentStateBlock > configStartBlock {
+		if deploymentStateBlock > resolvedStartBlock {
+			
 			lastProcessedBlock = deploymentStateBlock
 			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, configStartBlock)
+				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, resolvedStartBlock)
 		} else {
-			lastProcessedBlock = configStartBlock
+			lastProcessedBlock = resolvedStartBlock
 			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n",
 				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, deploymentStateBlock)
 		}
@@ -200,6 +225,8 @@ func (l *starknetListener) startPolling(ctx context.Context, handler base.EventH
 }
 
 func (l *starknetListener) processCurrentBlockRange(ctx context.Context, handler base.EventHandler) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	return ProcessCurrentBlockRangeCommon(ctx, handler, l.provider, l.config, &l.lastProcessedBlock, "Starknet", l.processBlockRange)
 }
 

@@ -32,6 +32,33 @@ func NewBaseListener(config base.ListenerConfig, blockProvider BlockNumberProvid
 	}
 }
 
+// ResolveSolverStartBlock resolves the actual start block based on solver start block configuration
+// - Positive number: start at that specific block
+// - Zero: start at current block (live)
+// - Negative number: start N blocks before current block
+func ResolveSolverStartBlock(ctx context.Context, solverStartBlock int64, blockProvider BlockNumberProvider) (uint64, error) {
+	if solverStartBlock >= 0 {
+		// Positive number or zero - use as-is
+		return uint64(solverStartBlock), nil
+	}
+	
+	// Negative number - start N blocks before current block
+	currentBlock, err := blockProvider.BlockNumber(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get current block number: %v", err)
+	}
+	
+	// Calculate start block: current - abs(solverStartBlock)
+	startBlock := currentBlock - uint64(-solverStartBlock)
+	
+	// Ensure we don't go below block 0
+	if startBlock > currentBlock {
+		startBlock = 0
+	}
+	
+	return startBlock, nil
+}
+
 // ProcessCurrentBlockRangeCommon processes the current block range using the common algorithm
 // This eliminates duplication between EVM and Starknet listeners
 func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandler, blockProvider BlockNumberProvider, listenerConfig *base.ListenerConfig, lastProcessedBlock *uint64, networkType string, processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error)) error {

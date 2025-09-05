@@ -1,24 +1,24 @@
 {
   "networks": {
     "Arbitrum": {
-      "lastIndexedBlock": 191058252,
-      "lastUpdated": "2025-09-05T02:04:53-04:00"
+      "lastIndexedBlock": 191065333,
+      "lastUpdated": "2025-09-05T02:35:22-04:00"
     },
     "Base": {
-      "lastIndexedBlock": 30642003,
-      "lastUpdated": "2025-09-05T02:04:55-04:00"
+      "lastIndexedBlock": 30642919,
+      "lastUpdated": "2025-09-05T02:35:27-04:00"
     },
     "Ethereum": {
-      "lastIndexedBlock": 9136930,
-      "lastUpdated": "2025-09-05T02:04:53-04:00"
+      "lastIndexedBlock": 9137083,
+      "lastUpdated": "2025-09-05T02:35:26-04:00"
     },
     "Optimism": {
-      "lastIndexedBlock": 32624877,
-      "lastUpdated": "2025-09-05T02:04:55-04:00"
+      "lastIndexedBlock": 32625793,
+      "lastUpdated": "2025-09-05T02:35:26-04:00"
     },
     "Starknet": {
-      "lastIndexedBlock": 1888039,
-      "lastUpdated": "2025-09-05T02:04:57-04:00"
+      "lastIndexedBlock": 1888395,
+      "lastUpdated": "2025-09-05T02:35:24-04:00"
     }
   }
 }

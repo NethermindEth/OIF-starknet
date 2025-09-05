@@ -283,14 +283,15 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 				return fmt.Errorf("failed to get Starknet Hyperlane address: %w", err)
 			}
 
-			// Create Starknet listener config
+			// Create Starknet listener config with original solver start block
+			// The listener will handle negative value resolution
 			listenerConfig := base.NewListenerConfig(
 				hyperlaneAddr,
 				source,
-				big.NewInt(int64(networkConfig.SolverStartBlock)), // start from configured block
-				networkConfig.PollInterval,                        // poll interval from config
-				uint64(networkConfig.ConfirmationBlocks),          // confirmation blocks from config
-				networkConfig.MaxBlockRange,                       // max block range from config
+				big.NewInt(networkConfig.SolverStartBlock), // pass original value (can be negative)
+				networkConfig.PollInterval,                  // poll interval from config
+				uint64(networkConfig.ConfirmationBlocks),   // confirmation blocks from config
+				networkConfig.MaxBlockRange,                 // max block range from config
 			)
 
 			starknetListener, err := contracts.NewStarknetListener(listenerConfig, networkConfig.RPCURL)
@@ -302,14 +303,15 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 				return fmt.Errorf("failed to start Starknet listener for %s: %w", source, err)
 			}
 		} else {
-			// Create EVM listener config
+			// Create EVM listener config with original solver start block
+			// The listener will handle negative value resolution
 			listenerConfig := base.NewListenerConfig(
 				networkConfig.HyperlaneAddress.Hex(),
 				source,
-				big.NewInt(int64(networkConfig.SolverStartBlock)), // start from configured block
-				networkConfig.PollInterval,                        // poll interval from config
-				uint64(networkConfig.ConfirmationBlocks),          // confirmation blocks from config
-				networkConfig.MaxBlockRange,                       // max block range from config
+				big.NewInt(networkConfig.SolverStartBlock), // pass original value (can be negative)
+				networkConfig.PollInterval,                  // poll interval from config
+				uint64(networkConfig.ConfirmationBlocks),   // confirmation blocks from config
+				networkConfig.MaxBlockRange,                 // max block range from config
 			)
 
 			evmListener, err := contracts.NewEVMListener(listenerConfig, networkConfig.RPCURL)
@@ -392,6 +394,49 @@ func (sm *SolverManager) GetSolverStatus() map[string]bool {
 		status[name] = config.Enabled
 	}
 	return status
+}
+
+// resolveStartBlock resolves the actual start block based on solver start block configuration
+// - Positive number: start at that specific block
+// - Zero: start at current block (live)
+// - Negative number: start N blocks before current block
+func resolveStartBlock(ctx context.Context, solverStartBlock int64, blockProvider interface{}) (uint64, error) {
+	if solverStartBlock >= 0 {
+		// Positive number or zero - use as-is
+		return uint64(solverStartBlock), nil
+	}
+	
+	// Negative number - start N blocks before current block
+	var currentBlock uint64
+	var err error
+	
+	// Handle different block provider types
+	switch provider := blockProvider.(type) {
+	case *ethclient.Client:
+		currentBlock, err = provider.BlockNumber(ctx)
+	case *rpc.Provider:
+		block, err := provider.BlockNumber(ctx)
+		if err != nil {
+			return 0, err
+		}
+		currentBlock = block
+	default:
+		return 0, fmt.Errorf("unsupported block provider type")
+	}
+	
+	if err != nil {
+		return 0, fmt.Errorf("failed to get current block number: %v", err)
+	}
+	
+	// Calculate start block: current - abs(solverStartBlock)
+	startBlock := currentBlock - uint64(-solverStartBlock)
+	
+	// Ensure we don't go below block 0
+	if startBlock > currentBlock {
+		startBlock = 0
+	}
+	
+	return startBlock, nil
 }
 
 // getStarknetHyperlaneAddress gets the Starknet Hyperlane address from environment

@@ -56,6 +56,29 @@ func GetConditionalUint64(key string, liveDefault, localDefault uint64) uint64 {
 	return defaultValue
 }
 
+// GetConditionalInt64 gets an int64 environment variable based on FORKING flag
+// If FORKING=true, uses LOCAL_* version with local defaults, otherwise uses regular version with live defaults
+func GetConditionalInt64(key string, liveDefault, localDefault int64) int64 {
+	forking := os.Getenv("FORKING")
+
+	var targetKey string
+	var defaultValue int64
+	if forking == trueValue {
+		targetKey = "LOCAL_" + key
+		defaultValue = localDefault
+	} else {
+		targetKey = key
+		defaultValue = liveDefault
+	}
+
+	if value := os.Getenv(targetKey); value != "" {
+		if parsed, err := parseInt64(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
 // GetEnvWithDefault gets an environment variable with a default fallback
 func GetEnvWithDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
@@ -100,6 +123,13 @@ func GetEnvInt(key string, defaultValue int) int {
 // parseUint64 parses a string to uint64
 func parseUint64(s string) (uint64, error) {
 	var result uint64
+	_, err := fmt.Sscanf(s, "%d", &result)
+	return result, err
+}
+
+// parseInt64 parses a string to int64
+func parseInt64(s string) (int64, error) {
+	var result int64
 	_, err := fmt.Sscanf(s, "%d", &result)
 	return result, err
 }

@@ -45,7 +45,7 @@ type NetworkConfig struct {
 	HyperlaneAddress common.Address
 	HyperlaneDomain  uint64 // Changed to uint64 to match new_code
 	ForkStartBlock   uint64
-	SolverStartBlock uint64 // Block number where solver should start listening (fork block + 1)
+	SolverStartBlock int64  // Block number where solver should start listening (fork block + 1)
 	// Listener-specific configuration
 	PollInterval       int    // milliseconds, 0 = use default
 	ConfirmationBlocks uint64 // 0 = use default
@@ -69,6 +69,12 @@ func InitializeNetworks() {
 	}
 }
 
+// ResetNetworks resets the networks cache to allow re-initialization
+func ResetNetworks() {
+	networksInitialized = false
+	Networks = nil
+}
+
 // ensureInitialized initializes networks if not already done (fallback for legacy usage)
 func ensureInitialized() {
 	if !networksInitialized {
@@ -89,7 +95,7 @@ func initializeNetworks() {
 			HyperlaneAddress:   common.HexToAddress(envutil.GetEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
 			HyperlaneDomain:    envutil.GetEnvUint64Any([]string{"ETHEREUM_DOMAIN_ID", "SEPOLIA_DOMAIN_ID"}, EthereumSepoliaChainID),
 			ForkStartBlock:     envutil.GetConditionalUint64("ETHEREUM_SOLVER_START_BLOCK", EthereumDefaultStartBlock, EthereumLocalStartBlock),
-			SolverStartBlock:   envutil.GetConditionalUint64("ETHEREUM_SOLVER_START_BLOCK", EthereumDefaultStartBlock, EthereumLocalStartBlock),
+			SolverStartBlock:   envutil.GetConditionalInt64("ETHEREUM_SOLVER_START_BLOCK", int64(EthereumDefaultStartBlock), int64(EthereumLocalStartBlock)),
 			PollInterval:       envutil.GetEnvInt("POLL_INTERVAL_MS", DefaultPollIntervalMs),
 			ConfirmationBlocks: envutil.GetEnvUint64("CONFIRMATION_BLOCKS", 0),
 			MaxBlockRange:      envutil.GetEnvUint64("MAX_BLOCK_RANGE", DefaultMaxBlockRange),
@@ -101,7 +107,7 @@ func initializeNetworks() {
 			HyperlaneAddress:   common.HexToAddress(envutil.GetEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
 			HyperlaneDomain:    envutil.GetEnvUint64("OPTIMISM_DOMAIN_ID", OptimismSepoliaChainID),
 			ForkStartBlock:     envutil.GetConditionalUint64("OPTIMISM_SOLVER_START_BLOCK", OptimismDefaultStartBlock, OptimismLocalStartBlock),
-			SolverStartBlock:   envutil.GetConditionalUint64("OPTIMISM_SOLVER_START_BLOCK", OptimismDefaultStartBlock, OptimismLocalStartBlock),
+			SolverStartBlock:   envutil.GetConditionalInt64("OPTIMISM_SOLVER_START_BLOCK", int64(OptimismDefaultStartBlock), int64(OptimismLocalStartBlock)),
 			PollInterval:       envutil.GetEnvInt("POLL_INTERVAL_MS", DefaultPollIntervalMs),
 			ConfirmationBlocks: envutil.GetEnvUint64("CONFIRMATION_BLOCKS", 0),
 			MaxBlockRange:      envutil.GetEnvUint64("MAX_BLOCK_RANGE", DefaultMaxBlockRange),
@@ -113,7 +119,7 @@ func initializeNetworks() {
 			HyperlaneAddress:   common.HexToAddress(envutil.GetEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
 			HyperlaneDomain:    envutil.GetEnvUint64("ARBITRUM_DOMAIN_ID", ArbitrumSepoliaChainID),
 			ForkStartBlock:     envutil.GetConditionalUint64("ARBITRUM_SOLVER_START_BLOCK", ArbitrumDefaultStartBlock, ArbitrumLocalStartBlock),
-			SolverStartBlock:   envutil.GetConditionalUint64("ARBITRUM_SOLVER_START_BLOCK", ArbitrumDefaultStartBlock, ArbitrumLocalStartBlock),
+			SolverStartBlock:   envutil.GetConditionalInt64("ARBITRUM_SOLVER_START_BLOCK", int64(ArbitrumDefaultStartBlock), int64(ArbitrumLocalStartBlock)),
 			PollInterval:       envutil.GetEnvInt("POLL_INTERVAL_MS", DefaultPollIntervalMs),
 			ConfirmationBlocks: envutil.GetEnvUint64("CONFIRMATION_BLOCKS", 0),
 			MaxBlockRange:      envutil.GetEnvUint64("MAX_BLOCK_RANGE", DefaultMaxBlockRange),
@@ -125,7 +131,7 @@ func initializeNetworks() {
 			HyperlaneAddress:   common.HexToAddress(envutil.GetEnvWithDefault("EVM_HYPERLANE_ADDRESS", "0xf614c6bF94b022E16BEF7dBecF7614FFD2b201d3")),
 			HyperlaneDomain:    envutil.GetEnvUint64("BASE_DOMAIN_ID", BaseSepoliaChainID),
 			ForkStartBlock:     envutil.GetConditionalUint64("BASE_SOLVER_START_BLOCK", BaseDefaultStartBlock, BaseLocalStartBlock),
-			SolverStartBlock:   envutil.GetConditionalUint64("BASE_SOLVER_START_BLOCK", BaseDefaultStartBlock, BaseLocalStartBlock),
+			SolverStartBlock:   envutil.GetConditionalInt64("BASE_SOLVER_START_BLOCK", int64(BaseDefaultStartBlock), int64(BaseLocalStartBlock)),
 			PollInterval:       envutil.GetEnvInt("POLL_INTERVAL_MS", DefaultPollIntervalMs),
 			ConfirmationBlocks: envutil.GetEnvUint64("CONFIRMATION_BLOCKS", 0),
 			MaxBlockRange:      envutil.GetEnvUint64("MAX_BLOCK_RANGE", DefaultMaxBlockRange),
@@ -137,7 +143,7 @@ func initializeNetworks() {
 			HyperlaneAddress:   common.HexToAddress(envutil.GetEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")),
 			HyperlaneDomain:    envutil.GetEnvUint64("STARKNET_DOMAIN_ID", StarknetSepoliaChainID),
 			ForkStartBlock:     envutil.GetConditionalUint64("STARKNET_SOLVER_START_BLOCK", StarknetDefaultStartBlock, StarknetLocalStartBlock),
-			SolverStartBlock:   envutil.GetConditionalUint64("STARKNET_SOLVER_START_BLOCK", StarknetDefaultStartBlock, StarknetLocalStartBlock),
+			SolverStartBlock:   envutil.GetConditionalInt64("STARKNET_SOLVER_START_BLOCK", int64(StarknetDefaultStartBlock), int64(StarknetLocalStartBlock)),
 			PollInterval:       envutil.GetEnvInt("STARKNET_POLL_INTERVAL_MS", envutil.GetEnvInt("POLL_INTERVAL_MS", StarknetDefaultPollIntervalMs)),
 			ConfirmationBlocks: envutil.GetEnvUint64("STARKNET_CONFIRMATION_BLOCKS", 0),
 			MaxBlockRange: envutil.GetEnvUint64("STARKNET_MAX_BLOCK_RANGE",
@@ -202,7 +208,7 @@ func GetForkStartBlock(networkName string) (uint64, error) {
 }
 
 // GetSolverStartBlock returns the solver start block for a given network name
-func GetSolverStartBlock(networkName string) (uint64, error) {
+func GetSolverStartBlock(networkName string) (int64, error) {
 	config, err := GetNetworkConfig(networkName)
 	if err != nil {
 		return 0, err
