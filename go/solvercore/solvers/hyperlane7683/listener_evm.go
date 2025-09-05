@@ -203,54 +203,7 @@ func (l *evmListener) startPolling(ctx context.Context, handler base.EventHandle
 }
 
 func (l *evmListener) processCurrentBlockRange(ctx context.Context, handler base.EventHandler) error {
-	currentBlock, err := l.client.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get current block number: %v", err)
-	}
-
-	// Apply confirmations window if configured
-	safeBlock := currentBlock
-	if l.config.ConfirmationBlocks > 0 && currentBlock > l.config.ConfirmationBlocks {
-		safeBlock = currentBlock - l.config.ConfirmationBlocks
-	}
-
-	fromBlock := l.lastProcessedBlock + 1
-	toBlock := safeBlock
-
-	// Check if we have any new blocks to process
-	if fromBlock > toBlock {
-		// No new blocks to process, we're up to date
-		return nil
-	}
-
-	// Respect MaxBlockRange by chunking large ranges
-	chunkSize := l.config.MaxBlockRange
-	newLast := l.lastProcessedBlock
-
-	for start := fromBlock; start <= toBlock; start += chunkSize {
-		end := start + chunkSize - 1
-		if end > toBlock {
-			end = toBlock
-		}
-
-		logutil.LogWithNetworkTag(l.config.ChainName, "🧭 EVM range: from=%d to=%d (current=%d, conf=%d)\n", start, end, currentBlock, l.config.ConfirmationBlocks)
-
-		chunkLast, err := l.processBlockRange(ctx, start, end, handler)
-		if err != nil {
-			return fmt.Errorf("failed to process blocks %d-%d: %v", start, end, err)
-		}
-
-		newLast = chunkLast
-		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
-			fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", l.config.ChainName, err)
-		} else {
-			//fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, l.config.ChainName)
-		}
-	}
-
-	// Block processing complete
-	l.lastProcessedBlock = newLast
-	return nil
+	return ProcessCurrentBlockRangeCommon(ctx, handler, l.client, l.config, &l.lastProcessedBlock, "EVM", l.processBlockRange)
 }
 
 // processBlockRange processes logs in [fromBlock, toBlock] and returns the highest contiguous block fully processed
