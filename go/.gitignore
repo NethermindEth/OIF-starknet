@@ -3,3 +3,5 @@ bin/*
 
 fork.env
 sepolia.env
+
+coverage*
