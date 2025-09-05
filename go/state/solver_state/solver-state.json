@@ -9,16 +9,16 @@
       "lastUpdated": "2025-09-05T02:42:31-04:00"
     },
     "Ethereum": {
-      "lastIndexedBlock": 9128337,
-      "lastUpdated": "2025-09-05T02:42:35-04:00"
+      "lastIndexedBlock": 9128342,
+      "lastUpdated": "2025-09-05T02:44:22-04:00"
     },
     "Optimism": {
       "lastIndexedBlock": 32573294,
       "lastUpdated": "2025-09-05T02:42:24-04:00"
     },
     "Starknet": {
-      "lastIndexedBlock": 1850852,
-      "lastUpdated": "2025-09-05T02:42:24-04:00"
+      "lastIndexedBlock": 1850857,
+      "lastUpdated": "2025-09-05T02:44:18-04:00"
     }
   }
 }

@@ -43,8 +43,8 @@ const (
 	// Order deadline (24 hours from now)
 	orderDeadlineHours = 24
 	// Token amount constants for test orders
-	testInputAmount  = 1001
-	testOutputAmount = 1000
+	testInputAmount          = 1001
+	testOutputAmount         = 1000
 	testOutputAmountStarknet = 999
 	// Network name constants
 	starknetNetworkName = "Starknet"
@@ -369,9 +369,9 @@ func openRandomToEvm(networks []NetworkConfig) {
 	// Alice provides InputAmount, receives OutputAmount
 	// Solver receives InputAmount (MinReceived), provides OutputAmount (MaxSpent)
 	// For profitability: InputAmount (MinReceived) > OutputAmount (MaxSpent)
-			outputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount+1)+minTokenAmount), tokenDecimals) // 100-10000 tokens (what solver provides)
-		delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount+1)+minDeltaAmount), tokenDecimals)            // 1-10 tokens profit margin
-	inputAmount := new(big.Int).Add(outputAmount, delta)                    // slightly more to ensure solver profit
+	outputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount+1)+minTokenAmount), tokenDecimals) // 100-10000 tokens (what solver provides)
+	delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount+1)+minDeltaAmount), tokenDecimals)        // 1-10 tokens profit margin
+	inputAmount := new(big.Int).Add(outputAmount, delta)                                                                     // slightly more to ensure solver profit
 
 	order := OrderConfig{
 		OriginChain:      evmNetworks[originIdx].name,
@@ -407,9 +407,9 @@ func openRandomToStarknet(networks []NetworkConfig) {
 	// Alice provides InputAmount, receives OutputAmount
 	// Solver receives InputAmount (MinReceived), provides OutputAmount (MaxSpent)
 	// For profitability: InputAmount (MinReceived) > OutputAmount (MaxSpent)
-	    outputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount+1)+minTokenAmount), tokenDecimals) // 100-10000 tokens (what solver provides)
-    delta := big.NewInt(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount+1)+minDeltaAmount))                     // 1-10 tokens profit margin
-	inputAmount := new(big.Int).Add(outputAmount, delta)                    // slightly more to ensure solver profit
+	outputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount+1)+minTokenAmount), tokenDecimals) // 100-10000 tokens (what solver provides)
+	delta := big.NewInt(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount+1) + minDeltaAmount))                            // 1-10 tokens profit margin
+	inputAmount := new(big.Int).Add(outputAmount, delta)                                                                     // slightly more to ensure solver profit
 
 	order := OrderConfig{
 		OriginChain:      origin.name,
@@ -434,8 +434,8 @@ func openDefaultEvmToEvm(networks []NetworkConfig) {
 		DestinationChain: "Optimism",
 		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
-		            InputAmount:      CreateTokenAmount(testInputAmount, tokenDecimals), // 1001 tokens (what solver receives)
-		OutputAmount:     CreateTokenAmount(1000, 18), // 1000 tokens (what solver provides)
+		InputAmount:      CreateTokenAmount(testInputAmount, tokenDecimals), // 1001 tokens (what solver receives)
+		OutputAmount:     CreateTokenAmount(1000, 18),                       // 1000 tokens (what solver provides)
 		User:             AliceUserName,
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
@@ -452,8 +452,8 @@ func openDefaultEvmToStarknet(networks []NetworkConfig) {
 		DestinationChain: starknetNetworkName,
 		InputToken:       "DogCoin",
 		OutputToken:      "DogCoin",
-		            InputAmount:      CreateTokenAmount(testInputAmount, tokenDecimals), // 1001 tokens (what solver receives)
-		OutputAmount:     CreateTokenAmount(1000, 18), // 1000 tokens (what solver provides)
+		InputAmount:      CreateTokenAmount(testInputAmount, tokenDecimals), // 1001 tokens (what solver receives)
+		OutputAmount:     CreateTokenAmount(1000, 18),                       // 1000 tokens (what solver provides)
 		User:             AliceUserName,
 		OpenDeadline:     uint32(time.Now().Add(1 * time.Hour).Unix()),
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
@@ -617,7 +617,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		}
 
 		fmt.Printf("   ✅ Approval confirmed!\n")
-		
+
 		// Add a small delay to ensure blockchain state is updated after approval
 		time.Sleep(1 * time.Second)
 	} else {
@@ -642,23 +642,23 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// Build the order data
 	orderData := buildOrderData(order, originNetwork, destinationNetwork, localDomain, senderNonce)
 
-	// Debug: Log the order data before encoding
-	fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
-	fmt.Printf("   • User: %s\n", orderData.User)
-	fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
-	fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
-	fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
-	fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
-	fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
-	for i, maxSpent := range orderData.MaxSpent {
-		fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
-			i, maxSpent.Token, maxSpent.Amount.String(), maxSpent.ChainID.String())
-	}
-	fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
-	for i, minReceived := range orderData.MinReceived {
-		fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
-			i, minReceived.Token, minReceived.Amount.String(), minReceived.ChainID.String())
-	}
+	//// Debug: Log the order data before encoding
+	//fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
+	//fmt.Printf("   • User: %s\n", orderData.User)
+	//fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
+	//fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
+	//fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
+	//fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
+	//fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
+	//for i, maxSpent := range orderData.MaxSpent {
+	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
+	//		i, maxSpent.Token, maxSpent.Amount.String(), maxSpent.ChainID.String())
+	//}
+	//fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
+	//for i, minReceived := range orderData.MinReceived {
+	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
+	//		i, minReceived.Token, minReceived.Amount.String(), minReceived.ChainID.String())
+	//}
 
 	// Build the OnchainCrossChainOrder
 	crossChainOrder := OnchainCrossChainOrder{
@@ -668,14 +668,14 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	}
 
 	// Debug: Log the encoded data
-	fmt.Printf("🔍 Encoded Order Data Debug:\n")
-	fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
-	fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
-	fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
-	fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
-	if len(crossChainOrder.OrderData) > 64 {
-		fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
-	}
+	//fmt.Printf("🔍 Encoded Order Data Debug:\n")
+	//fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
+	//fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
+	//fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
+	//fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
+	//if len(crossChainOrder.OrderData) > 64 {
+	//	fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
+	//}
 
 	// Use generated bindings for open()
 	contract, err := contracts.NewHyperlane7683(originNetwork.hyperlaneAddress, client)
@@ -935,25 +935,24 @@ func hexToBytes32(hexStr string) [32]byte {
 	return out
 }
 
-
 func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []NetworkConfig) []byte {
 	// Convert OrderData to ABIOrderData for encoding
 	abiOrderData := convertToABIOrderData(orderData, senderNonce, networks)
 
-	// Debug: Log the ABI order data
-	fmt.Printf("🔍 ABI Order Data Debug:\n")
-	fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
-	fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
-	fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
-	fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
-	fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
-	fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
-	fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
-	fmt.Printf("   • OriginDomain: %d\n", abiOrderData.OriginDomain)
-	fmt.Printf("   • DestinationDomain: %d\n", abiOrderData.DestinationDomain)
-	fmt.Printf("   • DestinationSettler: %x\n", abiOrderData.DestinationSettler)
-	fmt.Printf("   • FillDeadline: %d\n", abiOrderData.FillDeadline)
-	fmt.Printf("   • Data length: %d bytes\n", len(abiOrderData.Data))
+	//// Debug: Log the ABI order data
+	//fmt.Printf("🔍 ABI Order Data Debug:\n")
+	//fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
+	//fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
+	//fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
+	//fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
+	//fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
+	//fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
+	//fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
+	//fmt.Printf("   • OriginDomain: %d\n", abiOrderData.OriginDomain)
+	//fmt.Printf("   • DestinationDomain: %d\n", abiOrderData.DestinationDomain)
+	//fmt.Printf("   • DestinationSettler: %x\n", abiOrderData.DestinationSettler)
+	//fmt.Printf("   • FillDeadline: %d\n", abiOrderData.FillDeadline)
+	//fmt.Printf("   • Data length: %d bytes\n", len(abiOrderData.Data))
 
 	// Pack as a tuple to match Solidity's abi.encode(order)
 	tupleT, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{

@@ -418,9 +418,6 @@ func getAliceDogCoinBalance(networkName string) (*big.Int, error) {
 		return nil, fmt.Errorf("failed to get DogCoin address: %w", err)
 	}
 
-	// Debug logging
-	log.Printf("DEBUG: Getting Alice balance for %s - Alice: %s, Token: %s", networkName, aliceAddress, tokenAddress)
-
 	if networkName == "Starknet" {
 		// Use Starknet RPC
 		provider, err := rpc.NewProvider(networkConfig.RPCURL)
@@ -803,30 +800,30 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterOrderBalances := getAllNetworkBalances()
 
-	// Debug: Log balance changes
-	t.Log("🔍 Balance changes after order creation:")
-	for network, beforeBalance := range beforeOrderBalances.AliceBalances {
-		afterBalance := afterOrderBalances.AliceBalances[network]
-		change := new(big.Int).Sub(afterBalance, beforeBalance)
-		t.Logf("   %s Alice: %s -> %s (Δ: %s)", network, beforeBalance.String(), afterBalance.String(), change.String())
+	//// Debug: Log balance changes
+	//t.Log("🔍 Balance changes after order creation:")
+	//for network, beforeBalance := range beforeOrderBalances.AliceBalances {
+	//	afterBalance := afterOrderBalances.AliceBalances[network]
+	//	change := new(big.Int).Sub(afterBalance, beforeBalance)
+	//	t.Logf("   %s Alice: %s -> %s (Δ: %s)", network, beforeBalance.String(), afterBalance.String(), change.String())
 
-		// Debug: Log Alice address and token address for the origin chain
-		if network == orderInfo.OriginChain {
-			aliceAddr, err := getAliceAddress(network)
-			if err != nil {
-				t.Logf("   DEBUG: Could not get Alice address for %s: %v", network, err)
-			} else {
-				t.Logf("   DEBUG: %s Alice address: %s", network, aliceAddr)
-			}
+	//	// Debug: Log Alice address and token address for the origin chain
+	//	if network == orderInfo.OriginChain {
+	//		aliceAddr, err := getAliceAddress(network)
+	//		if err != nil {
+	//			t.Logf("   DEBUG: Could not get Alice address for %s: %v", network, err)
+	//		} else {
+	//			t.Logf("   DEBUG: %s Alice address: %s", network, aliceAddr)
+	//		}
 
-			tokenAddr, err := getDogCoinAddress(network)
-			if err != nil {
-				t.Logf("   DEBUG: Could not get DogCoin address for %s: %v", network, err)
-			} else {
-				t.Logf("   DEBUG: %s DogCoin address: %s", network, tokenAddr)
-			}
-		}
-	}
+	//		tokenAddr, err := getDogCoinAddress(network)
+	//		if err != nil {
+	//			t.Logf("   DEBUG: Could not get DogCoin address for %s: %v", network, err)
+	//		} else {
+	//			t.Logf("   DEBUG: %s DogCoin address: %s", network, tokenAddr)
+	//		}
+	//	}
+	//}
 	for network, beforeBalance := range beforeOrderBalances.HyperlaneBalances {
 		afterBalance := afterOrderBalances.HyperlaneBalances[network]
 		change := new(big.Int).Sub(afterBalance, beforeBalance)
@@ -891,22 +888,22 @@ func testCompleteOrderLifecycle(t *testing.T, solverPath string, orderCommand []
 	beforeSolverBalances, err := getSolverBalances()
 	require.NoError(t, err)
 
-	// Log solver balances
-	t.Log("📋 Before solver execution balances:")
-	for network, balance := range beforeSolverBalances.Balances {
-		t.Logf("   %s Solver DogCoin: %s", network, balance.String())
-	}
+	//// Log solver balances
+	//t.Log("📋 Before solver execution balances:")
+	//for network, balance := range beforeSolverBalances.Balances {
+	//	t.Logf("   %s Solver DogCoin: %s", network, balance.String())
+	//}
 
-	// Debug: Log solver addresses
-	t.Log("🔍 Solver addresses:")
-	for _, network := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
-		address, err := getSolverAddress(network)
-		if err != nil {
-			t.Logf("   %s Solver Address: ERROR - %v", network, err)
-		} else {
-			t.Logf("   %s Solver Address: %s", network, address)
-		}
-	}
+	//// Debug: Log solver addresses
+	//t.Log("🔍 Solver addresses:")
+	//for _, network := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
+	//	address, err := getSolverAddress(network)
+	//	if err != nil {
+	//		t.Logf("   %s Solver Address: ERROR - %v", network, err)
+	//	} else {
+	//		t.Logf("   %s Solver Address: %s", network, address)
+	//	}
+	//}
 
 	// Step 5: Check if solver has sufficient balance to fill the order
 	t.Log("🤖 Step 5: Checking solver balance for order filling...")
@@ -1222,8 +1219,6 @@ func verifyCompleteLifecycleBalanceChanges(t *testing.T, beforeOrder, finalAlice
 		return
 	}
 
-	fmt.Printf("DEBUGGING (BONSAI): InputAmount=%s, OutputAmount=%s\n", inputAmount.String(), outputAmount.String())
-
 	// Check Alice balance changes
 	for networkName, beforeBalance := range beforeOrder.AliceBalances {
 		finalBalance := finalAlice.AliceBalances[networkName]
@@ -1319,7 +1314,6 @@ func verifyCompleteLifecycleBalanceChanges(t *testing.T, beforeOrder, finalAlice
 		outputAmount.String(), orderInfo.DestinationChain,
 		outputAmount.String(), orderInfo.DestinationChain)
 }
-
 
 // TestMain sets up the test environment
 func TestMain(m *testing.M) {
