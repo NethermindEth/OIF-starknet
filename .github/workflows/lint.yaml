@@ -16,14 +16,13 @@ jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./solver
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: solver/go.mod
           cache: false
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: solver
