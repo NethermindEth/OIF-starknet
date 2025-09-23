@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: solver
+        working-directory: ./solver
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
