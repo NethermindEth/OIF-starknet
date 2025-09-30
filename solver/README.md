@@ -19,7 +19,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 **🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:** Opens, Fills, and Settles EVM->EVM & EVM->Starknet orders, only Opens & Fills Starknet->EVM orders. The Settle call is awaiting Hyperlane to register the Starknet domain on each EVM contract.
 
-> **\*NOTE:** The Starknet Hyperlane7683 contract was deployed [here](https://sepolia.voyager.online/contract/0x002369427e2142db4dfac3a61f5ea7f084e3a74f4c444b5c4e6192a12e49a349) August 29th (2025) in-house; allowing the same deploying address (the owner) to also register the EVM domains on Starknet. This is why EVM->Starknet orders can fully solve, but Starknet->EVM cannot on live Sepolia (on local forks, we can spoof the EVM calls necessary to register the Starknet domain).
+> **\*NOTE:** The Starknet Hyperlane7683 contract was deployed [here](https://sepolia.voyager.online/contract/0x002369427e2142db4dfac3a61f5ea7f084e3a74f4c444b5c4e6192a12e49a349) August 29th (2025) in-house; allowing the same deploying address (the owner) to also register the EVM domains on Starknet. This is why EVM->Starknet orders can fully solve, but Starknet->EVM cannot on live Sepolia.
 
 ## Quick Start
 
