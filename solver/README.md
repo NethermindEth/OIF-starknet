@@ -4,13 +4,13 @@ This (Golang) solver is an extension to BootNodeDev's Hyperlane7683 (Typescript)
 
 ## Overview
 
-The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains (orders are opened on the "origin" chain), then fills and settles* them on the "destination" chain (origin chain != destination chain). 
+The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains (orders are opened on the "origin" chain), then fills and settles\* them on the "destination" chain (origin chain != destination chain).
 
 ## Order Lifecycle
 
 1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
 2. **Fill on destination**: Solver sends output tokens to Alice's destination chain wallet (using the destination chain hyperlane contract)
-3. **Settle on destination**: A simple txn sent after filling to prevent double-filling, triggers dispatch for settlement
+3. **Settle on destination\***: A simple txn sent after filling to prevent double-filling, triggers dispatch for settlement
 4. **Hyperlane dispatch settlement on origin**: Releases locked input tokens to solver on origin chain (handled by Hyperlane protocol; not in the scope of the solver)
 
 ## 🚀 Current Status
@@ -60,7 +60,7 @@ make test-unit
 ### RPC Tests (Requires Networks)
 
 - **What it tests:** Basic RPC connections
-- **Requirements:** For local tests, the forked networks must be running in the background (`make start-networks`). 
+- **Requirements:** For local tests, the forked networks must be running in the background (`make start-networks`).
 
 ```bash
 # Test with local devnet
@@ -147,8 +147,6 @@ make open-random-evm-order    # EVM → EVM order
 make open-random-evm-sn-order # EVM → Starknet order
 make open-random-sn-order     # Starknet → EVM order
 ```
-
-
 
 ## Architecture
 
