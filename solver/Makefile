@@ -1,4 +1,4 @@
-.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm start-networks kill-networks
+.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks kill-networks
 
 # Default target
 help:
@@ -32,7 +32,9 @@ help:
 	@echo "  fund-accounts    - Fund Alice & Solver with tokens (uses current FORKING setting)"
 	@echo "  fund-accounts-local - Fund Alice & Solver on local devnet (FORKING=true)"
 	@echo "  fund-accounts-live - Fund Alice & Solver on live networks (FORKING=false)"
-	@echo "  register-*       - Register domains (run after starting networks)"
+	@echo "  register-starknet-on-evm - Register Starknet domain on EVM contracts (uses current FORKING setting)"
+	@echo "  register-starknet-on-evm-local - Register Starknet domain on EVM contracts (local devnet)"
+	@echo "  register-starknet-on-evm-live - Register Starknet domain on EVM contracts (live networks)"
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
@@ -194,9 +196,21 @@ fund-accounts-live: build-fund-accounts
 		FORKING=false ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
 	fi
 
-# Essential setup for testing (register Starknet domain on EVM contracts)
+# Essential setup for testing (register Starknet domain on EVM contracts - uses current FORKING setting)
 register-starknet-on-evm: build-register-evm-routers
 	./bin/register-evm-routers
+	@echo "✅ Starknet domain registered on all EVM contracts!"
+
+# Register Starknet domain on EVM contracts (local devnet)
+register-starknet-on-evm-local: build-register-evm-routers
+	@echo "Registering Starknet domain on EVM contracts (local devnet)..."
+	FORKING=true ./bin/register-evm-routers
+	@echo "✅ Starknet domain registered on all EVM contracts!"
+
+# Register Starknet domain on EVM contracts (live networks)
+register-starknet-on-evm-live: build-register-evm-routers
+	@echo "Registering Starknet domain on EVM contracts (live networks)..."
+	FORKING=false ./bin/register-evm-routers
 	@echo "✅ Starknet domain registered on all EVM contracts!"
 
 # Not required for testing if forking post deployment (register EVM domains on Starknet contract)
@@ -348,7 +362,7 @@ test-integration-local:
 	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "Funding accounts and setting up contracts..."
 	@make fund-accounts-local
-	@make register-starknet-on-evm
+	@make register-starknet-on-evm-local
 	@echo "Starting integration tests..."
 	@set -a && . ./.env && set +a && FORKING=true EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
 
@@ -364,7 +378,7 @@ test-solver-local:
 	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "Funding accounts and setting up contracts..."
 	@make fund-accounts-local
-	@make register-starknet-on-evm
+	@make register-starknet-on-evm-local
 	@echo "Starting multi-order solver integration test..."
 	@set -a && . ./.env && set +a && FORKING=true EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
