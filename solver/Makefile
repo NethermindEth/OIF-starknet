@@ -6,9 +6,12 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-rpc         - Run RPC tests (requires start-networks)"
-	@echo "  test-integration - Run integration tests (requires full setup)"
-	@echo "  test-solver-integration - Run full solver tests (executes orders + solver)"
+	@echo "  test-rpc         - Run RPC tests with local devnet (requires start-networks)"
+	@echo "  test-rpc-live    - Run RPC tests with live networks"
+	@echo "  test-integration - Run basic integration tests with local devnet (auto-funds accounts)"
+	@echo "  test-integration-live - Run basic integration tests with live testnets (order opening only)"
+	@echo "  test-solver      - Run solver integration tests with local devnet (auto-funds accounts)"
+	@echo "  test-solver-live - Run solver integration tests with live testnets (order opening + solving)"
 	@echo "  test-all         - Run all tests (unit + RPC + integration)"
 	@echo "  test-coverage    - Show coverage for maintainable code"
 	@echo ""
@@ -265,29 +268,57 @@ test-unit:
 		-run "Test.*" -timeout 30s \
 		-skip "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks"
 
-# Run RPC tests (requires start-networks)
+# Run RPC tests with local devnet (requires start-networks)
 test-rpc:
-	@echo "🌐 Running RPC tests (requires start-networks)..."
+	@echo "🌐 Running RPC tests with local devnet (requires start-networks)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@go test -v \
+	@set -a && . ./.env && set +a && FORKING=true go test -v -count=1 \
 		./pkg/starknetutil \
 		./pkg/ethutil \
 		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
 		-timeout 60s
 
-# Run integration tests (requires full setup)
-test-integration:
-	@echo "🔄 Running integration tests (requires full setup)..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
-	@go test -v -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestSolverIntegration" -timeout 300s -p 1
+# Run RPC tests with live networks (requires live network access)
+test-rpc-live:
+	@echo "🌐 Running RPC tests with live networks..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && FORKING=false go test -v -count=1 \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
+		-timeout 60s
 
-# Run full solver integration tests (requires full setup + solver execution)
-test-solver-integration:
-	@echo "🤖 Running full solver integration tests (requires full setup)..."
+# Run basic integration tests with local devnet (order opening only)
+test-integration:
+	@echo "🔄 Running basic integration tests with local devnet (order opening only)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
-	@EXECUTE_SOLVER_TESTS=true go test -v -run "TestSolverIntegration" -timeout 400s -p 1
+	@echo "Funding accounts and setting up contracts..."
+	@make fund-accounts
+	@make register-starknet-on-evm
+	@echo "Starting integration tests..."
+	@set -a && . ./.env && set +a && FORKING=true EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
+
+# Run basic integration tests with live testnets (order opening only)
+test-integration-live:
+	@echo "🔄 Running basic integration tests with live testnets (order opening only)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && FORKING=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
+
+# Run solver integration tests with local devnet (order opening + solving)
+test-solver:
+	@echo "🤖 Running solver integration tests with local devnet (order opening + solving)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	@echo "Funding accounts and setting up contracts..."
+	@make fund-accounts
+	@make register-starknet-on-evm
+	@echo "Starting solver integration tests..."
+	@set -a && . ./.env && set +a && FORKING=true EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration" -timeout 400s -p 1
+
+# Run solver integration tests with live testnets (order opening + solving)
+test-solver-live:
+	@echo "🤖 Running solver integration tests with live testnets (order opening + solving)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && FORKING=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
 test-all: test-unit test-rpc test-integration
@@ -459,62 +490,6 @@ test-coverage-check:
 	@echo "Overall coverage:"
 	@go tool cover -func=coverage.out | tail -1
 
-# Note: test-unit and test-integration are defined above in the Testing Commands section
-
-# Run integration tests with local forks
-test-integration-local:
-	@echo "Running integration tests with local forks..."
-	@echo "Make sure local forks are running with: make start-networks"
-	FORKING=true go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
-
-# Run integration tests with live testnets
-test-integration-live:
-	@echo "Running integration tests with live testnets..."
-	@echo "Make sure you have valid API keys in your .env file"
-	FORKING=false go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
-
-# Run integration tests with coverage (includes order creation commands)
-test-integration-coverage:
-	@echo "Running integration tests with coverage..."
-	@echo "This will cover order creation code paths that are missing from unit tests"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
-	go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v -p 1
-
-# Run integration tests with coverage and order command execution
-test-integration-coverage-full:
-	@echo "Running full integration tests with coverage (includes order creation commands)..."
-	@echo "This will execute actual order creation commands to cover missing code paths"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestOrderCreationCommandsIntegration" -v -p 1
-
-# Run comprehensive order creation integration tests with balance verification
-test-order-creation-integration:
-	@echo "Running comprehensive order creation integration tests..."
-	@echo "This will test order creation with full balance verification across all networks"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -run "TestOrderCreationCommandsIntegration" -v -p 1
-
-# Run comprehensive order creation integration tests with coverage
-test-order-creation-integration-coverage:
-	@echo "Running comprehensive order creation integration tests with coverage..."
-	@echo "This will test order creation with full balance verification and coverage analysis"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderCreationCommandsIntegration" -v -p 1
-
-# Note: test-solver-integration is defined above in the Testing Commands section
-
-# Run complete order lifecycle integration tests with coverage
-test-solver-integration-coverage:
-	@echo "Running complete order lifecycle integration tests with coverage..."
-	@echo "This will test the full order lifecycle with coverage analysis"
-	@echo "Tests all 3 order types: EVM→EVM, EVM→Starknet, Starknet→EVM"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
-	EXECUTE_SOLVER_TESTS=true go test -cover -run "TestSolverIntegration" -v -p 1
 
 ### Additional Coverage Commands ###
 
