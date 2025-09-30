@@ -142,7 +142,7 @@ register-starknet-on-evm: build-register-evm-routers
 	./bin/register-evm-routers
 	@echo "✅ Starknet domain registered on all EVM contracts!"
 
-# Not required for testing (register EVM domains on Starknet contract)
+# Not required for testing if forking post deployment (register EVM domains on Starknet contract)
 register-evm-on-starknet: build-register-sn-routers
 	./bin/register-sn-routers
 	@echo "✅ EVM domains registered on Starknet contract!"
@@ -262,7 +262,8 @@ test-unit:
 		./solvercore/logutil \
 		./solvercore/types \
 		./solvercore/solvers/hyperlane7683 \
-		-run "Test.*" -timeout 30s
+		-run "Test.*" -timeout 30s \
+		-skip "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks"
 
 # Run RPC tests (requires start-networks)
 test-rpc:
