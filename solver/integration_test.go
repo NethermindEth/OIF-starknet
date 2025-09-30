@@ -339,8 +339,24 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 	t.Logf("   Input Amount: %s", orderInfo.InputAmount)
 	t.Logf("   Output Amount: %s", orderInfo.OutputAmount)
 
-	// Step 4: Get all network balances AFTER order creation
-	t.Log("📊 Step 4: Getting all network balances AFTER order creation...")
+	// Step 4: Wait for transaction to be fully processed
+	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
+	
+	useLocalForks := os.Getenv("FORKING") == "true"
+	
+	var delay time.Duration
+	if useLocalForks {
+		delay = 5 * time.Second // Local forks: fast confirmation
+	} else {
+		delay = 15 * time.Second // Live networks: longer confirmation time
+	}
+	
+	t.Logf("⏳ Waiting %v for %s transaction confirmation (FORKING=%t)...", 
+		delay, orderInfo.OriginChain+"->"+orderInfo.DestinationChain, useLocalForks)
+	time.Sleep(delay)
+
+	// Step 5: Get all network balances AFTER order creation
+	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterBalances := getAllNetworkBalances()
 
 	// Log all after balances
@@ -813,7 +829,18 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 4: Wait for transaction to be fully processed
 	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
-	time.Sleep(3 * time.Second)
+	
+	// All orders are cross-chain by definition (origin != destination)
+	var delay time.Duration
+	if useLocalForks {
+		delay = 5 * time.Second // Local forks: fast confirmation
+	} else {
+		delay = 15 * time.Second // Live networks: longer confirmation time
+	}
+	
+	t.Logf("⏳ Waiting %v for %s transaction confirmation (FORKING=%t)...", 
+		delay, orderInfo.OriginChain+"->"+orderInfo.DestinationChain, useLocalForks)
+	time.Sleep(delay)
 
 	// Step 5: Get all network balances AFTER order creation
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
