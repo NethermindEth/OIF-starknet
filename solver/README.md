@@ -23,28 +23,26 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 ## Quick Start
 
-1. Ensure .env is sourced:
-
-   ```bash
-   source .env
-   ```
-
-2. Install dependencies:
+1. Install dependencies:
 
    ```bash
    go mod tidy
    ```
 
-3. Configure your environment:
+2. Configure your environment:
 
    ```bash
    cp example.env .env
    # Edit .env with your configuration
    ```
 
-4. Run the solver:
+3. Run the solver:
    ```bash
-   make run
+   # For local development (with forked networks)
+   make run-local
+   
+   # For live networks (Sepolia testnet)
+   make run-live
    ```
 
 ## Testing
@@ -64,7 +62,7 @@ make test-unit
 
 ```bash
 # Test with local devnet
-make test-rpc
+make test-rpc-local
 
 # Test with live networks
 make test-rpc-live
@@ -77,7 +75,7 @@ make test-rpc-live
 
 ```bash
 # Test with local devnet
-make test-integration
+make test-integration-local
 
 # Test with live testnets
 make test-integration-live
@@ -90,7 +88,7 @@ make test-integration-live
 
 ```bash
 # Test with local devnet
-make test-solver
+make test-solver-local
 
 # Test with live testnets
 make test-solver-live
@@ -100,7 +98,7 @@ make test-solver-live
 
 ### Using Local Forked Networks
 
-For an efficient setup, open 3 terminals and move each to the `solver/` directory. Make sure your `FORKING` env var is set to `true` in your `.env` file.
+For an efficient setup, open 3 terminals and move each to the `solver/` directory.
 
 **Terminal 1: Start networks (runs continuously)**
 
@@ -115,7 +113,7 @@ make start-networks             # Start local forked networks (Starknet + EVMs)
 ```bash
 make register-starknet-on-evm   # Spoof call to register Starknet domain on each EVM contract
 make fund-accounts              # Fund Dog coins to Alice and the Solver on all networks
-make run                        # Start the solver
+make run-local                  # Start the solver with local devnet (FORKING=true)
 ```
 
 **Terminal 3: Create orders**
@@ -128,16 +126,16 @@ make open-random-sn-order     # Starknet → EVM order
 
 ### Using Live Networks
 
-Before running or testing the solver on Sepolia, you must first fund the order opening wallet (Alice) and the Solver wallet with test tokens. Each ERC-20 contract has a `mint` function that can be used to fund accounts.
+Before running or testing the solver on Sepolia, you must first fund the order opening wallet (Alice) and the Solver wallet with test tokens. Each ERC-20 contract has a `mint` function that can be used to manually fund accounts. To automate this process, run `make fund-accounts-live`
 
 > **(Sepolia) Token Addresses:** [Starknet](https://sepolia.voyager.online/token/0x0312be4cb8416dda9e192d7b4d42520e3365f71414aefad7ccd837595125f503), [Ethereum](https://sepolia.etherscan.io/token/0x76878654a2d96dddf8cf0cfe8fa608ab4ce0d499), [Arbitrum](https://sepolia.arbiscan.io/token/0x1083b934abb0be83aae6579c6d5fd974d94e8ea5), [Base](https://sepolia.basescan.org/token/0xb844eed1581f3fb810ffb6dd6c5e30c049cf23f4), [Optimism](https://sepolia-optimism.etherscan.io/token/0xe2f9c9ecab8ae246455be4810cac8fc7c5009150),
 
-Once your accounts are funded (Alice and Solver on all networks), you can run the solver and start opening orders. For this setup, open 2 terminals and move both to the `solver/` directory. Make sure your `FORKING` env var is set to `false` in your `.env` file.
+Once your accounts are funded (Alice and Solver on all networks), you can run the solver and start opening orders. For this setup, open 2 terminals and move both to the `solver/` directory.
 
 **Terminal 1: Run the solver (runs continuously)**
 
 ```bash
-make run                        # Starts the solver
+make run-live                   # Start the solver with live networks (FORKING=false)
 ```
 
 **Terminal 2: Create orders**

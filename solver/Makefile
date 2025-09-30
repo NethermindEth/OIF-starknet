@@ -1,4 +1,4 @@
-.PHONY: help build run test clean deps lint kill-all
+.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm start-networks kill-networks
 
 # Default target
 help:
@@ -6,11 +6,11 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-rpc         - Run RPC tests with local devnet (requires start-networks)"
+	@echo "  test-rpc-local   - Run RPC tests with local devnet (requires start-networks)"
 	@echo "  test-rpc-live    - Run RPC tests with live networks"
-	@echo "  test-integration - Run basic integration tests with local devnet (network setup and order opening)"
+	@echo "  test-integration-local - Run basic integration tests with local devnet (network setup and order opening)"
 	@echo "  test-integration-live - Run basic integration tests with live testnets (network setup and order opening)"
-	@echo "  test-solver      - Run solver integration tests with local devnet (multi-order processing)"
+	@echo "  test-solver-local - Run solver integration tests with local devnet (multi-order processing)"
 	@echo "  test-solver-live - Run solver integration tests with live testnets (multi-order processing)"
 	@echo "  test-coverage    - Show coverage for maintainable code"
 	@echo ""
@@ -18,7 +18,9 @@ help:
 	@echo "  deps             - Install dependencies"
 	@echo "  dev-deps         - Install development tools (linter, debugger)"
 	@echo "  build            - Build the solver binary"
-	@echo "  run              - Run the solver"
+	@echo "  run              - Run the solver (uses current FORKING setting)"
+	@echo "  run-local        - Run the solver with local devnet (FORKING=true)"
+	@echo "  run-live         - Run the solver with live networks (FORKING=false)"
 	@echo "  clean            - Clean build artifacts"
 	@echo "  clean-solver     - Clean solver state (keep binaries)"
 	@echo "  lint             - Run linter"
@@ -27,7 +29,9 @@ help:
 	@echo "  start-networks   - Start all testnet forks (runs continuously)"
 	@echo "  kill-networks    - Stop all running networks"
 	@echo "  kill-all         - Stop all processes (networks + solvers) and clean state"
-	@echo "  fund-accounts    - Fund Alice & Solver with tokens"
+	@echo "  fund-accounts    - Fund Alice & Solver with tokens (uses current FORKING setting)"
+	@echo "  fund-accounts-local - Fund Alice & Solver on local devnet (FORKING=true)"
+	@echo "  fund-accounts-live - Fund Alice & Solver on live networks (FORKING=false)"
 	@echo "  register-*       - Register domains (run after starting networks)"
 	@echo ""
 	@echo "📊 Coverage Commands:"
@@ -58,9 +62,21 @@ dev-deps:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/go-delve/delve/cmd/dlv@latest
 
-# Run the solver
+# Run the solver (uses current FORKING setting)
 run: build
 	./bin/solver solver
+
+# Run the solver with local devnet (sets FORKING=true)
+run-local: build
+	@echo "🤖 Starting solver with local devnet (FORKING=true)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	FORKING=true ./bin/solver solver
+
+# Run the solver with live networks (sets FORKING=false)
+run-live: build
+	@echo "🤖 Starting solver with live networks (FORKING=false)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	FORKING=false ./bin/solver solver
 
 # Build the solver
 build:
@@ -150,7 +166,7 @@ kill-all:
 
 ### Individual Setup Commands (use as needed) ###
 
-# Fund Alice and Solver accounts with MockERC20 tokens
+# Fund Alice and Solver accounts with MockERC20 tokens (uses current FORKING setting)
 fund-accounts: build-fund-accounts
 	@if [ -z "$(NETWORK)" ]; then \
 		echo "Funding Alice & Solver on all networks..."; \
@@ -158,6 +174,24 @@ fund-accounts: build-fund-accounts
 	else \
 		echo "Funding Alice & Solver on $(NETWORK)..."; \
 		./bin/fund-accounts $(NETWORK) $(AMOUNT); \
+	fi
+
+# Fund Alice and Solver accounts with MockERC20 tokens (local devnet)
+fund-accounts-local: build-fund-accounts
+	@echo "Funding Alice & Solver on local devnet (FORKING=true)..."
+	@if [ -z "$(NETWORK)" ]; then \
+		FORKING=true ./bin/fund-accounts all $(AMOUNT); \
+	else \
+		FORKING=true ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
+	fi
+
+# Fund Alice and Solver accounts with MockERC20 tokens (live networks)
+fund-accounts-live: build-fund-accounts
+	@echo "Funding Alice & Solver on live networks (FORKING=false)..."
+	@if [ -z "$(NETWORK)" ]; then \
+		FORKING=false ./bin/fund-accounts all $(AMOUNT); \
+	else \
+		FORKING=false ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
 	fi
 
 # Essential setup for testing (register Starknet domain on EVM contracts)
@@ -289,7 +323,7 @@ test-unit:
 		-skip "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks"
 
 # Run RPC tests with local devnet (requires start-networks)
-test-rpc:
+test-rpc-local:
 	@echo "🌐 Running RPC tests with local devnet (requires start-networks)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@set -a && . ./.env && set +a && FORKING=true go test -v -count=1 \
@@ -309,11 +343,11 @@ test-rpc-live:
 		-timeout 60s
 
 # Run basic integration tests with local devnet (order opening only)
-test-integration:
+test-integration-local:
 	@echo "🔄 Running basic integration tests with local devnet (order opening only)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "Funding accounts and setting up contracts..."
-	@make fund-accounts
+	@make fund-accounts-local
 	@make register-starknet-on-evm
 	@echo "Starting integration tests..."
 	@set -a && . ./.env && set +a && FORKING=true EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
@@ -325,11 +359,11 @@ test-integration-live:
 	@set -a && . ./.env && set +a && FORKING=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
 
 # Run solver integration tests with local devnet (order opening + solving)
-test-solver:
+test-solver-local:
 	@echo "🤖 Running solver integration tests with local devnet (multi-order processing)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "Funding accounts and setting up contracts..."
-	@make fund-accounts
+	@make fund-accounts-local
 	@make register-starknet-on-evm
 	@echo "Starting multi-order solver integration test..."
 	@set -a && . ./.env && set +a && FORKING=true EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
@@ -341,7 +375,7 @@ test-solver-live:
 	@set -a && . ./.env && set +a && FORKING=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
-test-all: test-unit test-rpc test-integration
+test-all: test-unit test-rpc-local test-integration-local
 	@echo "✅ All tests completed!"
 
 # Show coverage for maintainable code
