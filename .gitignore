@@ -26,3 +26,5 @@ target/
 
 deployer_account*.json
 !deployer_account.example.json
+solver-state.json
+**/solver-state.json
