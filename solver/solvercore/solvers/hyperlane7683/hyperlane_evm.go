@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -491,6 +492,16 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 	}
 
 	fmt.Printf("   ✅ Approval confirmed! Gas used: %d\n", receipt.GasUsed)
+	
+	// Add delay to ensure blockchain state is updated after approval
+	// Live networks need more time for state synchronization
+	useLocalForks := os.Getenv("FORKING") == "true"
+	if useLocalForks {
+		time.Sleep(1 * time.Second) // Local forks are fast
+	} else {
+		time.Sleep(6 * time.Second) // Live networks need more time
+	}
+	
 	return nil
 }
 

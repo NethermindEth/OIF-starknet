@@ -278,9 +278,15 @@ func TestOrderCreationCommandsIntegration(t *testing.T) {
 		testOrderCreationWithBalanceVerification(t, solverPath, []string{"tools", "open-order", "evm"})
 	})
 
+	// Add delay between tests to prevent "replacement transaction underpriced" errors
+	time.Sleep(10 * time.Second)
+
 	t.Run("StarknetOrderCreation", func(t *testing.T) {
 		testOrderCreationWithBalanceVerification(t, solverPath, []string{"tools", "open-order", "starknet"})
 	})
+
+	// Add delay between tests to prevent "replacement transaction underpriced" errors
+	time.Sleep(10 * time.Second)
 
 	t.Run("CrossChainOrderCreation", func(t *testing.T) {
 		testOrderCreationWithBalanceVerification(t, solverPath, []string{"tools", "open-order", "evm", "random-to-sn"})
