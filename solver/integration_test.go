@@ -341,17 +341,17 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 
 	// Step 4: Wait for transaction to be fully processed
 	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
-	
+
 	useLocalForks := os.Getenv("FORKING") == "true"
-	
+
 	var delay time.Duration
 	if useLocalForks {
 		delay = 5 * time.Second // Local forks: fast confirmation
 	} else {
 		delay = 15 * time.Second // Live networks: longer confirmation time
 	}
-	
-	t.Logf("⏳ Waiting %v for %s transaction confirmation (FORKING=%t)...", 
+
+	t.Logf("⏳ Waiting %v for %s transaction confirmation (FORKING=%t)...",
 		delay, orderInfo.OriginChain+"->"+orderInfo.DestinationChain, useLocalForks)
 	time.Sleep(delay)
 
@@ -504,16 +504,15 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 
 // getAliceAddress gets Alice's address for a specific network
 func getAliceAddress(networkName string) (string, error) {
+	useLocalForks := os.Getenv("FORKING") == "true"
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
 		if useLocalForks {
 			return os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS"), nil
 		}
 		return os.Getenv("STARKNET_ALICE_ADDRESS"), nil
 	} else {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
 		if useLocalForks {
 			return os.Getenv("LOCAL_ALICE_PUB_KEY"), nil
 		}
@@ -829,7 +828,7 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 4: Wait for transaction to be fully processed
 	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
-	
+
 	// All orders are cross-chain by definition (origin != destination)
 	var delay time.Duration
 	if useLocalForks {
@@ -837,8 +836,8 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	} else {
 		delay = 15 * time.Second // Live networks: longer confirmation time
 	}
-	
-	t.Logf("⏳ Waiting %v for %s transaction confirmation (FORKING=%t)...", 
+
+	t.Logf("⏳ Waiting %v for %s transaction confirmation (FORKING=%t)...",
 		delay, orderInfo.OriginChain+"->"+orderInfo.DestinationChain, useLocalForks)
 	time.Sleep(delay)
 
@@ -846,30 +845,6 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterOrderBalances := getAllNetworkBalances()
 
-	//// Debug: Log balance changes
-	//t.Log("🔍 Balance changes after order creation:")
-	//for network, beforeBalance := range beforeOrderBalances.AliceBalances {
-	//	afterBalance := afterOrderBalances.AliceBalances[network]
-	//	change := new(big.Int).Sub(afterBalance, beforeBalance)
-	//	t.Logf("   %s Alice: %s -> %s (Δ: %s)", network, beforeBalance.String(), afterBalance.String(), change.String())
-
-	//	// Debug: Log Alice address and token address for the origin chain
-	//	if network == orderInfo.OriginChain {
-	//		aliceAddr, err := getAliceAddress(network)
-	//		if err != nil {
-	//			t.Logf("   DEBUG: Could not get Alice address for %s: %v", network, err)
-	//		} else {
-	//			t.Logf("   DEBUG: %s Alice address: %s", network, aliceAddr)
-	//		}
-
-	//		tokenAddr, err := getDogCoinAddress(network)
-	//		if err != nil {
-	//			t.Logf("   DEBUG: Could not get DogCoin address for %s: %v", network, err)
-	//		} else {
-	//			t.Logf("   DEBUG: %s DogCoin address: %s", network, tokenAddr)
-	//		}
-	//	}
-	//}
 	for network, beforeBalance := range beforeOrderBalances.HyperlaneBalances {
 		afterBalance := afterOrderBalances.HyperlaneBalances[network]
 		change := new(big.Int).Sub(afterBalance, beforeBalance)
