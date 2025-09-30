@@ -112,7 +112,7 @@ make start-networks             # Start local forked networks (Starknet + EVMs)
 
 ```bash
 make register-starknet-on-evm   # Spoof call to register Starknet domain on each EVM contract
-make fund-accounts              # Fund Dog coins to Alice and the Solver on all networks
+make fund-accounts-local        # Fund Dog coins to Alice and the Solver on all networks
 make run-local                  # Start the solver with local devnet (FORKING=true)
 ```
 
