@@ -638,7 +638,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// fmt.Printf("   • User: %s\n", orderData.User)
 	// fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
 	// fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
-	//fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
+	// fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
 	//fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
 	//fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
 	//for i, maxSpent := range orderData.MaxSpent {
@@ -663,7 +663,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
 	// fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
 	// fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
-	//fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
+	// fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
 	//if len(crossChainOrder.OrderData) > 64 {
 	//	fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
 	//}
@@ -938,7 +938,7 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 	// fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
 	// fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
 	// fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
-	//fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
+	// fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
 	//fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
 	//fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
 	//fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
