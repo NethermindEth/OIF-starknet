@@ -1002,8 +1002,8 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 		// For EVM→Starknet orders, recipient should be the Starknet user address
 		// For EVM→EVM orders, recipient can be the same as sender
 		if orderData.DestinationChainID.Uint64() == config.StarknetSepoliaChainID { // Starknet
-			// Get Starknet user address from environment
-			starknetUserAddr := os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS")
+			// Get Starknet user address using conditional environment variable logic
+			starknetUserAddr := envutil.GetStarknetAliceAddress()
 			if starknetUserAddr != "" {
 				// Convert Starknet address to bytes32 (it's already 32 bytes)
 				starknetBytes := hexToBytes32(starknetUserAddr)
