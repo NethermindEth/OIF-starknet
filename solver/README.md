@@ -23,20 +23,26 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 ## Quick Start
 
-1. Install dependencies:
+1. Ensure .env is sourced:
+
+   ```bash
+   source .env
+   ```
+
+2. Install dependencies:
 
    ```bash
    go mod tidy
    ```
 
-2. Configure your environment:
+3. Configure your environment:
 
    ```bash
    cp example.env .env
    # Edit .env with your configuration
    ```
 
-3. Run the solver:
+4. Run the solver:
    ```bash
    make run
    ```
