@@ -779,6 +779,19 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 1: Get all network balances BEFORE order creation
 	t.Log("📊 Step 1: Getting all network balances BEFORE order creation...")
+
+	// Debug: Log the addresses being used for balance checking
+	useLocalForks := os.Getenv("FORKING") == "true"
+	t.Logf("🔍 Debug: FORKING=%t, checking balances for:", useLocalForks)
+	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
+		aliceAddr, err := getAliceAddress(networkName)
+		if err != nil {
+			t.Logf("   %s Alice: ERROR - %v", networkName, err)
+		} else {
+			t.Logf("   %s Alice: %s", networkName, aliceAddr)
+		}
+	}
+
 	beforeOrderBalances := getAllNetworkBalances()
 
 	// Log all before balances
@@ -994,9 +1007,9 @@ func getSolverDogCoinBalance(networkName string) (*big.Int, error) {
 
 // getSolverAddress gets the solver's address for a specific network
 func getSolverAddress(networkName string) (string, error) {
+	useLocalForks := os.Getenv("FORKING") == "true"
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
 		if useLocalForks {
 			address := os.Getenv("LOCAL_STARKNET_SOLVER_ADDRESS")
 			if address == "" {
@@ -1011,7 +1024,6 @@ func getSolverAddress(networkName string) (string, error) {
 		return address, nil
 	} else {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
 		if useLocalForks {
 			address := os.Getenv("LOCAL_SOLVER_PUB_KEY")
 			if address == "" {
