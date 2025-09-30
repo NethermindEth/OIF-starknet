@@ -132,12 +132,13 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 		return OrderActionSettle, nil
 	}
 
-	// Handle max spent approvals if needed
-	if err := h.setupApprovals(ctx, args, destinationSettlerAddr); err != nil {
-		return OrderActionError, fmt.Errorf("failed to setup approvals: %w", err)
+	// Build approval calls for tokens that need approval (multi-call optimization)
+	approvalCalls, err := h.buildApprovalCalls(ctx, args, destinationSettlerAddr)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("failed to build approval calls: %w", err)
 	}
 
-	// Prepare calldata; has a capacity of 6 + len(words)
+	// Prepare fill calldata; has a capacity of 6 + len(words)
 	// - Order ID: 2 felts (u256)
 	// - Origin data: 1 felt for size (usize), 1 felt for length (usize), 1 felt for each element
 	// - Filler data: 1 felt for size (usize), 1 felt for length (usize), 0 elements
@@ -157,15 +158,31 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 	calldata = append(calldata, words...)
 	calldata = append(calldata, utils.Uint64ToFelt(0), utils.Uint64ToFelt(0)) // empty (size=0, len=0)
 
-	// Execute the fill transaction
-	invoke := rpc.InvokeFunctionCall{ContractAddress: destinationSettlerAddr, FunctionName: "fill", CallData: calldata}
-	tx, err := h.account.BuildAndSendInvokeTxn(ctx, []rpc.InvokeFunctionCall{invoke}, nil)
-	if err != nil {
-		return OrderActionError, fmt.Errorf("starknet fill send failed: %w", err)
+	// Build fill call
+	fillCall := rpc.InvokeFunctionCall{
+		ContractAddress: destinationSettlerAddr,
+		FunctionName:    "fill",
+		CallData:        calldata,
 	}
+
+	// Combine approval calls + fill call into a single multi-call transaction
+	calls := append(approvalCalls, fillCall)
+
 	// Get chain IDs for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
 	destChainID := instruction.DestinationChainID.Uint64()
+
+	if len(approvalCalls) > 0 {
+		logutil.CrossChainOperation(fmt.Sprintf("Executing multi-call with %d approval(s) + fill", len(approvalCalls)), originChainID, destChainID, orderID)
+	} else {
+		logutil.CrossChainOperation("Executing fill (no approvals needed)", originChainID, destChainID, orderID)
+	}
+
+	// Execute the multi-call transaction
+	tx, err := h.account.BuildAndSendInvokeTxn(ctx, calls, nil)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("starknet fill multi-call send failed: %w", err)
+	}
 	logutil.CrossChainOperation(fmt.Sprintf("Fill transaction sent: %s", tx.Hash.String()), originChainID, destChainID, orderID)
 
 	// Wait for confirmation
@@ -222,35 +239,45 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 		return fmt.Errorf("failed to quote gas payment: %w", err)
 	}
 
-	// Approve ETH for the quoted gas amount
-	if err := h.ensureETHApproval(ctx, gasPayment, destinationSettler); err != nil {
-		return fmt.Errorf("ETH approval failed for settlement gas: %w", err)
+	// Build ETH approval call if needed (multi-call optimization)
+	ethApprovalCall, err := h.buildETHApprovalCall(ctx, gasPayment, destinationSettler)
+	if err != nil {
+		return fmt.Errorf("failed to build ETH approval call: %w", err)
 	}
-	logutil.CrossChainOperation(fmt.Sprintf("ETH approved for settlement gas payment: %s wei", gasPayment.String()), originChainID, destChainID, args.OrderID)
 
-	// Prepare calldata
+	// Prepare settle calldata
 	orderIDLow, orderIDHigh, err := starknetutil.ConvertSolidityOrderIDForStarknet(orderID)
 	if err != nil {
 		return fmt.Errorf("failed to convert solidity order ID for starknet: %w", err)
 	}
 	gasLow, gasHigh := starknetutil.ConvertBigIntToU256Felts(gasPayment)
-	calldata := []*felt.Felt{
+	settleCalldata := []*felt.Felt{
 		utils.Uint64ToFelt(1),   // order ID array length
 		orderIDLow, orderIDHigh, // order ID (u256) low and high
 		gasLow, gasHigh, // gas amount (u256) low and high
 	}
 
-	// Execute the settle transaction
-	invoke := rpc.InvokeFunctionCall{
+	// Build settle call
+	settleCall := rpc.InvokeFunctionCall{
 		ContractAddress: destinationSettler,
 		FunctionName:    "settle",
-		CallData:        calldata,
+		CallData:        settleCalldata,
 	}
 
-	// Wait for confirmation
-	tx, err := h.account.BuildAndSendInvokeTxn(ctx, []rpc.InvokeFunctionCall{invoke}, nil)
+	// Combine ETH approval + settle into a single multi-call transaction
+	var calls []rpc.InvokeFunctionCall
+	if ethApprovalCall != nil {
+		logutil.CrossChainOperation(fmt.Sprintf("Executing multi-call with ETH approval + settle (gas: %s wei)", gasPayment.String()), originChainID, destChainID, args.OrderID)
+		calls = []rpc.InvokeFunctionCall{*ethApprovalCall, settleCall}
+	} else {
+		logutil.CrossChainOperation("Executing settle (ETH approval not needed)", originChainID, destChainID, args.OrderID)
+		calls = []rpc.InvokeFunctionCall{settleCall}
+	}
+
+	// Execute the multi-call transaction
+	tx, err := h.account.BuildAndSendInvokeTxn(ctx, calls, nil)
 	if err != nil {
-		return fmt.Errorf("starknet settle send failed: %w", err)
+		return fmt.Errorf("starknet settle multi-call send failed: %w", err)
 	}
 
 	logutil.CrossChainOperation(fmt.Sprintf("Starknet settle tx sent: %s", tx.Hash.String()), originChainID, destChainID, args.OrderID)
@@ -311,21 +338,20 @@ func (h *HyperlaneStarknet) getOriginDomain(args types.ParsedArgs) (uint32, erro
 	return 0, fmt.Errorf("no domain found for chain ID %d in config (check your .env file)", chainID)
 }
 
-// setupApprovals ensures each MaxSpent token allowances are set
-func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.ParsedArgs, destinationSettler *felt.Felt) error {
+// buildApprovalCalls builds approval calls for tokens that need approval
+// Returns an array of InvokeFunctionCall objects for the multi-call
+func (h *HyperlaneStarknet) buildApprovalCalls(ctx context.Context, args types.ParsedArgs, destinationSettler *felt.Felt) ([]rpc.InvokeFunctionCall, error) {
+	var approvalCalls []rpc.InvokeFunctionCall
+
 	if len(args.ResolvedOrder.MaxSpent) == 0 {
-		return nil
+		return approvalCalls, nil
 	}
 
 	// Get destination chain ID from fill instruction
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
-		return fmt.Errorf("no fill instructions found")
+		return nil, fmt.Errorf("no fill instructions found")
 	}
 	destinationChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
-
-	// Get origin chain ID for cross-chain logging
-	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
-	//logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
@@ -335,23 +361,108 @@ func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.Parse
 
 		// Only approve tokens that belong to this chain (destination chain)
 		if maxSpent.ChainID.Uint64() != destinationChainID {
-			fmt.Printf("   ⚠️  Skipping approval for token %s on chain %d (this handler is for chain %d)\n",
-				maxSpent.Token, maxSpent.ChainID.Uint64(), destinationChainID)
 			continue
 		}
 
-		// Convert token address to Starknet format
-		if err := h.ensureTokenApproval(ctx, maxSpent.Token, maxSpent.Amount, destinationSettler); err != nil {
-			return fmt.Errorf("starknet approval failed for token %s: %w", maxSpent.Token, err)
+		// Check if approval is needed
+		tokenFelt, err := utils.HexToFelt(maxSpent.Token)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Starknet token address %s: %w", maxSpent.Token, err)
 		}
+
+		// Check current allowance
+		call := rpc.FunctionCall{
+			ContractAddress:    tokenFelt,
+			EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
+			Calldata:           []*felt.Felt{h.solverAddr, destinationSettler},
+		}
+
+		resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
+		if err != nil {
+			return nil, fmt.Errorf("starknet allowance call failed for token %s: %w", maxSpent.Token, err)
+		}
+		if len(resp) < 2 {
+			return nil, fmt.Errorf("starknet allowance response too short: %d", len(resp))
+		}
+
+		low := utils.FeltToBigInt(resp[0])
+		high := utils.FeltToBigInt(resp[1])
+		current := new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
+
+		// If allowance is sufficient, skip this token
+		if current.Cmp(maxSpent.Amount) >= 0 {
+			continue
+		}
+
+		// Build approval call
+		low128 := new(big.Int).And(maxSpent.Amount, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)))
+		high128 := new(big.Int).Rsh(maxSpent.Amount, 128)
+		lowF := utils.BigIntToFelt(low128)
+		highF := utils.BigIntToFelt(high128)
+
+		approvalCall := rpc.InvokeFunctionCall{
+			ContractAddress: tokenFelt,
+			FunctionName:    "approve",
+			CallData:        []*felt.Felt{destinationSettler, lowF, highF},
+		}
+
+		approvalCalls = append(approvalCalls, approvalCall)
 	}
 
-	logutil.CrossChainOperation("Set token approvals", originChainID, destinationChainID, args.OrderID)
+	return approvalCalls, nil
+}
 
-	// Add a small delay to ensure blockchain state is updated after approvals
-	time.Sleep(1 * time.Second)
+// buildETHApprovalCall builds an ETH approval call if needed
+// Returns nil if approval is not needed
+func (h *HyperlaneStarknet) buildETHApprovalCall(ctx context.Context, amount *big.Int, hyperlaneAddress *felt.Felt) (*rpc.InvokeFunctionCall, error) {
+	// Hard-coded ETH address on Starknet
+	ethAddress := "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+	ethFelt, err := utils.HexToFelt(ethAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert ETH address to felt: %w", err)
+	}
 
-	return nil
+	// Check current allowance
+	call := rpc.FunctionCall{
+		ContractAddress:    ethFelt,
+		EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
+		Calldata:           []*felt.Felt{h.solverAddr, hyperlaneAddress},
+	}
+
+	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
+	if err != nil {
+		return nil, fmt.Errorf("starknet ETH allowance call failed: %w", err)
+	}
+
+	if len(resp) < 2 {
+		return nil, fmt.Errorf("starknet ETH allowance returned insufficient data: expected 2 felts, got %d", len(resp))
+	}
+
+	// Convert two felts (low, high) back to u256
+	low := utils.FeltToBigInt(resp[0])
+	high := utils.FeltToBigInt(resp[1])
+	currentAllowance := new(big.Int).Lsh(high, 128)
+	currentAllowance.Or(currentAllowance, low)
+
+	// If allowance is sufficient, no need to approve
+	if currentAllowance.Cmp(amount) >= 0 {
+		return nil, nil
+	}
+
+	// Build approval call - convert amount to two felts (low, high)
+	low128 := new(big.Int).And(amount, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)))
+	high128 := new(big.Int).Rsh(amount, 128)
+
+	lowFelt := utils.BigIntToFelt(low128)
+	highFelt := utils.BigIntToFelt(high128)
+
+	approvalCall := rpc.InvokeFunctionCall{
+		ContractAddress: ethFelt,
+		FunctionName:    "approve",
+		CallData:        []*felt.Felt{hyperlaneAddress, lowFelt, highFelt},
+	}
+
+	return &approvalCall, nil
 }
 
 // interpretStarknetStatus returns the string representation of the order status
@@ -398,126 +509,6 @@ func (f *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain ui
 	result.Or(result, low)
 
 	return result, nil
-}
-
-// EnsureETHApproval ensures the solver has approved the ETH address for settlement
-func (h *HyperlaneStarknet) ensureETHApproval(ctx context.Context, amount *big.Int, hyperlaneAddress *felt.Felt) error {
-	// Hard-coded ETH address on Starknet
-	ethAddress := "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-	ethFelt, err := utils.HexToFelt(ethAddress)
-	if err != nil {
-		return fmt.Errorf("failed to convert ETH address to felt: %w", err)
-	}
-
-	// Check current allowance
-	call := rpc.FunctionCall{
-		ContractAddress:    ethFelt,
-		EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
-		Calldata:           []*felt.Felt{h.solverAddr, hyperlaneAddress},
-	}
-
-	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return fmt.Errorf("starknet ETH allowance call failed: %w", err)
-	}
-
-	if len(resp) < 2 {
-		return fmt.Errorf("starknet ETH allowance returned insufficient data: expected 2 felts, got %d", len(resp))
-	}
-
-	// Convert two felts (low, high) back to u256
-	low := utils.FeltToBigInt(resp[0])
-	high := utils.FeltToBigInt(resp[1])
-	currentAllowance := new(big.Int).Lsh(high, 128)
-	currentAllowance.Or(currentAllowance, low)
-
-	// If allowance is sufficient, no need to approve
-	if currentAllowance.Cmp(amount) >= 0 {
-		return nil
-	}
-
-	// Need to approve - convert amount to two felts (low, high)
-	low128 := new(big.Int).And(amount, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)))
-	high128 := new(big.Int).Rsh(amount, 128)
-
-	lowFelt := utils.BigIntToFelt(low128)
-	highFelt := utils.BigIntToFelt(high128)
-
-	// Build approve calldata: approve(spender: felt, amount: u256)
-	approveCalldata := []*felt.Felt{hyperlaneAddress, lowFelt, highFelt}
-
-	invoke := rpc.InvokeFunctionCall{
-		ContractAddress: ethFelt,
-		FunctionName:    "approve",
-		CallData:        approveCalldata,
-	}
-
-	tx, err := h.account.BuildAndSendInvokeTxn(ctx, []rpc.InvokeFunctionCall{invoke}, nil)
-	if err != nil {
-		return fmt.Errorf("starknet ETH approve send failed: %w", err)
-	}
-
-	fmt.Printf("   🔄 Starknet ETH approve tx sent: %s\n", tx.Hash.String())
-	_, waitErr := h.account.WaitForTransactionReceipt(ctx, tx.Hash, 2*time.Second)
-	if waitErr != nil {
-		return fmt.Errorf("starknet ETH approve wait failed: %w", waitErr)
-	}
-
-	fmt.Printf("   ✅ Starknet ETH approval confirmed\n")
-	return nil
-}
-
-// ensureTokenApproval ensures the solver has approved an arbitrary ERC20 token for the Hyperlane contract
-func (h *HyperlaneStarknet) ensureTokenApproval(ctx context.Context, tokenHex string, amount *big.Int, hyperlaneAddress *felt.Felt) error {
-	tokenFelt, err := utils.HexToFelt(tokenHex)
-	if err != nil {
-		return fmt.Errorf("invalid Starknet token address: %w", err)
-	}
-
-	// allowance(owner=solverAddr, spender=hyperlaneAddr) -> (low, high)
-	call := rpc.FunctionCall{
-		ContractAddress:    tokenFelt,
-		EntryPointSelector: utils.GetSelectorFromNameFelt("allowance"),
-		Calldata:           []*felt.Felt{h.solverAddr, hyperlaneAddress},
-	}
-
-	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return fmt.Errorf("starknet allowance call failed: %w", err)
-	}
-	if len(resp) < 2 {
-		return fmt.Errorf("starknet allowance response too short: %d", len(resp))
-	}
-
-	low := utils.FeltToBigInt(resp[0])
-	high := utils.FeltToBigInt(resp[1])
-	current := new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
-	if current.Cmp(amount) >= 0 {
-		return nil
-	}
-
-	// Approve exact amount: approve(spender: felt, amount: u256)
-	low128 := new(big.Int).And(amount, new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)))
-	high128 := new(big.Int).Rsh(amount, 128)
-	lowF := utils.BigIntToFelt(low128)
-	highF := utils.BigIntToFelt(high128)
-
-	invoke := rpc.InvokeFunctionCall{
-		ContractAddress: tokenFelt,
-		FunctionName:    "approve",
-		CallData:        []*felt.Felt{hyperlaneAddress, lowF, highF},
-	}
-
-	tx, err := h.account.BuildAndSendInvokeTxn(ctx, []rpc.InvokeFunctionCall{invoke}, nil)
-	if err != nil {
-		return fmt.Errorf("starknet token approve send failed: %w", err)
-	}
-
-	_, waitErr := h.account.WaitForTransactionReceipt(ctx, tx.Hash, 2*time.Second)
-	if waitErr != nil {
-		return fmt.Errorf("starknet token approve wait failed: %w", waitErr)
-	}
-	return nil
 }
 
 // waitForOrderStatus waits for the order status to become the expected value with retry logic
