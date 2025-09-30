@@ -1412,7 +1412,6 @@ func verifyMultiOrderBalanceChanges(t *testing.T, beforeOrder, finalAlice *Netwo
 		expectedChange := expectedSolverChanges[networkName]
 
 		if expectedChange.Cmp(big.NewInt(0)) != 0 {
-
 			if actualChange.Cmp(big.NewInt(0)) == 0 {
 				t.Logf("⚠️  Solver balance unchanged on %s: %s (expected: %s)", networkName, actualChange.String(), expectedChange.String())
 			} else {

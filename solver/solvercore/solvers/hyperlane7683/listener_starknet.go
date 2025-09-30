@@ -102,7 +102,6 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 		// Use the HIGHER of the two values - this respects updated .env values
 		// while also respecting any actual progress that's been saved
 		if deploymentStateBlock > resolvedStartBlock {
-
 			lastProcessedBlock = deploymentStateBlock
 			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
 				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, resolvedStartBlock)
@@ -198,7 +197,7 @@ func (l *starknetListener) catchUpHistoricalBlocks(ctx context.Context, handler 
 		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
 		} else {
-			//fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
+			// fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
 		}
 	}
 	fmt.Printf("%s✅ Historical block processing complete\n", p)

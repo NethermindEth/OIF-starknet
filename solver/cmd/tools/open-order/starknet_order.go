@@ -141,7 +141,7 @@ func loadStarknetNetworks() []StarknetNetworkConfig {
 			log.Fatalf("missing STARKNET_HYPERLANE_ADDRESS or STARKNET_DOG_COIN_ADDRESS in .env")
 		}
 
-		//fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogAddr)
+		// fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogAddr)
 
 		networks = append(networks, StarknetNetworkConfig{
 			name:             networkConfig.Name,
@@ -368,7 +368,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	}
 
 	// Store initial balance for comparison
-	//initialBalance := initialUserBalance
+	// initialBalance := initialUserBalance
 
 	// If allowance is insufficient, approve the Hyperlane contract
 	requiredAmount = order.InputAmount
@@ -469,10 +469,10 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	fmt.Printf("   ✅ Order opened successfully!\n")
 
 	//// Verify that balances actually changed as expected
-	//fmt.Printf("   🔍 Verifying balance changes...\n")
-	//if err := verifyStarknetBalanceChanges(client, inputToken, owner, initialBalance, order.InputAmount); err != nil {
+	// fmt.Printf("   🔍 Verifying balance changes...\n")
+	// if err := verifyStarknetBalanceChanges(client, inputToken, owner, initialBalance, order.InputAmount); err != nil {
 	//	fmt.Printf("   ⚠️  Balance verification failed: %v\n", err)
-	//} else {
+	// } else {
 	//	fmt.Printf("   👍 Balance changes verified!\n")
 	//}
 
@@ -511,7 +511,7 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	evmAddr := common.HexToAddress(evmUserAddr)
 	paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 	recipientFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-	//fmt.Printf("   🔍 EVM recipient address for %s: %s (padded to 32 bytes: %s)\n", order.User, evmUserAddr, hex.EncodeToString(paddedAddr))
+	// fmt.Printf("   🔍 EVM recipient address for %s: %s (padded to 32 bytes: %s)\n", order.User, evmUserAddr, hex.EncodeToString(paddedAddr))
 
 	// Output token should be from the destination network, not origin
 	var outputTokenFelt *felt.Felt
@@ -527,7 +527,7 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 				evmAddr := common.HexToAddress(dogCoinAddr)
 				paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 				outputTokenFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-				//fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
+				// fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 			} else {
 				// Last resort - use origin network (this is wrong but prevents crash)
 				outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
@@ -563,7 +563,7 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 		evmAddr := common.HexToAddress(destSettlerHex)
 		paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 		destSettlerFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-		//fmt.Printf("   🔍 EVM destination settler address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
+		// fmt.Printf("   🔍 EVM destination settler address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 	}
 
 	return StarknetOrderData{

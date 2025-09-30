@@ -269,9 +269,9 @@ func loadNetworks() []NetworkConfig {
 		}
 
 		dogCoinAddr := os.Getenv(envVarName)
-		//if dogCoinAddr != "" {
+		// if dogCoinAddr != "" {
 		//	fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogCoinAddr)
-		//} else {
+		// } else {
 		//	fmt.Printf("   ⚠️  No DogCoin address found for %s (env var: %s)\n", networkName, envVarName)
 		//}
 
@@ -611,16 +611,15 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		} else {
 			time.Sleep(5 * time.Second) // Live networks need more time
 		}
-
 	} else {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
 
 	//// Store initial balances for comparison
-	//initialBalances := struct {
+	// initialBalances := struct {
 	//	userBalance      *big.Int
 	//	hyperlaneBalance *big.Int
-	//}{
+	// }{
 	//	userBalance:      initialUserBalance,
 	//	hyperlaneBalance: initialHyperlaneBalance,
 	//}
@@ -635,10 +634,10 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	orderData := buildOrderData(order, originNetwork, destinationNetwork, localDomain, senderNonce)
 
 	//// Debug: Log the order data before encoding
-	//fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
-	//fmt.Printf("   • User: %s\n", orderData.User)
-	//fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
-	//fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
+	// fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
+	// fmt.Printf("   • User: %s\n", orderData.User)
+	// fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
+	// fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
 	//fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
 	//fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
 	//fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
@@ -660,10 +659,10 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	}
 
 	// Debug: Log the encoded data
-	//fmt.Printf("🔍 Encoded Order Data Debug:\n")
-	//fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
-	//fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
-	//fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
+	// fmt.Printf("🔍 Encoded Order Data Debug:\n")
+	// fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
+	// fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
+	// fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
 	//fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
 	//if len(crossChainOrder.OrderData) > 64 {
 	//	fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
@@ -697,13 +696,13 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("📊 Gas used: %d\n", receipt.GasUsed)
 
 		//// Verify that balances actually changed as expected
-		//fmt.Printf("   🔍 Verifying input tokens were transferred...\n")
+		// fmt.Printf("   🔍 Verifying input tokens were transferred...\n")
 		//// For balance verification, use the actual input amount the user paid
 		//// This is what the user actually gave up to open the order (not MaxSpent which is output amount)
-		//expectedTransferAmount := order.InputAmount
-		//if err := verifyBalanceChanges(client, inputToken, owner, spender, initialBalances, expectedTransferAmount); err != nil {
+		// expectedTransferAmount := order.InputAmount
+		// if err := verifyBalanceChanges(client, inputToken, owner, spender, initialBalances, expectedTransferAmount); err != nil {
 		//	fmt.Printf("⚠️  Balance verification failed: %v\n", err)
-		//} else {
+		// } else {
 		//	fmt.Printf("👍 Balance changes verified (accounting for profit margin)\n")
 		//}
 	} else {
@@ -730,7 +729,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 }
 
 func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
-
 	// Input token from origin network, output token from destination network
 	// inputTokenAddr := originNetwork.dogCoinAddress
 	// outputTokenAddr := destinationNetwork.dogCoinAddress
@@ -936,10 +934,10 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 	abiOrderData := convertToABIOrderData(orderData, senderNonce, networks)
 
 	//// Debug: Log the ABI order data
-	//fmt.Printf("🔍 ABI Order Data Debug:\n")
-	//fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
-	//fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
-	//fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
+	// fmt.Printf("🔍 ABI Order Data Debug:\n")
+	// fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
+	// fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
+	// fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
 	//fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
 	//fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
 	//fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
@@ -1017,7 +1015,7 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 	}
 
 	// Extract amounts from MaxSpent and MinReceived arrays
-	var amountIn, amountOut *big.Int = big.NewInt(0), big.NewInt(0)
+	var amountIn, amountOut = big.NewInt(0), big.NewInt(0)
 
 	// For ABI encoding, we need to use the origin chain tokens
 	// since the order is processed on the origin chain
