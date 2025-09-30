@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,6 +97,7 @@ func NewHyperlaneStarknet(rpcURL string, chainID uint64) *HyperlaneStarknet {
 }
 
 // Fill executes a fill operation on Starknet
+// Combines fill and settle into a single multi-call transaction
 func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -115,7 +117,7 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 		return OrderActionError, fmt.Errorf("failed to convert destination settler to felt: %w", err)
 	}
 
-	// Pre-check: skip if order is already filled or settled
+	// Pre-check: skip if order is already settled
 	status, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
 		fmt.Printf("   ⚠️  Status check failed: %v\n", err)
@@ -123,79 +125,119 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 	}
 	networkName := logutil.NetworkNameByChainID(h.chainID)
 	logutil.LogStatusCheck(networkName, 1, 1, status, "UNKNOWN")
-	if status == "FILLED" {
-		fmt.Printf("⏭️  Order already filled, proceeding to settlement\n")
-		return OrderActionSettle, nil
-	}
 	if status == "SETTLED" {
 		fmt.Printf("🎉  Order already settled, nothing to do\n")
-		return OrderActionSettle, nil
+		return OrderActionComplete, nil
 	}
-
-	// Build approval calls for tokens that need approval (multi-call optimization)
-	approvalCalls, err := h.buildApprovalCalls(ctx, args, destinationSettlerAddr)
-	if err != nil {
-		return OrderActionError, fmt.Errorf("failed to build approval calls: %w", err)
-	}
-
-	// Prepare fill calldata; has a capacity of 6 + len(words)
-	// - Order ID: 2 felts (u256)
-	// - Origin data: 1 felt for size (usize), 1 felt for length (usize), 1 felt for each element
-	// - Filler data: 1 felt for size (usize), 1 felt for length (usize), 0 elements
-	originData := instruction.OriginData
-	words := starknetutil.BytesToU128Felts(originData)
-
-	// Convert bytes32 representation of orderID to u256 (2 felts)
-	orderIDLow, orderIDHigh, err := starknetutil.ConvertSolidityOrderIDForStarknet(orderID)
-	if err != nil {
-		return OrderActionError, fmt.Errorf("failed to convert solidity order ID for starknet: %w", err)
-	}
-
-	calldata := make([]*felt.Felt, 0, calldataBaseSize+len(words))
-	calldata = append(calldata, orderIDLow, orderIDHigh)
-	calldata = append(calldata, utils.Uint64ToFelt(uint64(len(originData))))
-	calldata = append(calldata, utils.Uint64ToFelt(uint64(len(words))))
-	calldata = append(calldata, words...)
-	calldata = append(calldata, utils.Uint64ToFelt(0), utils.Uint64ToFelt(0)) // empty (size=0, len=0)
-
-	// Build fill call
-	fillCall := rpc.InvokeFunctionCall{
-		ContractAddress: destinationSettlerAddr,
-		FunctionName:    "fill",
-		CallData:        calldata,
-	}
-
-	// Combine approval calls + fill call into a single multi-call transaction
-	calls := append(approvalCalls, fillCall)
 
 	// Get chain IDs for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
 	destChainID := instruction.DestinationChainID.Uint64()
 
-	if len(approvalCalls) > 0 {
-		logutil.CrossChainOperation(fmt.Sprintf("Executing multi-call with %d approval(s) + fill", len(approvalCalls)), originChainID, destChainID, orderID)
-	} else {
-		logutil.CrossChainOperation("Executing fill (no approvals needed)", originChainID, destChainID, orderID)
+	// Build all calls for the complete multi-call transaction
+	var calls []rpc.InvokeFunctionCall
+
+	// 1. Build token approval calls (if needed)
+	approvalCalls, err := h.buildApprovalCalls(ctx, args, destinationSettlerAddr)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("failed to build approval calls: %w", err)
+	}
+	calls = append(calls, approvalCalls...)
+
+	// 2. Build fill call
+	originData := instruction.OriginData
+	words := starknetutil.BytesToU128Felts(originData)
+
+	orderIDLow, orderIDHigh, err := starknetutil.ConvertSolidityOrderIDForStarknet(orderID)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("failed to convert solidity order ID for starknet: %w", err)
 	}
 
-	// Execute the multi-call transaction
+	fillCalldata := make([]*felt.Felt, 0, calldataBaseSize+len(words))
+	fillCalldata = append(fillCalldata, orderIDLow, orderIDHigh)
+	fillCalldata = append(fillCalldata, utils.Uint64ToFelt(uint64(len(originData))))
+	fillCalldata = append(fillCalldata, utils.Uint64ToFelt(uint64(len(words))))
+	fillCalldata = append(fillCalldata, words...)
+	fillCalldata = append(fillCalldata, utils.Uint64ToFelt(0), utils.Uint64ToFelt(0)) // empty filler data
+
+	fillCall := rpc.InvokeFunctionCall{
+		ContractAddress: destinationSettlerAddr,
+		FunctionName:    "fill",
+		CallData:        fillCalldata,
+	}
+	calls = append(calls, fillCall)
+
+	// 3. Build ETH approval call for settlement gas (if needed)
+	originDomain, err := h.getOriginDomain(args)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("failed to get origin domain: %w", err)
+	}
+
+	gasPayment, err := h.quoteGasPayment(ctx, originDomain, destinationSettlerAddr)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("failed to quote gas payment: %w", err)
+	}
+
+	ethApprovalCall, err := h.buildETHApprovalCall(ctx, gasPayment, destinationSettlerAddr)
+	if err != nil {
+		return OrderActionError, fmt.Errorf("failed to build ETH approval call: %w", err)
+	}
+	if ethApprovalCall != nil {
+		calls = append(calls, *ethApprovalCall)
+	}
+
+	// 4. Build settle call
+	gasLow, gasHigh := starknetutil.ConvertBigIntToU256Felts(gasPayment)
+	settleCalldata := []*felt.Felt{
+		utils.Uint64ToFelt(1),   // order ID array length
+		orderIDLow, orderIDHigh, // order ID (u256) low and high
+		gasLow, gasHigh, // gas amount (u256) low and high
+	}
+
+	settleCall := rpc.InvokeFunctionCall{
+		ContractAddress: destinationSettlerAddr,
+		FunctionName:    "settle",
+		CallData:        settleCalldata,
+	}
+	calls = append(calls, settleCall)
+
+	// Log the multi-call composition
+	callDescriptions := make([]string, 0, 4)
+	if len(approvalCalls) > 0 {
+		callDescriptions = append(callDescriptions, fmt.Sprintf("%d token approval(s)", len(approvalCalls)))
+	}
+	callDescriptions = append(callDescriptions, "fill")
+	if ethApprovalCall != nil {
+		callDescriptions = append(callDescriptions, "ETH approval")
+	}
+	callDescriptions = append(callDescriptions, "settle")
+
+	logutil.CrossChainOperation(
+		fmt.Sprintf("Executing single multi-call with [%s]", strings.Join(callDescriptions, ", ")),
+		originChainID, destChainID, orderID,
+	)
+
+	// Execute the complete multi-call transaction
 	tx, err := h.account.BuildAndSendInvokeTxn(ctx, calls, nil)
 	if err != nil {
-		return OrderActionError, fmt.Errorf("starknet fill multi-call send failed: %w", err)
+		return OrderActionError, fmt.Errorf("starknet multi-call send failed: %w", err)
 	}
-	logutil.CrossChainOperation(fmt.Sprintf("Fill transaction sent: %s", tx.Hash.String()), originChainID, destChainID, orderID)
+	logutil.CrossChainOperation(fmt.Sprintf("Multi-call transaction sent: %s", tx.Hash.String()), originChainID, destChainID, orderID)
 
 	// Wait for confirmation
 	_, waitErr := h.account.WaitForTransactionReceipt(ctx, tx.Hash, 2*time.Second)
 	if waitErr != nil {
-		return OrderActionError, fmt.Errorf("starknet fill wait failed: %w", waitErr)
+		return OrderActionError, fmt.Errorf("starknet multi-call wait failed: %w", waitErr)
 	}
-	logutil.CrossChainOperation("Fill transaction confirmed", originChainID, destChainID, orderID)
+	logutil.CrossChainOperation("Multi-call transaction confirmed - order filled and settled", originChainID, destChainID, orderID)
 
-	return OrderActionSettle, nil
+	return OrderActionComplete, nil
 }
 
 // Settle executes settlement on Starknet
+// Note: For Starknet, Fill() now includes settlement in the same multi-call,
+// so this method should not normally be called. It's kept for backward compatibility
+// and edge cases where settlement needs to be done separately.
 func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -215,8 +257,18 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 		return fmt.Errorf("failed to convert destination settler to felt: %w", err)
 	}
 
+	// Check if already settled
+	status, err := h.GetOrderStatus(ctx, args)
+	if err != nil {
+		return fmt.Errorf("failed to get order status: %w", err)
+	}
+	if status == "SETTLED" {
+		fmt.Printf("🎉  Order already settled, nothing to do\n")
+		return nil
+	}
+
 	// Pre-settle check: ensure order is FILLED with retry logic
-	status, err := h.waitForOrderStatus(ctx, args, "FILLED", 5, 2*time.Second)
+	status, err = h.waitForOrderStatus(ctx, args, "FILLED", 5, 2*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to get order status after retries: %w", err)
 	}
