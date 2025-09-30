@@ -10,7 +10,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
 2. **Fill on destination**: Solver sends output tokens to Alice's destination chain wallet (using the destination chain hyperlane contract)
-3. **Settle on destination\***: A simple txn sent after filling to prevent double-filling, triggers dispatch for settlement
+3. **Settle on destination\***: A simple txn sent to the destination hyperlane contract after filling to prevent double-filling, triggers dispatch for settlement
 4. **Hyperlane dispatch settlement on origin**: Releases locked input tokens to solver on origin chain (handled by Hyperlane protocol; not in the scope of the solver)
 
 ## 🚀 Current Status
