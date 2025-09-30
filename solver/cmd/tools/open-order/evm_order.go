@@ -639,14 +639,14 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
 	// fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
 	// fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
-	//fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
-	//fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
-	//for i, maxSpent := range orderData.MaxSpent {
+	// fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
+	// fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
+	// for i, maxSpent := range orderData.MaxSpent {
 	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
 	//		i, maxSpent.Token, maxSpent.Amount.String(), maxSpent.ChainID.String())
 	//}
-	//fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
-	//for i, minReceived := range orderData.MinReceived {
+	// fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
+	// for i, minReceived := range orderData.MinReceived {
 	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
 	//		i, minReceived.Token, minReceived.Amount.String(), minReceived.ChainID.String())
 	//}
@@ -664,7 +664,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
 	// fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
 	// fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
-	//if len(crossChainOrder.OrderData) > 64 {
+	// if len(crossChainOrder.OrderData) > 64 {
 	//	fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
 	//}
 
@@ -939,14 +939,14 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 	// fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
 	// fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
 	// fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
-	//fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
-	//fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
-	//fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
-	//fmt.Printf("   • OriginDomain: %d\n", abiOrderData.OriginDomain)
-	//fmt.Printf("   • DestinationDomain: %d\n", abiOrderData.DestinationDomain)
-	//fmt.Printf("   • DestinationSettler: %x\n", abiOrderData.DestinationSettler)
-	//fmt.Printf("   • FillDeadline: %d\n", abiOrderData.FillDeadline)
-	//fmt.Printf("   • Data length: %d bytes\n", len(abiOrderData.Data))
+	// fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
+	// fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
+	// fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
+	// fmt.Printf("   • OriginDomain: %d\n", abiOrderData.OriginDomain)
+	// fmt.Printf("   • DestinationDomain: %d\n", abiOrderData.DestinationDomain)
+	// fmt.Printf("   • DestinationSettler: %x\n", abiOrderData.DestinationSettler)
+	// fmt.Printf("   • FillDeadline: %d\n", abiOrderData.FillDeadline)
+	// fmt.Printf("   • Data length: %d bytes\n", len(abiOrderData.Data))
 
 	// Pack as a tuple to match Solidity's abi.encode(order)
 	tupleT, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
