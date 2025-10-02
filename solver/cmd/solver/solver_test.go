@@ -319,7 +319,7 @@ func TestContextHandling(t *testing.T) {
 		// Test context creation like in RunSolver
 		ctx, cancel := context.WithCancel(context.Background())
 
-		// Verify context is not nil and not cancelled initially
+		// Verify context is not nil and not canceled initially
 		assert.NotNil(t, ctx)
 		assert.NoError(t, ctx.Err())
 
@@ -329,7 +329,7 @@ func TestContextHandling(t *testing.T) {
 		// Give it a moment to propagate
 		time.Sleep(time.Millisecond)
 
-		// Verify context is now cancelled
+		// Verify context is now canceled
 		assert.Error(t, ctx.Err())
 		assert.Equal(t, context.Canceled, ctx.Err())
 	})
@@ -339,13 +339,13 @@ func TestContextHandling(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer cancel()
 
-		// Initially should not be cancelled
+		// Initially should not be canceled
 		assert.NoError(t, ctx.Err())
 
 		// Wait for timeout
 		time.Sleep(20 * time.Millisecond)
 
-		// Should now be cancelled due to timeout
+		// Should now be canceled due to timeout
 		assert.Error(t, ctx.Err())
 		assert.Equal(t, context.DeadlineExceeded, ctx.Err())
 	})

@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -338,7 +339,7 @@ func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs
 
 	// Get origin chain ID for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
-	//logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
+	// logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
@@ -491,6 +492,16 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 	}
 
 	fmt.Printf("   ✅ Approval confirmed! Gas used: %d\n", receipt.GasUsed)
+
+	// Add delay to ensure blockchain state is updated after approval
+	// Live networks need more time for state synchronization
+	useLocalForks := os.Getenv("FORKING") == "true"
+	if useLocalForks {
+		time.Sleep(1 * time.Second) // Local forks are fast
+	} else {
+		time.Sleep(6 * time.Second) // Live networks need more time
+	}
+
 	return nil
 }
 

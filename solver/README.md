@@ -4,13 +4,22 @@ This (Golang) solver is an extension to BootNodeDev's Hyperlane7683 (Typescript)
 
 ## Overview
 
-The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains, then fills the intents based on configurable rules.
+The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains (orders are opened on the "origin" chain), then fills and settles\* them on the "destination" chain (origin chain != destination chain).
+
+## Order Lifecycle
+
+1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
+2. **Fill on destination**: Solver sends output tokens to Alice's destination chain wallet (using the destination chain hyperlane contract)
+3. **Settle on destination\***: A simple txn sent to the destination hyperlane contract after filling to prevent double-filling, triggers dispatch for settlement
+4. **Hyperlane dispatch settlement on origin**: Releases locked input tokens to solver on origin chain (handled by Hyperlane protocol; not in the scope of the solver)
 
 ## 🚀 Current Status
 
-**🎉 (Local Sepolia) solves all 3 order types on local forks**: Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain
+**🎉 (Local Sepolia) solves all 3 order types on local forks:** Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain.
 
-**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: Only Opens & Fills Starknet->EVM orders. The Settle call is awaiting Hyperlane to register the Starknet domain on each EVM contract.
+**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:** Opens, Fills, and Settles EVM->EVM & EVM->Starknet orders, only Opens & Fills Starknet->EVM orders. The Settle call is awaiting Hyperlane to register the Starknet domain on each EVM contract.
+
+> **\*NOTE:** The Starknet Hyperlane7683 contract was deployed [here](https://sepolia.voyager.online/contract/0x002369427e2142db4dfac3a61f5ea7f084e3a74f4c444b5c4e6192a12e49a349) August 29th (2025) in-house; allowing the same deploying address (the owner) to also register the EVM domains on Starknet. This is why EVM->Starknet orders can fully solve, but Starknet->EVM cannot on live Sepolia.
 
 ## Quick Start
 
@@ -29,26 +38,82 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 3. Run the solver:
    ```bash
-   make run
+   # For local development (with forked networks)
+   make run-local
+   
+   # For live networks (Sepolia testnet)
+   make run-live
    ```
 
-## Running on Local Forks
+## Testing
 
-For an efficient setup, open 3 terminals and move each to the `go/` directory. Make sure your `FORKING` env var is set to true in your `.env` file.
+### Unit Tests (No Networks Required)
+
+- **What it tests:** Core package functionality without network dependencies
+
+```bash
+make test-unit
+```
+
+### RPC Tests (Requires Networks)
+
+- **What it tests:** Basic RPC connections
+- **Requirements:** For local tests, the forked networks must be running in the background (`make start-networks`).
+
+```bash
+# Test with local devnet
+make test-rpc-local
+
+# Test with live networks
+make test-rpc-live
+```
+
+### Integration Tests (Requires Networks)
+
+- **What it tests:** Order opening and creation
+- **Requirements:** For local tests, the forked networks must be running in the background (`make start-networks`). For live tests, accounts must be funded (see [Running the Solver](#running-the-solver))
+
+```bash
+# Test with local devnet
+make test-integration-local
+
+# Test with live testnets
+make test-integration-live
+```
+
+### Solver Integration Tests
+
+- **What it tests:** Solver completes an order's lifecycle (Open → Fill → Settle)
+- **Requirements:** For local tests, the forked networks must be running in the background (`make start-networks`). For live tests, accounts must be funded (see [Running the Solver](#running-the-solver))
+
+```bash
+# Test with local devnet
+make test-solver-local
+
+# Test with live testnets
+make test-solver-live
+```
+
+## Running the Solver
+
+### Using Local Forked Networks
+
+For an efficient setup, open 3 terminals and move each to the `solver/` directory.
 
 **Terminal 1: Start networks (runs continuously)**
 
 ```bash
-make rebuild                    # Rebuild contracts & binaries
-make start-networks             # Start local forked networks (EVM + Starknet)
+make kill-all                   # Ensures no background solvers are running and cleans the solver's state
+make rebuild                    # Rebuild binaries
+make start-networks             # Start local forked networks (Starknet + EVMs)
 ```
 
 **Terminal 2: Setup and run solver**
 
 ```bash
-make register-starknet-on-evm   # Spoof call to register Starknet domain on EVM contracts
-make fund-accounts              # Fund Dog coins to Alice and the Solver on all networks
-make run                        # Start the solver
+make register-starknet-on-evm   # Spoof call to register Starknet domain on each EVM contract
+make fund-accounts-local        # Fund Dog coins to Alice and the Solver on all networks
+make run-local                  # Start the solver with local devnet (FORKING=true)
 ```
 
 **Terminal 3: Create orders**
@@ -59,21 +124,49 @@ make open-random-evm-sn-order # EVM → Starknet order
 make open-random-sn-order     # Starknet → EVM order
 ```
 
-## Order Lifecycle
+### Using Live Networks
 
-1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
-2. **Fill on destination**: Solver sends output tokens to Alice's destination chain wallet
-3. **Settle on destination**: Prevents double-filling, triggers dispatch
-4. **Hyperlane dispatch**: Releases locked input tokens to solver (handled by Hyperlane protocol)
+Before running or testing the solver on Sepolia, you must first fund the order opening wallet (Alice) and the Solver wallet with test tokens. Each ERC-20 contract has a `mint` function that can be used to manually fund accounts. To automate this process, run `make fund-accounts-live`
+
+> **(Sepolia) Token Addresses:** [Starknet](https://sepolia.voyager.online/token/0x0312be4cb8416dda9e192d7b4d42520e3365f71414aefad7ccd837595125f503), [Ethereum](https://sepolia.etherscan.io/token/0x76878654a2d96dddf8cf0cfe8fa608ab4ce0d499), [Arbitrum](https://sepolia.arbiscan.io/token/0x1083b934abb0be83aae6579c6d5fd974d94e8ea5), [Base](https://sepolia.basescan.org/token/0xb844eed1581f3fb810ffb6dd6c5e30c049cf23f4), [Optimism](https://sepolia-optimism.etherscan.io/token/0xe2f9c9ecab8ae246455be4810cac8fc7c5009150),
+
+Once your accounts are funded (Alice and Solver on all networks), you can run the solver and start opening orders. For this setup, open 2 terminals and move both to the `solver/` directory.
+
+**Terminal 1: Run the solver (runs continuously)**
+
+```bash
+make run-live                   # Start the solver with live networks (FORKING=false)
+```
+
+**Terminal 2: Create orders**
+
+```bash
+make open-random-evm-order    # EVM → EVM order
+make open-random-evm-sn-order # EVM → Starknet order
+make open-random-sn-order     # Starknet → EVM order
+```
 
 ## Architecture
 
 ```js
-go/
+solver/
 ├── cmd/                              # CLI entry points
-│   ├── open-order/                   # Create orders (EVM & Starknet)
-│   ├── setup-forks/                  # Setup local testnet forks
-│   └── solver/                       # Main solver binary
+│   ├── main.go                       # Main solver binary entry point
+│   ├── solver/                       # Solver-specific CLI commands
+│   └── tools/                        # Utility tools and scripts
+│       ├── additional-helpers/       # Starknet contract deployment helpers
+│       │   ├── declare-sn-hyperlane7683/
+│       │   ├── declare-sn-mock-erc20/
+│       │   ├── deploy-sn-hyperlane7683/
+│       │   ├── deploy-sn-mock-erc20/
+│       │   ├── register-evm-routers/
+│       │   ├── register-sn-routers/
+│       │   ├── setup-starknet-contracts/
+│       │   └── verify-hyperlane7683/
+│       ├── deploy-forge-mock-erc20/  # Deploy MockERC20 via Forge
+│       ├── fund-accounts/            # Fund test accounts with tokens
+│       ├── open-order/               # Create orders (EVM & Starknet)
+│       └── start-networks.sh         # Start local testnet forks
 ├── solvercore/                       # Core solver logic
 │   ├── base/                         # Core interfaces (listener & solver)
 │   ├── config/                       # Configuration management
@@ -87,14 +180,16 @@ go/
 │   │   ├── listener_evm.go           # EVM event listener & processing
 │   │   ├── listener_starknet.go      # Starknet event listener & processing
 │   │   ├── rules.go                  # Intent validation rules & profitability
-│   ├── types/                        # Cross-chain data structures
 │   │   └── solver.go                 # Main solver orchestration & chain routing
+│   ├── types/                        # Cross-chain data structures
 │   └── solver_manager.go             # Solver orchestration & lifecycle
 ├── pkg/                              # Public utilities
 │   ├── envutil/                      # Environment variable utilities
 │   ├── ethutil/                      # Ethereum utilities
 │   └── starknetutil/                 # Starknet utilities
 └── state/                            # Persistent state storage
+    ├── deployment/                   # Contract deployment artifacts
+    └── solver_state/                 # Solver state persistence
 ```
 
 ## Key Files in `solvers/hyperlane7683/`
@@ -118,6 +213,10 @@ go/
 ### Validation & Rules
 
 - **`rules.go`** - Intent validation rules, profitability analysis, balance checks, allow/block lists
+
+### Test Files
+
+- **`*_test.go`** - Comprehensive test suites for all components
 
 ### Key Design Patterns
 
@@ -162,26 +261,11 @@ The solver uses environment variables to manage:
 
 To add support for a new blockchain (e.g., Solana):
 
-1. **Create listener**: `listener_solana.go` implementing `Listener`
-2. **Create operations**: `hyperlane_solana.go` with Solana-specific fill logic
+1. **Create listener**: `listener_solana.go` implementing `Listener` in `solvercore/solvers/hyperlane7683/`
+2. **Create operations**: `hyperlane_solana.go` with Solana-specific fill logic in `solvercore/solvers/hyperlane7683/`
 3. **Update routing**: Add Solana case in `solver.go` destination routing
 4. **Add config**: Network configuration in `solvercore/config/networks.go`
-
-## Testing
-
-```bash
-# Unit tests (no RPC required)
-make test-unit
-
-# RPC tests (requires networks)
-make start-networks  # Terminal 1
-make test-rpc        # Terminal 2
-
-# Integration tests (requires full setup)
-make start-networks  # Terminal 1
-make fund-accounts register-starknet-on-evm  # Terminal 2
-make test-integration
-```
+5. **Add tools**: Create order creation tools in `cmd/tools/open-order/` if needed
 
 ## License
 
