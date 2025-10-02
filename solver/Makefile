@@ -360,6 +360,8 @@ test-rpc-live:
 test-integration-local:
 	@echo "🔄 Running basic integration tests with local devnet (order opening only)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
+	@echo "Rebuilding solver and order opening tools..."
+	@make rebuild
 	@echo "Funding accounts and setting up contracts..."
 	@make fund-accounts-local
 	@make register-starknet-on-evm-local
@@ -370,12 +372,16 @@ test-integration-local:
 test-integration-live:
 	@echo "🔄 Running basic integration tests with live testnets (order opening only)..."
 	@echo "Make sure you have live network access and proper environment variables set"
+	@echo "Rebuilding solver and order opening tools..."
+	@make rebuild
 	@set -a && . ./.env && set +a && FORKING=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
 
 # Run solver integration tests with local devnet (order opening + solving)
 test-solver-local:
 	@echo "🤖 Running solver integration tests with local devnet (multi-order processing)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
+	@echo "Rebuilding solver and order opening tools..."
+	@make rebuild
 	@echo "Funding accounts and setting up contracts..."
 	@make fund-accounts-local
 	@make register-starknet-on-evm-local
@@ -386,6 +392,8 @@ test-solver-local:
 test-solver-live:
 	@echo "🤖 Running solver integration tests with live testnets (multi-order processing)..."
 	@echo "Make sure you have live network access and proper environment variables set"
+	@echo "Rebuilding solver and order opening tools..."
+	@make rebuild
 	@set -a && . ./.env && set +a && FORKING=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
