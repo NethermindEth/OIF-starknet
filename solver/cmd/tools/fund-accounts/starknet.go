@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -73,9 +74,24 @@ func fundStarknet(amount *big.Int) {
 	// Get recipient addresses
 	recipients := getStarknetRecipients()
 
-	// Fund each recipient
+	// Convert token address to felt
+	tokenFelt, err := utils.HexToFelt(tokenAddress)
+	if err != nil {
+		log.Fatalf("Failed to convert token address to felt: %v", err)
+	}
+
+	// Convert amount to two felts (low, high) for u256
+	amountLow, amountHigh := starknetutil.ConvertBigIntToU256Felts(amount)
+
+	// Build all mint calls for multi-call transaction
+	var calls []rpc.InvokeFunctionCall
+	var callDescriptions []string
+
+	fmt.Printf("   💸 Building multi-call to fund both accounts...\n")
+
+	// Check current balances and build mint calls
 	for _, recipient := range recipients {
-		fmt.Printf("   💸 Funding %s (%s)...\n", recipient.Name, recipient.Address)
+		fmt.Printf("   📊 Checking %s (%s)...\n", recipient.Name, recipient.Address)
 
 		// Check current balance
 		currentBalance, err := starknetutil.ERC20Balance(client, tokenAddress, recipient.Address)
@@ -83,54 +99,55 @@ func fundStarknet(amount *big.Int) {
 			fmt.Printf("     📊 Current balance: %s\n", starknetutil.FormatTokenAmount(currentBalance, tokenDecimals))
 		}
 
-		// Convert addresses to felts for the mint call
-		tokenFelt, err := utils.HexToFelt(tokenAddress)
-		if err != nil {
-			log.Printf("     ❌ Failed to convert token address to felt: %v", err)
-			continue
-		}
-
+		// Convert recipient address to felt
 		recipientFelt, err := utils.HexToFelt(recipient.Address)
 		if err != nil {
 			log.Printf("     ❌ Failed to convert recipient address to felt: %v", err)
 			continue
 		}
 
-		// Convert amount to two felts (low, high) for u256
-		amountLow, amountHigh := starknetutil.ConvertBigIntToU256Felts(amount)
-
 		// Build mint calldata: mint(to: ContractAddress, amount: u256)
 		mintCalldata := []*felt.Felt{recipientFelt, amountLow, amountHigh}
 
-		// Create mint transaction
+		// Create mint call
 		mintCall := rpc.InvokeFunctionCall{
 			ContractAddress: tokenFelt,
 			FunctionName:    "mint",
 			CallData:        mintCalldata,
 		}
 
-		// Send mint transaction
-		mintTx, err := minterAccount.BuildAndSendInvokeTxn(context.Background(), []rpc.InvokeFunctionCall{mintCall}, nil)
-		if err != nil {
-			log.Printf("     ❌ Failed to send mint transaction for %s: %v", recipient.Name, err)
-			continue
-		}
+		calls = append(calls, mintCall)
+		callDescriptions = append(callDescriptions, fmt.Sprintf("mint(%s)", recipient.Name))
+	}
 
-		fmt.Printf("     🚀 Mint transaction: %s\n", mintTx.Hash.String())
+	if len(calls) == 0 {
+		log.Fatalf("No valid recipients found for funding")
+	}
 
-		// Wait for confirmation
-		_, err = minterAccount.WaitForTransactionReceipt(context.Background(), mintTx.Hash, 2*time.Second)
-		if err != nil {
-			log.Printf("     ❌ Failed to wait for transaction confirmation: %v", err)
-			continue
-		}
+	// Log the multi-call composition
+	fmt.Printf("   📝 Executing multi-call with [%s]...\n", strings.Join(callDescriptions, ", "))
 
-		fmt.Printf("     ✅ Minted %s tokens\n", starknetutil.FormatTokenAmount(amount, tokenDecimals))
+	// Send multi-call transaction
+	mintTx, err := minterAccount.BuildAndSendInvokeTxn(context.Background(), calls, nil)
+	if err != nil {
+		log.Fatalf("Failed to send multi-call mint transaction: %v", err)
+	}
 
-		// Verify new balance
+	fmt.Printf("   🚀 Multi-call mint transaction: %s\n", mintTx.Hash.String())
+
+	// Wait for confirmation
+	_, err = minterAccount.WaitForTransactionReceipt(context.Background(), mintTx.Hash, 2*time.Second)
+	if err != nil {
+		log.Fatalf("Failed to wait for transaction confirmation: %v", err)
+	}
+
+	fmt.Printf("   ✅ Multi-call transaction confirmed - funded all accounts!\n")
+
+	// Verify new balances
+	for _, recipient := range recipients {
 		newBalance, err := starknetutil.ERC20Balance(client, tokenAddress, recipient.Address)
 		if err == nil {
-			fmt.Printf("     💰 New balance: %s\n", starknetutil.FormatTokenAmount(newBalance, tokenDecimals))
+			fmt.Printf("   💰 %s new balance: %s\n", recipient.Name, starknetutil.FormatTokenAmount(newBalance, tokenDecimals))
 		}
 	}
 }
