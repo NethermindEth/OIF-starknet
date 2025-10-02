@@ -370,39 +370,21 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	// Store initial balance for comparison
 	// initialBalance := initialUserBalance
 
-	// If allowance is insufficient, approve the Hyperlane contract
+	// Build all calls for the complete multi-call transaction
+	var calls []rpc.InvokeFunctionCall
+
+	// 1. Build token approval call (if needed)
 	requiredAmount = order.InputAmount
 	if allowance == nil || allowance.Cmp(requiredAmount) < 0 {
-		fmt.Printf("   🔄 Insufficient allowance, approving %s tokens...\n", starknetutil.FormatTokenAmount(requiredAmount, 18))
+		fmt.Printf("   🔄 Insufficient allowance, will approve %s tokens in multi-call...\n", starknetutil.FormatTokenAmount(requiredAmount, 18))
 
-		// Create approval transaction
+		// Create approval call (don't execute yet)
 		approveCall, err := starknetutil.ERC20Approve(inputToken, spender, requiredAmount)
 		if err != nil {
-			fmt.Printf("❌ Failed to create approve transaction: %v\n", err)
+			fmt.Printf("❌ Failed to create approve call: %v\n", err)
 			os.Exit(1)
 		}
-
-		// Send approval transaction
-		approveTx, err := userAccnt.BuildAndSendInvokeTxn(context.Background(), []rpc.InvokeFunctionCall{*approveCall}, nil)
-		if err != nil {
-			fmt.Printf("❌ Failed to send approval transaction: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("   🚀 Approval transaction sent: %s\n", approveTx.Hash.String())
-		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
-
-		// Wait for approval transaction to be mined
-		_, err = userAccnt.WaitForTransactionReceipt(context.Background(), approveTx.Hash, 2*time.Second)
-		if err != nil {
-			fmt.Printf("❌ Failed to wait for approval transaction: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("   ✅ Approval confirmed!\n")
-
-		// Add a small delay to ensure blockchain state is updated after approval
-		time.Sleep(1 * time.Second)
+		calls = append(calls, *approveCall)
 	} else {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
@@ -422,8 +404,8 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 		OrderData:         encodeStarknetOrderData(orderData),
 	}
 
-	// Use generated bindings for open()
-	fmt.Printf("   📝 Calling open() function...\n")
+	// 2. Build open call
+	fmt.Printf("   📝 Building open() call...\n")
 
 	// Get Hyperlane7683 contract address
 	hyperlaneAddrFelt, err := utils.HexToFelt(originNetwork.hyperlaneAddress)
@@ -431,8 +413,6 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 		fmt.Printf("❌ Failed to convert Hyperlane7683 address to felt: %v\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Printf("   📝 Sending open transaction...\n")
 
 	// Build the transaction calldata for open(fill_deadline: u64, order_data_type: u256, order_data: Bytes)
 	calldata := []*felt.Felt{
@@ -442,31 +422,40 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	}
 	calldata = append(calldata, crossChainOrder.OrderData...)
 
-	tx, err := userAccnt.BuildAndSendInvokeTxn(
-		context.Background(),
-		[]rpc.InvokeFunctionCall{{
-			ContractAddress: hyperlaneAddrFelt,
-			FunctionName:    "open",
-			CallData:        calldata,
-		}},
-		nil,
-	)
+	openCall := rpc.InvokeFunctionCall{
+		ContractAddress: hyperlaneAddrFelt,
+		FunctionName:    "open",
+		CallData:        calldata,
+	}
+	calls = append(calls, openCall)
+
+	// Log the multi-call composition
+	callDescriptions := make([]string, 0, 2)
+	if len(calls) > 1 {
+		callDescriptions = append(callDescriptions, "approve")
+	}
+	callDescriptions = append(callDescriptions, "open")
+
+	fmt.Printf("   📝 Executing multi-call with [%s]...\n", strings.Join(callDescriptions, ", "))
+
+	// Execute the complete multi-call transaction
+	tx, err := userAccnt.BuildAndSendInvokeTxn(context.Background(), calls, nil)
 	if err != nil {
-		fmt.Printf("❌ Failed to send open transaction: %v\n", err)
+		fmt.Printf("❌ Failed to send multi-call transaction: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("   🚀 Transaction sent: %s\n", tx.Hash.String())
+	fmt.Printf("   🚀 Multi-call transaction sent: %s\n", tx.Hash.String())
 	fmt.Printf("   ⏳ Waiting for confirmation...\n")
 
 	// Wait for transaction receipt
-	_, err = userAccnt.WaitForTransactionReceipt(context.Background(), tx.Hash, time.Second)
+	_, err = userAccnt.WaitForTransactionReceipt(context.Background(), tx.Hash, 2*time.Second)
 	if err != nil {
 		fmt.Printf("❌ Failed to wait for transaction confirmation: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("   ✅ Order opened successfully!\n")
+	fmt.Printf("   ✅ Multi-call transaction confirmed - order opened successfully!\n")
 
 	//// Verify that balances actually changed as expected
 	// fmt.Printf("   🔍 Verifying balance changes...\n")
@@ -482,6 +471,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	fmt.Printf("   Output Amount: %s\n", order.OutputAmount.String())
 	fmt.Printf("   Origin Chain: %s\n", order.OriginChain)
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
+	fmt.Printf("   Transaction Type: Multi-call (%s)\n", strings.Join(callDescriptions, " + "))
 }
 
 func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
