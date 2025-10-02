@@ -406,7 +406,7 @@ func (h *HyperlaneStarknet) buildApprovalCalls(ctx context.Context, args types.P
 	destinationChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
 
 	// Get origin chain ID for cross-chain logging
-	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
+	// originChainID := args.ResolvedOrder.OriginChainID.Uint64()
 	// logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
