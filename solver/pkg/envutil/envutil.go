@@ -134,8 +134,8 @@ func parseInt64(s string) (int64, error) {
 	return result, err
 }
 
-// IsForking returns true if IS_DEVNET environment variable is set to "true"
-func IsForking() bool {
+// IsDevnet returns true if IS_DEVNET environment variable is set to "true"
+func IsDevnet() bool {
 	return os.Getenv("IS_DEVNET") == "true"
 }
 

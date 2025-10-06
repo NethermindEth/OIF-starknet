@@ -197,7 +197,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	// Check if origin is Starknet and we're on live networks (not forking)
 	starknetDomain := uint32(config.Networks["Starknet"].HyperlaneDomain)
 	if originDomain == starknetDomain {
-		if !envutil.IsForking() {
+		if !envutil.IsDevnet() {
 			// Live networks: Skip settlement until Starknet domain is registered
 			fmt.Printf("   ⚠️  Skipping EVM settlement for Starknet origin (domain %d) on live network\n", originDomain)
 			fmt.Printf("   ⏳ Starknet domain not yet registered on EVM contracts - waiting for Hyperlane team\n")

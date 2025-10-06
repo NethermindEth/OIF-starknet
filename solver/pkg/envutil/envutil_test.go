@@ -91,25 +91,25 @@ func TestGetConditionalUint64(t *testing.T) {
 	})
 }
 
-func TestIsForking(t *testing.T) {
+func TestIsDevnet(t *testing.T) {
 	t.Run("Returns true when IS_DEVNET=true", func(t *testing.T) {
 		t.Setenv("IS_DEVNET", "true")
 		defer os.Unsetenv("IS_DEVNET")
 
-		assert.True(t, IsForking())
+		assert.True(t, IsDevnet())
 	})
 
 	t.Run("Returns false when IS_DEVNET=false", func(t *testing.T) {
 		t.Setenv("IS_DEVNET", "false")
 		defer os.Unsetenv("IS_DEVNET")
 
-		assert.False(t, IsForking())
+		assert.False(t, IsDevnet())
 	})
 
 	t.Run("Returns false when IS_DEVNET unset", func(t *testing.T) {
 		os.Unsetenv("IS_DEVNET")
 
-		assert.False(t, IsForking())
+		assert.False(t, IsDevnet())
 	})
 }
 
