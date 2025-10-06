@@ -198,7 +198,7 @@ func (l *evmListener) catchUpHistoricalBlocks(ctx context.Context, handler base.
 		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
 		} else {
-			//fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
+			// fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
 		}
 	}
 
