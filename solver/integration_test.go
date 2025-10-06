@@ -812,30 +812,6 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterOrderBalances := getAllNetworkBalances()
 
-	//// Debug: Log balance changes
-	// t.Log("🔍 Balance changes after order creation:")
-	//for network, beforeBalance := range beforeOrderBalances.AliceBalances {
-	//	afterBalance := afterOrderBalances.AliceBalances[network]
-	//	change := new(big.Int).Sub(afterBalance, beforeBalance)
-	//	t.Logf("   %s Alice: %s -> %s (Δ: %s)", network, beforeBalance.String(), afterBalance.String(), change.String())
-
-	//	// Debug: Log Alice address and token address for the origin chain
-	//	if network == orderInfo.OriginChain {
-	//		aliceAddr, err := getAliceAddress(network)
-	//		if err != nil {
-	//			t.Logf("   DEBUG: Could not get Alice address for %s: %v", network, err)
-	//		} else {
-	//			t.Logf("   DEBUG: %s Alice address: %s", network, aliceAddr)
-	//		}
-
-	//		tokenAddr, err := getDogCoinAddress(network)
-	//		if err != nil {
-	//			t.Logf("   DEBUG: Could not get DogCoin address for %s: %v", network, err)
-	//		} else {
-	//			t.Logf("   DEBUG: %s DogCoin address: %s", network, tokenAddr)
-	//		}
-	//	}
-	//}
 	for network, beforeBalance := range beforeOrderBalances.HyperlaneBalances {
 		afterBalance := afterOrderBalances.HyperlaneBalances[network]
 		change := new(big.Int).Sub(afterBalance, beforeBalance)
