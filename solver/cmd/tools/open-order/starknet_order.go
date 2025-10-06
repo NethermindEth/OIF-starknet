@@ -275,8 +275,8 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	userPublicKey := envutil.GetStarknetAlicePublicKey()
 
 	if userKey == "" || userPublicKey == "" {
-		fmt.Printf("❌ Missing Alice's Starknet credentials (DEVNET=%v)\n", envutil.IsForking())
-		if envutil.IsForking() {
+		fmt.Printf("❌ Missing Alice's Starknet credentials (DEVNET=%v)\n", envutil.IsDevnet())
+		if envutil.IsDevnet() {
 			fmt.Printf("   Required: LOCAL_STARKNET_ALICE_PRIVATE_KEY and LOCAL_STARKNET_ALICE_PUBLIC_KEY\n")
 		} else {
 			fmt.Printf("   Required: STARKNET_ALICE_PRIVATE_KEY and STARKNET_ALICE_PUBLIC_KEY\n")
