@@ -27,9 +27,11 @@ help:
 	@echo "🌐 Network Management:"
 	@echo "  start-networks   - Start all testnet forks (runs continuously)"
 	@echo "  kill-networks    - Stop all running networks"
-	@echo "  fund-accounts    - Fund Alice & Solver with tokens"
 	@echo "  register-*       - Register domains (run after starting networks)"
 	@echo "  kill-all         - Stop all processes (networks + solvers) and clean state"
+	@echo "  fund-accounts    - Fund Alice & Solver with tokens (uses current IS_DEVNET setting)"
+	@echo "  fund-accounts-local - Fund Alice & Solver on local devnet (IS_DEVNET=true)"
+	@echo "  fund-accounts-live - Fund Alice & Solver on live networks (IS_DEVNET=false)"
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
@@ -164,7 +166,7 @@ kill-all:
 
 ### Individual Setup Commands (use as needed) ###
 
-# Fund Alice and Solver accounts with MockERC20 tokens
+# Fund Alice and Solver accounts with MockERC20 tokens (uses current IS_DEVNET setting)
 fund-accounts: build-fund-accounts
 	@if [ -z "$(NETWORK)" ]; then \
 		echo "Funding Alice & Solver on all networks..."; \
@@ -174,7 +176,24 @@ fund-accounts: build-fund-accounts
 		./bin/fund-accounts $(NETWORK) $(AMOUNT); \
 	fi
 
-# Essential setup for testing (register Starknet domain on EVM contracts)
+# Fund Alice and Solver accounts with MockERC20 tokens (local devnet)
+fund-accounts-local: build-fund-accounts
+	@echo "Funding Alice & Solver on local devnet (IS_DEVNET=true)..."
+	@if [ -z "$(NETWORK)" ]; then \
+		IS_DEVNET=true ./bin/fund-accounts all $(AMOUNT); \
+	else \
+		IS_DEVNET=true ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
+	fi
+
+# Fund Alice and Solver accounts with MockERC20 tokens (live networks)
+fund-accounts-live: build-fund-accounts
+	@echo "Funding Alice & Solver on live networks (IS_DEVNET=false)..."
+	@if [ -z "$(NETWORK)" ]; then \
+		IS_DEVNET=false ./bin/fund-accounts all $(AMOUNT); \
+	else \
+		IS_DEVNET=false ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
+	fi
+
 register-starknet-on-evm: build-register-evm-routers
 	./bin/register-evm-routers
 	@echo "✅ Starknet domain registered on all EVM contracts!"
