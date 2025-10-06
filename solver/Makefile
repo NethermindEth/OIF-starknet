@@ -29,6 +29,7 @@ help:
 	@echo "  kill-networks    - Stop all running networks"
 	@echo "  fund-accounts    - Fund Alice & Solver with tokens"
 	@echo "  register-*       - Register domains (run after starting networks)"
+	@echo "  kill-all         - Stop all processes (networks + solvers) and clean state"
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
@@ -134,6 +135,27 @@ kill-networks:
 	done
 	@pkill -f "anvil" 2>/dev/null || true
 	@echo "✅ All networks stopped"
+
+# Kill all solver processes and networks
+kill-all:
+	@echo "🧹 Cleaning up all processes..."
+	@echo "🛑 Stopping solver processes..."
+	@pkill -f "solver solver" 2>/dev/null || true
+	@pkill -f "./bin/solver solver" 2>/dev/null || true
+	@echo "🛑 Stopping all networks..."
+	@for port in 8545 8546 8547 8548; do \
+		if [ -f "/tmp/anvil_$$port.pid" ]; then \
+			pid=$$(cat "/tmp/anvil_$$port.pid"); \
+			kill $$pid 2>/dev/null || true; \
+			rm -f "/tmp/anvil_$$port.pid"; \
+		fi; \
+	done
+	@pkill -f "anvil" 2>/dev/null || true
+	@pkill -f "katana" 2>/dev/null || true
+	@echo "🧹 Cleaning solver state..."
+	@rm -f solvercore/config/solver-state.json 2>/dev/null || true
+	@rm -f solvercore/solvers/hyperlane7683/solver-state.json 2>/dev/null || true
+	@echo "✅ All processes cleaned up"
 
 # Note: setup-networks removed because start-networks runs continuously
 # Use separate terminals:
