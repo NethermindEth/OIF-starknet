@@ -129,8 +129,8 @@ func fundNetwork(networkName string, amount *big.Int) {
 	// Get funding account (the one that can mint tokens)
 	// Use Alice's account as the minter for simplicity
 	var minterPrivateKey string
-	useLocalForks := os.Getenv("IS_DEVNET") == "true"
-	if useLocalForks {
+	isDevnet := os.Getenv("IS_DEVNET") == "true"
+	if isDevnet {
 		minterPrivateKey = os.Getenv("LOCAL_ALICE_PRIVATE_KEY")
 	} else {
 		minterPrivateKey = os.Getenv("ALICE_PRIVATE_KEY")
@@ -159,7 +159,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 	auth.GasPrice = gasPrice
 
 	// Get recipient addresses
-	recipients := getRecipients(useLocalForks)
+	recipients := getRecipients(isDevnet)
 
 	// Fund each recipient using direct contract call (since Go bindings don't have Mint yet)
 	for _, recipient := range recipients {
@@ -193,12 +193,12 @@ type Recipient struct {
 	Address common.Address
 }
 
-func getRecipients(useLocalForks bool) []Recipient {
+func getRecipients(isDevnet bool) []Recipient {
 	var recipients []Recipient
 
 	// Alice
 	var aliceAddr string
-	if useLocalForks {
+	if isDevnet {
 		aliceAddr = envutil.GetEnvWithDefault("LOCAL_ALICE_PUB_KEY", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
 	} else {
 		aliceAddr = envutil.GetEnvWithDefault("ALICE_PUB_KEY", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
@@ -210,7 +210,7 @@ func getRecipients(useLocalForks bool) []Recipient {
 
 	// Solver
 	var solverAddr string
-	if useLocalForks {
+	if isDevnet {
 		solverAddr = envutil.GetEnvWithDefault("LOCAL_SOLVER_PUB_KEY", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
 	} else {
 		solverAddr = envutil.GetEnvWithDefault("SOLVER_PUB_KEY", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")

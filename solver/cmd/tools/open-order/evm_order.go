@@ -472,8 +472,8 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 
 	// Get user private key using conditional environment variable logic
 	var userKey string
-	useLocalForks := os.Getenv("IS_DEVNET") == "true"
-	if useLocalForks {
+	isDevnet := os.Getenv("IS_DEVNET") == "true"
+	if isDevnet {
 		userKey = os.Getenv(fmt.Sprintf("LOCAL_%s_PRIVATE_KEY", strings.ToUpper(order.User)))
 	} else {
 		userKey = os.Getenv(fmt.Sprintf("%s_PRIVATE_KEY", strings.ToUpper(order.User)))
