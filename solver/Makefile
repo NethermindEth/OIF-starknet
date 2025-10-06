@@ -6,10 +6,11 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-rpc         - Run RPC tests (requires start-networks)"
 	@echo "  test-integration - Run integration tests (requires full setup)"
 	@echo "  test-solver-integration - Run full solver tests (executes orders + solver)"
 	@echo "  test-all         - Run all tests (unit + RPC + integration)"
+	@echo "  test-rpc-local   - Run RPC tests with local devnet (requires start-networks)"
+	@echo "  test-rpc-live    - Run RPC tests with live networks"
 	@echo "  test-coverage    - Show coverage for maintainable code"
 	@echo ""
 	@echo "🔧 Development Commands:"
@@ -264,11 +265,11 @@ test-unit:
 		./solvercore/solvers/hyperlane7683 \
 		-run "Test.*" -timeout 30s
 
-# Run RPC tests (requires start-networks)
-test-rpc:
-	@echo "🌐 Running RPC tests (requires start-networks)..."
+# Run RPC tests with local devnet (requires start-networks)
+test-rpc-local:
+	@echo "🌐 Running RPC tests with local devnet (requires start-networks)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@go test -v \
+	@set -a && . ./.env && set +a && IS_DEVNET=true go test -v -count=1 \
 		./pkg/starknetutil \
 		./pkg/ethutil \
 		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
@@ -277,6 +278,16 @@ test-rpc:
 # Run integration tests (requires full setup)
 test-integration:
 	@echo "🔄 Running integration tests (requires full setup)..."
+# Run RPC tests with live networks (requires live network access)
+test-rpc-live:
+	@echo "🌐 Running RPC tests with live networks..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && IS_DEVNET=false go test -v -count=1 \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
+		-timeout 60s
+
 	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
 	@go test -v -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestSolverIntegration" -timeout 300s -p 1
