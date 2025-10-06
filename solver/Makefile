@@ -17,7 +17,9 @@ help:
 	@echo "  deps             - Install dependencies"
 	@echo "  dev-deps         - Install development tools (linter, debugger)"
 	@echo "  build            - Build the solver binary"
-	@echo "  run              - Run the solver"
+	@echo "  run              - Run the solver (uses current IS_DEVNET setting)"
+	@echo "  run-local        - Run the solver with local devnet (IS_DEVNET=true)"
+	@echo "  run-live         - Run the solver with live networks (IS_DEVNET=false)"
 	@echo "  clean            - Clean build artifacts"
 	@echo "  clean-solver     - Clean solver state (keep binaries)"
 	@echo "  lint             - Run linter"
@@ -55,9 +57,21 @@ dev-deps:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/go-delve/delve/cmd/dlv@latest
 
-# Run the solver
+# Run the solver (uses current IS_DEVNET setting)
 run: build
 	./bin/solver solver
+
+# Run the solver with local devnet (sets IS_DEVNET=true)
+run-local: build
+	@echo "🤖 Starting solver with local devnet (IS_DEVNET=true)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	IS_DEVNET=true ./bin/solver solver
+
+# Run the solver with live networks (sets IS_DEVNET=false)
+run-live: build
+	@echo "🤖 Starting solver with live networks (IS_DEVNET=false)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	IS_DEVNET=false ./bin/solver solver
 
 # Build the solver
 build:
