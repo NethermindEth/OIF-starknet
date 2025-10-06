@@ -32,7 +32,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
    make run
    ```
 
-## Running on Local Forks
+## Running on Devnet
 
 For an efficient setup, open 3 terminals and move each to the `go/` directory. Make sure your `DEVNET` env var is set to true in your `.env` file.
 

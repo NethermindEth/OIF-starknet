@@ -878,7 +878,7 @@ func cleanSolverStateOnce(t *testing.T) {
 	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
 	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
-	// Also set LOCAL_ versions for forking mode
+	// Also set LOCAL_ versions for DEVNET mode
 	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
 	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
 	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
@@ -915,7 +915,7 @@ func cleanSolverState(t *testing.T) {
 	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
 	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
-	// Also set LOCAL_ versions for forking mode
+	// Also set LOCAL_ versions for DEVNET mode
 	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
 	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
 	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
