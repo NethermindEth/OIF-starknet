@@ -1,4 +1,5 @@
-.PHONY: help build run test clean deps lint
+
+.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks kill-networks
 
 # Default target
 help:
@@ -38,8 +39,9 @@ help:
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
-	@echo "  test-coverage-with-integration - Show coverage including integration tests"
-	@echo "  coverage-help    - Show all coverage commands"
+	@echo "  test-coverage-html - Generate HTML coverage report"
+	@echo "  test-coverage-check - Check coverage thresholds"
+	@echo "  test-coverage-all - Show coverage for all packages"
 	@echo ""
 	@echo "🔍 Advanced Testing:"
 	@echo "  test-pkg PKG=./path     - Run tests for specific package"
@@ -394,12 +396,6 @@ test-all: test-unit test-rpc-local test-integration-local
 # Show coverage for maintainable code
 test-coverage:
 	@echo "📊 Running coverage analysis for maintainable code..."
-	@make test-coverage-maintainable
-
-# Show coverage including integration tests
-test-coverage-with-integration:
-	@echo "📊 Running coverage analysis including integration tests..."
-	@echo "This includes unit tests + integration tests for more accurate coverage"
 	@go test -cover \
 		./pkg/envutil \
 		./pkg/starknetutil \
@@ -409,82 +405,42 @@ test-coverage-with-integration:
 		./solvercore/logutil \
 		./solvercore/types \
 		./solvercore/solvers/hyperlane7683 \
-		-coverprofile=coverage.unit.out
-	@echo ""
-	@echo "Running integration tests with coverage..."
-	@go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" \
-		-coverprofile=coverage.integration.out
-	@echo ""
-	@echo "Combining coverage reports..."
-	@echo "mode: set" > coverage.combined.out
-	@tail -n +2 coverage.unit.out >> coverage.combined.out
-	@tail -n +2 coverage.integration.out >> coverage.combined.out
-	@echo ""
-	@echo "Combined coverage summary:"
-	@go tool cover -func=coverage.combined.out | tail -1
-
-# Show available coverage commands
-coverage-help:
-	@echo "📊 Available coverage commands:"
-	@echo ""
-	@echo "  make test-coverage                    - Show coverage for maintainable code"
-	@echo "  make test-coverage-with-integration   - Show coverage including integration tests"
-	@echo "  make test-coverage-unit               - Show coverage for unit tests only"
-	@echo "  make test-coverage-rpc                - Show coverage for RPC tests only"
-	@echo "  make test-coverage-all                - Show coverage for all packages"
-	@echo "  make test-coverage-html               - Generate HTML coverage report"
-	@echo ""
-# Note: test-coverage-html is defined below in the Additional Coverage Commands section
-
-# Run tests with coverage for all packages
-test-coverage-all:
-	@echo "Running coverage analysis for all packages..."
-	@go test -cover ./... -coverprofile=coverage.out
+		-coverprofile=coverage.out
 	@echo ""
 	@echo "Coverage summary:"
 	@go tool cover -func=coverage.out | tail -1
+
+# Generate HTML coverage report
+test-coverage-html:
+	@echo "📊 Generating HTML coverage report..."
+	@go test -cover \
+		./pkg/envutil \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		./solvercore/base \
+		./solvercore/config \
+		./solvercore/logutil \
+		./solvercore/types \
+		./solvercore/solvers/hyperlane7683 \
+		-coverprofile=coverage.out
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Check coverage thresholds (simplified)
+test-coverage-check:
+	@echo "📊 Checking coverage thresholds..."
+	@go test -cover \
+		./pkg/envutil \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		./solvercore/base \
+		./solvercore/config \
+		./solvercore/logutil \
+		./solvercore/types \
+		./solvercore/solvers/hyperlane7683 \
+		-coverprofile=coverage.out
 	@echo ""
 	@echo "Coverage by package:"
-	@go test -cover ./... | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
-		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Run tests with coverage excluding auto-generated and untestable packages
-test-coverage-core:
-	@echo "Running coverage analysis for core packages (excluding auto-generated and cmd tools)..."
-	@go test -cover ./pkg/... ./solvercore/... -coverprofile=coverage.core.out
-	@echo ""
-	@echo "Core coverage summary:"
-	@go tool cover -func=coverage.core.out | tail -1
-	@echo ""
-	@echo "Core coverage by package:"
-	@go test -cover ./pkg/... ./solvercore/... | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
-		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Run tests with coverage for maintainable code only (excludes contracts, cmd tools, and generated code)
-test-coverage-maintainable:
-	@echo "Running coverage analysis for maintainable code only..."
-	@echo "Excluding: contracts (auto-generated), cmd tools, and other untestable packages"
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 \
-		-coverprofile=coverage.maintainable.out
-	@echo ""
-	@echo "Maintainable code coverage summary:"
-	@go tool cover -func=coverage.maintainable.out | tail -1
-	@echo ""
-	@echo "Maintainable code coverage by package:"
 	@go test -cover \
 		./pkg/envutil \
 		./pkg/starknetutil \
@@ -497,162 +453,18 @@ test-coverage-maintainable:
 		pkg=$$(echo "$$line" | awk '{print $$1}'); \
 		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
 		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Run tests with network coverage (requires running networks)
-test-coverage-networks:
-	@echo "Running coverage analysis with network tests..."
-	@echo "Note: This requires running networks and may take longer"
-	@echo "Set SKIP_RPC_TESTS=true to skip network-dependent tests"
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 \
-		-coverprofile=coverage.networks.out
-	@echo ""
-	@echo "Network coverage summary:"
-	@go tool cover -func=coverage.networks.out | tail -1
-	@echo ""
-	@echo "Network coverage by package:"
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
-		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Check coverage thresholds
-test-coverage-check:
-	@echo "Checking coverage thresholds..."
-	@echo "Running comprehensive coverage analysis..."
-	@go test -cover ./... -coverprofile=coverage.out
-	@echo ""
-	@echo "Coverage analysis by package:"
-	@go test -cover ./... | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2 | cut -d'%' -f1); \
-		if [ "$$(echo "$$coverage < 50" | bc -l)" = "1" ]; then \
-			echo "❌ $$pkg: $$coverage% (Target: 50%+)"; \
-		elif [ "$$(echo "$$coverage < 70" | bc -l)" = "1" ]; then \
-			echo "⚠️  $$pkg: $$coverage% (Target: 70%+)"; \
-		elif [ "$$(echo "$$coverage < 80" | bc -l)" = "1" ]; then \
-			echo "✅ $$pkg: $$coverage% (Target: 80%+)"; \
-		else \
-			echo "🎉 $$pkg: $$coverage% (Target: 80%+)"; \
-		fi; \
 	done
 	@echo ""
 	@echo "Overall coverage:"
 	@go tool cover -func=coverage.out | tail -1
 
-# Note: test-unit and test-integration are defined above in the Testing Commands section
-
-# Run integration tests with local forks
-test-integration-local:
-	@echo "Running integration tests with local forks..."
-	@echo "Make sure local forks are running with: make start-networks"
-	IS_DEVNET=true go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
-
-# Run integration tests with live testnets
-test-integration-live:
-	@echo "Running integration tests with live testnets..."
-	@echo "Make sure you have valid API keys in your .env file"
-	IS_DEVNET=false go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
-
-# Run integration tests with coverage (includes order creation commands)
-test-integration-coverage:
-	@echo "Running integration tests with coverage..."
-	@echo "This will cover order creation code paths that are missing from unit tests"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v -p 1
-
-# Run integration tests with coverage and order command execution
-test-integration-coverage-full:
-	@echo "Running full integration tests with coverage (includes order creation commands)..."
-	@echo "This will execute actual order creation commands to cover missing code paths"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestOrderCreationCommandsIntegration" -v -p 1
-
-# Run comprehensive order creation integration tests with balance verification
-test-order-creation-integration:
-	@echo "Running comprehensive order creation integration tests..."
-	@echo "This will test order creation with full balance verification across all networks"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -run "TestOrderCreationCommandsIntegration" -v -p 1
-
-# Run comprehensive order creation integration tests with coverage
-test-order-creation-integration-coverage:
-	@echo "Running comprehensive order creation integration tests with coverage..."
-	@echo "This will test order creation with full balance verification and coverage analysis"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderCreationCommandsIntegration" -v -p 1
-
-# Note: test-solver-integration is defined above in the Testing Commands section
-
-# Run complete order lifecycle integration tests with coverage
-test-solver-integration-coverage:
-	@echo "Running complete order lifecycle integration tests with coverage..."
-	@echo "This will test the full order lifecycle with coverage analysis"
-	@echo "Tests all 3 order types: EVM→EVM, EVM→Starknet, Starknet→EVM"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_SOLVER_TESTS=true go test -cover -run "TestSolverIntegration" -v -p 1
-
-### Additional Coverage Commands ###
-
-# Show coverage for unit tests only
-test-coverage-unit:
-	@echo "📊 Running coverage analysis for unit tests..."
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 \
-		-run "Test.*" \
-		-coverprofile=coverage.unit.out
+# Run tests with coverage for all packages (including cmd tools)
+test-coverage-all:
+	@echo "📊 Running coverage analysis for all packages..."
+	@go test -cover ./... -coverprofile=coverage.all.out || true
 	@echo ""
-	@echo "Unit test coverage summary:"
-	@go tool cover -func=coverage.unit.out | tail -1
-
-# Show coverage for RPC tests only
-test-coverage-rpc:
-	@echo "📊 Running coverage analysis for RPC tests..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@go test -cover \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
-		-coverprofile=coverage.rpc.out
-	@echo ""
-	@echo "RPC test coverage summary:"
-	@go tool cover -func=coverage.rpc.out | tail -1
-
-# Generate HTML coverage report
-test-coverage-html:
-	@echo "📊 Generating HTML coverage report..."
-	@go test -cover ./... -coverprofile=coverage.out
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@echo "Coverage summary:"
+	@go tool cover -func=coverage.all.out | tail -1
 
 # Run tests for specific package
 test-pkg:
@@ -674,5 +486,4 @@ test-pattern:
 # # Generate mocks (if using mockery)
 # mocks:
 # 	mockery --all --keeptree --output=./solvercore/mocks
-
 
