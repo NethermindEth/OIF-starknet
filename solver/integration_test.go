@@ -27,9 +27,9 @@ import (
 
 // IntegrationTestConfig holds configuration for integration tests
 type IntegrationTestConfig struct {
-	IsDevnet bool
-	TestNetworks  []string
-	Timeout       time.Duration
+	IsDevnet     bool
+	TestNetworks []string
+	Timeout      time.Duration
 }
 
 // TestOrderLifecycleIntegration tests the complete order lifecycle
@@ -47,9 +47,9 @@ func TestOrderLifecycleIntegration(t *testing.T) {
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
 
 	testConfig := IntegrationTestConfig{
-		IsDevnet: isDevnet,
-		TestNetworks:  []string{"Base", "Ethereum", "Starknet"},
-		Timeout:       180 * time.Second,
+		IsDevnet:     isDevnet,
+		TestNetworks: []string{"Base", "Ethereum", "Starknet"},
+		Timeout:      180 * time.Second,
 	}
 
 	t.Logf("Running integration tests with IS_DEVNET=%t", isDevnet)
@@ -482,16 +482,15 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 
 // getAliceAddress gets Alice's address for a specific network
 func getAliceAddress(networkName string) (string, error) {
+	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
 		if isDevnet {
 			return os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS"), nil
 		}
 		return os.Getenv("STARKNET_ALICE_ADDRESS"), nil
 	} else {
 		// Use conditional environment variable
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
 		if isDevnet {
 			return os.Getenv("LOCAL_ALICE_PUB_KEY"), nil
 		}
