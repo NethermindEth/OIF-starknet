@@ -12,10 +12,10 @@ const (
 // GetConditionalEnv gets an environment variable based on IS_DEVNET flag
 // If IS_DEVNET=true, uses LOCAL_* version, otherwise uses regular version
 func GetConditionalEnv(key, defaultValue string) string {
-	forking := os.Getenv("IS_DEVNET")
+	isDevnet := os.Getenv("IS_DEVNET")
 
 	var targetKey string
-	if forking == trueValue {
+	if isDevnet == trueValue {
 		targetKey = "LOCAL_" + key
 	} else {
 		targetKey = key
@@ -36,11 +36,11 @@ func GetConditionalAccountEnv(key string) string {
 // GetConditionalUint64 gets a uint64 environment variable based on IS_DEVNET flag
 // If IS_DEVNET=true, uses LOCAL_* version with local defaults, otherwise uses regular version with live defaults
 func GetConditionalUint64(key string, liveDefault, localDefault uint64) uint64 {
-	forking := os.Getenv("IS_DEVNET")
+	isDevnet := os.Getenv("IS_DEVNET")
 
 	var targetKey string
 	var defaultValue uint64
-	if forking == trueValue {
+	if isDevnet == trueValue {
 		targetKey = "LOCAL_" + key
 		defaultValue = localDefault
 	} else {
@@ -59,11 +59,11 @@ func GetConditionalUint64(key string, liveDefault, localDefault uint64) uint64 {
 // GetConditionalInt64 gets an int64 environment variable based on IS_DEVNET flag
 // If IS_DEVNET=true, uses LOCAL_* version with local defaults, otherwise uses regular version with live defaults
 func GetConditionalInt64(key string, liveDefault, localDefault int64) int64 {
-	forking := os.Getenv("IS_DEVNET")
+	isDevnet := os.Getenv("IS_DEVNET")
 
 	var targetKey string
 	var defaultValue int64
-	if forking == trueValue {
+	if isDevnet == trueValue {
 		targetKey = "LOCAL_" + key
 		defaultValue = localDefault
 	} else {
