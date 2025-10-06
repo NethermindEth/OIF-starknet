@@ -67,7 +67,7 @@ func main() {
 	}
 
 	fmt.Printf("🏦 Funding Alice and Solver accounts with %s tokens each\n", ethutil.FormatTokenAmount(fundingAmount, tokenDecimals))
-	fmt.Printf("💰 Using conditional environment variables (FORKING=%s)\n", os.Getenv("FORKING"))
+	fmt.Printf("💰 Using conditional environment variables (DEVNET=%s)\n", os.Getenv("DEVNET"))
 	fmt.Println()
 
 	if networkArg == "all" {
@@ -129,7 +129,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 	// Get funding account (the one that can mint tokens)
 	// Use Alice's account as the minter for simplicity
 	var minterPrivateKey string
-	useLocalForks := os.Getenv("FORKING") == "true"
+	useLocalForks := os.Getenv("DEVNET") == "true"
 	if useLocalForks {
 		minterPrivateKey = os.Getenv("LOCAL_ALICE_PRIVATE_KEY")
 	} else {

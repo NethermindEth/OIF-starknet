@@ -187,7 +187,7 @@ func (sm *SolverManager) GetEVMSigner(chainID uint64) (*bind.TransactOpts, error
 	// For now, create a new signer for each chain
 	// In the future, this could be cached per chain
 
-	// Use conditional environment variable based on FORKING
+	// Use conditional environment variable based on DEVNET
 	solverPrivateKey := envutil.GetConditionalAccountEnv("SOLVER_PRIVATE_KEY")
 	if solverPrivateKey == "" {
 		return nil, fmt.Errorf("SOLVER_PRIVATE_KEY environment variable not set")
@@ -215,7 +215,7 @@ func (sm *SolverManager) GetStarknetSigner() (*account.Account, error) {
 		return nil, fmt.Errorf("starknet client not initialized")
 	}
 
-	// Use conditional environment variables based on FORKING
+	// Use conditional environment variables based on DEVNET
 	pub := envutil.GetStarknetSolverPublicKey()
 	addrHex := envutil.GetStarknetSolverAddress()
 	priv := envutil.GetStarknetSolverPrivateKey()

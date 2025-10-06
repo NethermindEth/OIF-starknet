@@ -134,10 +134,10 @@ func TestGetEVMSigner(t *testing.T) {
 	sm := NewSolverManager(&config.Config{})
 
 	// Set up test environment
-	t.Setenv("FORKING", "false")
+	t.Setenv("DEVNET", "false")
 	t.Setenv("SOLVER_PRIVATE_KEY", "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	defer func() {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("DEVNET")
 		os.Unsetenv("SOLVER_PRIVATE_KEY")
 	}()
 
@@ -151,8 +151,8 @@ func TestGetEVMSignerMissingKey(t *testing.T) {
 	sm := NewSolverManager(&config.Config{})
 
 	// Don't set the private key
-	t.Setenv("FORKING", "false")
-	defer os.Unsetenv("FORKING")
+	t.Setenv("DEVNET", "false")
+	defer os.Unsetenv("DEVNET")
 
 	signer, err := sm.GetEVMSigner(1)
 	assert.Nil(t, signer)
@@ -164,10 +164,10 @@ func TestGetEVMSignerInvalidKey(t *testing.T) {
 	sm := NewSolverManager(&config.Config{})
 
 	// Set invalid private key
-	t.Setenv("FORKING", "false")
+	t.Setenv("DEVNET", "false")
 	t.Setenv("SOLVER_PRIVATE_KEY", "invalid_key")
 	defer func() {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("DEVNET")
 		os.Unsetenv("SOLVER_PRIVATE_KEY")
 	}()
 
@@ -190,8 +190,8 @@ func TestGetStarknetSignerMissingKeys(t *testing.T) {
 	sm := NewSolverManager(&config.Config{})
 
 	// Don't set the keys
-	t.Setenv("FORKING", "false")
-	defer os.Unsetenv("FORKING")
+	t.Setenv("DEVNET", "false")
+	defer os.Unsetenv("DEVNET")
 
 	signer, err := sm.GetStarknetSigner()
 	assert.Nil(t, signer)
@@ -203,12 +203,12 @@ func TestGetStarknetSignerInvalidAddress(t *testing.T) {
 	sm := NewSolverManager(&config.Config{})
 
 	// Set invalid address
-	t.Setenv("FORKING", "false")
+	t.Setenv("DEVNET", "false")
 	t.Setenv("STARKNET_SOLVER_PUBLIC_KEY", "0x123")
 	t.Setenv("STARKNET_SOLVER_ADDRESS", "invalid_address")
 	t.Setenv("STARKNET_SOLVER_PRIVATE_KEY", "0x123")
 	defer func() {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("DEVNET")
 		os.Unsetenv("STARKNET_SOLVER_PUBLIC_KEY")
 		os.Unsetenv("STARKNET_SOLVER_ADDRESS")
 		os.Unsetenv("STARKNET_SOLVER_PRIVATE_KEY")
@@ -224,12 +224,12 @@ func TestGetStarknetSignerInvalidPrivateKey(t *testing.T) {
 	sm := NewSolverManager(&config.Config{})
 
 	// Set invalid private key
-	t.Setenv("FORKING", "false")
+	t.Setenv("DEVNET", "false")
 	t.Setenv("STARKNET_SOLVER_PUBLIC_KEY", "0x123")
 	t.Setenv("STARKNET_SOLVER_ADDRESS", "0x123")
 	t.Setenv("STARKNET_SOLVER_PRIVATE_KEY", "invalid_private_key")
 	defer func() {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("DEVNET")
 		os.Unsetenv("STARKNET_SOLVER_PUBLIC_KEY")
 		os.Unsetenv("STARKNET_SOLVER_ADDRESS")
 		os.Unsetenv("STARKNET_SOLVER_PRIVATE_KEY")
@@ -243,10 +243,10 @@ func TestGetStarknetSignerInvalidPrivateKey(t *testing.T) {
 
 func TestGetStarknetHyperlaneAddress(t *testing.T) {
 	// Test with environment variable set
-	t.Setenv("FORKING", "false")
+	t.Setenv("DEVNET", "false")
 	t.Setenv("STARKNET_HYPERLANE_ADDRESS", "0x1234567890abcdef")
 	defer func() {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("DEVNET")
 		os.Unsetenv("STARKNET_HYPERLANE_ADDRESS")
 	}()
 
@@ -258,7 +258,7 @@ func TestGetStarknetHyperlaneAddress(t *testing.T) {
 
 func TestGetStarknetHyperlaneAddressMissing(t *testing.T) {
 	// Test with no environment variable set
-	os.Unsetenv("FORKING")
+	os.Unsetenv("DEVNET")
 	os.Unsetenv("STARKNET_HYPERLANE_ADDRESS")
 
 	networkConfig := config.NetworkConfig{}

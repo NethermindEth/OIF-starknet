@@ -52,7 +52,7 @@ type NetworkConfig struct {
 	MaxBlockRange      uint64 // 0 = use default
 }
 
-// GetConditionalAccountEnv gets account-related environment variables based on FORKING flag
+// GetConditionalAccountEnv gets account-related environment variables based on DEVNET flag
 // This is a convenience function for account keys and addresses
 // Deprecated: Use envutil.GetConditionalAccountEnv instead
 func GetConditionalAccountEnv(key string) string {
