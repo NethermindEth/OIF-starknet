@@ -223,7 +223,7 @@ var testUsers = []struct {
 
 // initializeTestUsers initializes the test user configuration after .env is loaded
 func initializeTestUsers() {
-	// Use conditional environment variable logic based on FORKING
+	// Use conditional environment variable logic based on IS_DEVNET
 	aliceAddr := envutil.GetAlicePublicKey()
 	privateKeyVar := envutil.GetConditionalAccountEnv("ALICE_PRIVATE_KEY")
 
@@ -472,14 +472,14 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 
 	// Get user private key using conditional environment variable logic
 	var userKey string
-	useLocalForks := os.Getenv("FORKING") == "true"
+	useLocalForks := os.Getenv("IS_DEVNET") == "true"
 	if useLocalForks {
 		userKey = os.Getenv(fmt.Sprintf("LOCAL_%s_PRIVATE_KEY", strings.ToUpper(order.User)))
 	} else {
 		userKey = os.Getenv(fmt.Sprintf("%s_PRIVATE_KEY", strings.ToUpper(order.User)))
 	}
 	if userKey == "" {
-		log.Fatalf("Private key not found for user: %s (FORKING=%s)", order.User, os.Getenv("FORKING"))
+		log.Fatalf("Private key not found for user: %s (IS_DEVNET=%s)", order.User, os.Getenv("IS_DEVNET"))
 	}
 
 	// Parse private key

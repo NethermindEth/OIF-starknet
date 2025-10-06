@@ -25,7 +25,7 @@ import (
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 )
 
-// getAliceAddressForNetwork gets Alice's address for a specific network using FORKING logic
+// getAliceAddressForNetwork gets Alice's address for a specific network using IS_DEVNET logic
 func getAliceAddressForNetwork(networkName string) (string, error) {
 	if strings.Contains(strings.ToLower(networkName), "starknet") {
 		// Use conditional environment variable for Starknet
@@ -275,7 +275,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	userPublicKey := envutil.GetStarknetAlicePublicKey()
 
 	if userKey == "" || userPublicKey == "" {
-		fmt.Printf("❌ Missing Alice's Starknet credentials (FORKING=%v)\n", envutil.IsForking())
+		fmt.Printf("❌ Missing Alice's Starknet credentials (IS_DEVNET=%v)\n", envutil.IsForking())
 		if envutil.IsForking() {
 			fmt.Printf("   Required: LOCAL_STARKNET_ALICE_PRIVATE_KEY and LOCAL_STARKNET_ALICE_PUBLIC_KEY\n")
 		} else {
@@ -499,7 +499,7 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	inputTokenFelt, _ := utils.HexToFelt(originNetwork.dogCoinAddress)
 
 	// For Starknet→EVM orders, recipient is always Alice's EVM address
-	// Use conditional environment variable based on FORKING
+	// Use conditional environment variable based on IS_DEVNET
 	evmUserAddr := envutil.GetAlicePublicKey()
 	if evmUserAddr == "" {
 		log.Fatalf("Alice public key not set")

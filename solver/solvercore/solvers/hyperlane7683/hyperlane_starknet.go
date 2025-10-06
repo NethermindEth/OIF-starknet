@@ -57,7 +57,7 @@ func NewHyperlaneStarknet(rpcURL string, chainID uint64) *HyperlaneStarknet {
 		return nil
 	}
 
-	// Use conditional environment variables based on FORKING
+	// Use conditional environment variables based on IS_DEVNET
 	pub := envutil.GetStarknetSolverPublicKey()
 	addrHex := envutil.GetStarknetSolverAddress()
 	priv := envutil.GetStarknetSolverPrivateKey()

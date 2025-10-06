@@ -34,7 +34,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 ## Running on Local Forks
 
-For an efficient setup, open 3 terminals and move each to the `go/` directory. Make sure your `FORKING` env var is set to true in your `.env` file.
+For an efficient setup, open 3 terminals and move each to the `go/` directory. Make sure your `IS_DEVNET` env var is set to true in your `.env` file.
 
 **Terminal 1: Start networks (runs continuously)**
 

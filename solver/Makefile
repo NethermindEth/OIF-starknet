@@ -464,20 +464,20 @@ test-coverage-check:
 test-integration-local:
 	@echo "Running integration tests with local forks..."
 	@echo "Make sure local forks are running with: make start-networks"
-	FORKING=true go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
+	IS_DEVNET=true go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
 
 # Run integration tests with live testnets
 test-integration-live:
 	@echo "Running integration tests with live testnets..."
 	@echo "Make sure you have valid API keys in your .env file"
-	FORKING=false go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
+	IS_DEVNET=false go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
 
 # Run integration tests with coverage (includes order creation commands)
 test-integration-coverage:
 	@echo "Running integration tests with coverage..."
 	@echo "This will cover order creation code paths that are missing from unit tests"
 	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
+	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
 	go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v -p 1
 
 # Run integration tests with coverage and order command execution
@@ -485,7 +485,7 @@ test-integration-coverage-full:
 	@echo "Running full integration tests with coverage (includes order creation commands)..."
 	@echo "This will execute actual order creation commands to cover missing code paths"
 	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
+	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
 	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestOrderCreationCommandsIntegration" -v -p 1
 
 # Run comprehensive order creation integration tests with balance verification
@@ -493,7 +493,7 @@ test-order-creation-integration:
 	@echo "Running comprehensive order creation integration tests..."
 	@echo "This will test order creation with full balance verification across all networks"
 	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
+	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
 	EXECUTE_ORDER_COMMANDS=true go test -run "TestOrderCreationCommandsIntegration" -v -p 1
 
 # Run comprehensive order creation integration tests with coverage
@@ -501,7 +501,7 @@ test-order-creation-integration-coverage:
 	@echo "Running comprehensive order creation integration tests with coverage..."
 	@echo "This will test order creation with full balance verification and coverage analysis"
 	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
+	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
 	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderCreationCommandsIntegration" -v -p 1
 
 # Note: test-solver-integration is defined above in the Testing Commands section
@@ -512,7 +512,7 @@ test-solver-integration-coverage:
 	@echo "This will test the full order lifecycle with coverage analysis"
 	@echo "Tests all 3 order types: EVM→EVM, EVM→Starknet, Starknet→EVM"
 	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set FORKING=true for local forks or FORKING=false for live testnets"
+	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
 	EXECUTE_SOLVER_TESTS=true go test -cover -run "TestSolverIntegration" -v -p 1
 
 ### Additional Coverage Commands ###

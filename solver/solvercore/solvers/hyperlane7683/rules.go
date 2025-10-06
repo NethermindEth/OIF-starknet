@@ -102,13 +102,13 @@ func (br *BalanceRule) Evaluate(ctx context.Context, args types.ParsedArgs) Rule
 }
 
 func (br *BalanceRule) checkStarknetBalance(ctx context.Context, args types.ParsedArgs) RuleResult {
-	// Get solver's Starknet address from environment (conditional based on FORKING)
+	// Get solver's Starknet address from environment (conditional based on IS_DEVNET)
 	solverAddrHex := envutil.GetStarknetSolverAddress()
 	if solverAddrHex == "" {
 		return RuleResult{Passed: false, Reason: "Starknet solver address not set"}
 	}
 
-	// Get Starknet RPC URL (conditional based on FORKING)
+	// Get Starknet RPC URL (conditional based on IS_DEVNET)
 	starknetRPC := envutil.GetStarknetRPCURL()
 	if starknetRPC == "" {
 		return RuleResult{Passed: false, Reason: "STARKNET_RPC_URL not set"}
@@ -142,7 +142,7 @@ func (br *BalanceRule) checkStarknetBalance(ctx context.Context, args types.Pars
 }
 
 func (br *BalanceRule) checkEVMBalance(ctx context.Context, args types.ParsedArgs) RuleResult {
-	// Get solver's EVM address from environment (conditional based on FORKING)
+	// Get solver's EVM address from environment (conditional based on IS_DEVNET)
 	solverAddrHex := envutil.GetSolverPublicKey()
 	if solverAddrHex == "" {
 		return RuleResult{Passed: false, Reason: "Solver public key not set"}

@@ -44,7 +44,7 @@ func TestOrderLifecycleIntegration(t *testing.T) {
 	}
 
 	// Determine test configuration
-	useLocalForks := os.Getenv("FORKING") == "true"
+	useLocalForks := os.Getenv("IS_DEVNET") == "true"
 
 	testConfig := IntegrationTestConfig{
 		UseLocalForks: useLocalForks,
@@ -52,7 +52,7 @@ func TestOrderLifecycleIntegration(t *testing.T) {
 		Timeout:       180 * time.Second,
 	}
 
-	t.Logf("Running integration tests with FORKING=%t", useLocalForks)
+	t.Logf("Running integration tests with IS_DEVNET=%t", useLocalForks)
 
 	// Test 1: Configuration Loading
 	t.Run("ConfigurationLoading", func(t *testing.T) {
@@ -131,7 +131,7 @@ func TestCrossChainOperations(t *testing.T) {
 		t.Skip("Integration tests disabled via SKIP_INTEGRATION_TESTS")
 	}
 
-	useLocalForks := os.Getenv("FORKING") == "true"
+	useLocalForks := os.Getenv("IS_DEVNET") == "true"
 
 	t.Run("EVM_to_EVM", func(t *testing.T) {
 		testCrossChainOrder(t, "Base", "Ethereum", useLocalForks)
@@ -155,7 +155,7 @@ func testCrossChainOrder(t *testing.T, originNetwork, destinationNetwork string,
 	destinationConfig, err := config.GetNetworkConfig(destinationNetwork)
 	require.NoError(t, err)
 
-	t.Logf("Testing %s -> %s order (FORKING=%t)", originNetwork, destinationNetwork, useLocalForks)
+	t.Logf("Testing %s -> %s order (IS_DEVNET=%t)", originNetwork, destinationNetwork, useLocalForks)
 	t.Logf("Origin: %s (ChainID: %d)", originConfig.RPCURL, originConfig.ChainID)
 	t.Logf("Destination: %s (ChainID: %d)", destinationConfig.RPCURL, destinationConfig.ChainID)
 
@@ -308,7 +308,7 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 	t.Log("🚀 Step 2: Executing order creation command...")
 	cmd := exec.Command(solverPath, command...)
 	cmd.Dir = "."
-	// Preserve current environment including FORKING setting
+	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
 	output, err := cmd.CombinedOutput()
@@ -484,14 +484,14 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 func getAliceAddress(networkName string) (string, error) {
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
+		useLocalForks := os.Getenv("IS_DEVNET") == "true"
 		if useLocalForks {
 			return os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS"), nil
 		}
 		return os.Getenv("STARKNET_ALICE_ADDRESS"), nil
 	} else {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
+		useLocalForks := os.Getenv("IS_DEVNET") == "true"
 		if useLocalForks {
 			return os.Getenv("LOCAL_ALICE_PUB_KEY"), nil
 		}
@@ -780,7 +780,7 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	t.Log("🚀 Step 2: Executing order creation command...")
 	cmd := exec.Command(solverPath, orderCommand...)
 	cmd.Dir = "."
-	// Preserve current environment including FORKING setting
+	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
 	output, err := cmd.CombinedOutput()
@@ -949,7 +949,7 @@ func testCompleteOrderLifecycle(t *testing.T, solverPath string, orderCommand []
 	t.Log("🚀 Step 2: Executing order creation command...")
 	cmd := exec.Command(solverPath, orderCommand...)
 	cmd.Dir = "."
-	// Preserve current environment including FORKING setting
+	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
 	output, err := cmd.CombinedOutput()
@@ -1030,7 +1030,7 @@ func testCompleteOrderLifecycle(t *testing.T, solverPath string, orderCommand []
 
 	solverCmd := exec.Command(solverPath, "solver")
 	solverCmd.Dir = "."
-	// Preserve current environment including FORKING setting
+	// Preserve current environment including IS_DEVNET setting
 	solverCmd.Env = append(os.Environ(), "TEST_MODE=true")
 
 	// Set up pipes to capture output
@@ -1054,7 +1054,7 @@ func testCompleteOrderLifecycle(t *testing.T, solverPath string, orderCommand []
 
 	// Set up graceful shutdown after 35 seconds (or 180 seconds if using live networks)
 	seconds := 35 * time.Second
-	if os.Getenv("FORKING") == "false" {
+	if os.Getenv("IS_DEVNET") == "false" {
 		seconds = 180 * time.Second
 	}
 
@@ -1199,7 +1199,7 @@ func getSolverDogCoinBalance(networkName string) (*big.Int, error) {
 func getSolverAddress(networkName string) (string, error) {
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
+		useLocalForks := os.Getenv("IS_DEVNET") == "true"
 		if useLocalForks {
 			address := os.Getenv("LOCAL_STARKNET_SOLVER_ADDRESS")
 			if address == "" {
@@ -1214,7 +1214,7 @@ func getSolverAddress(networkName string) (string, error) {
 		return address, nil
 	} else {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("FORKING") == "true"
+		useLocalForks := os.Getenv("IS_DEVNET") == "true"
 		if useLocalForks {
 			address := os.Getenv("LOCAL_SOLVER_PUB_KEY")
 			if address == "" {

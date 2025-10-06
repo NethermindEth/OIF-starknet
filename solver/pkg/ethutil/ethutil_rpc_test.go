@@ -31,8 +31,8 @@ func TestMaintainableWithNetworks(t *testing.T) {
 		t.Skip("RPC tests disabled via SKIP_INTEGRATION_TESTS")
 	}
 
-	useLocalForks := os.Getenv("FORKING") == "true"
-	t.Logf("Running maintainable code tests with networks (FORKING=%t)", useLocalForks)
+	useLocalForks := os.Getenv("IS_DEVNET") == "true"
+	t.Logf("Running maintainable code tests with networks (IS_DEVNET=%t)", useLocalForks)
 
 	// Test EVM RPC functions
 	t.Run("EVM_RPC_Functions", func(t *testing.T) {

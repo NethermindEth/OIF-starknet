@@ -9,41 +9,41 @@ import (
 )
 
 func TestConditionalEnvironment(t *testing.T) {
-	t.Run("FORKING=true uses LOCAL_ variables", func(t *testing.T) {
+	t.Run("IS_DEVNET=true uses LOCAL_ variables", func(t *testing.T) {
 		// Set up test environment
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
 		t.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_ETHEREUM_RPC_URL")
 			os.Unsetenv("ETHEREUM_RPC_URL")
 		}()
 
-		// Test that LOCAL_ version is used when FORKING=true
+		// Test that LOCAL_ version is used when IS_DEVNET=true
 		result := envutil.GetConditionalEnv("ETHEREUM_RPC_URL", "default")
 		assert.Equal(t, "http://localhost:8545", result)
 	})
 
-	t.Run("FORKING=false uses regular variables", func(t *testing.T) {
+	t.Run("IS_DEVNET=false uses regular variables", func(t *testing.T) {
 		// Set up test environment
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
 		t.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_ETHEREUM_RPC_URL")
 			os.Unsetenv("ETHEREUM_RPC_URL")
 		}()
 
-		// Test that regular version is used when FORKING=false
+		// Test that regular version is used when IS_DEVNET=false
 		result := envutil.GetConditionalEnv("ETHEREUM_RPC_URL", "default")
 		assert.Equal(t, "https://eth-sepolia.g.alchemy.com/v2/test", result)
 	})
 
-	t.Run("FORKING unset defaults to regular variables", func(t *testing.T) {
+	t.Run("IS_DEVNET unset defaults to regular variables", func(t *testing.T) {
 		// Set up test environment
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		t.Setenv("LOCAL_ETHEREUM_RPC_URL", "http://localhost:8545")
 		t.Setenv("ETHEREUM_RPC_URL", "https://eth-sepolia.g.alchemy.com/v2/test")
 		defer func() {
@@ -51,15 +51,15 @@ func TestConditionalEnvironment(t *testing.T) {
 			os.Unsetenv("ETHEREUM_RPC_URL")
 		}()
 
-		// Test that regular version is used when FORKING is unset
+		// Test that regular version is used when IS_DEVNET is unset
 		result := envutil.GetConditionalEnv("ETHEREUM_RPC_URL", "default")
 		assert.Equal(t, "https://eth-sepolia.g.alchemy.com/v2/test", result)
 	})
 
 	t.Run("Missing variables fall back to default", func(t *testing.T) {
 		// Set up test environment
-		t.Setenv("FORKING", "true")
-		defer os.Unsetenv("FORKING")
+		t.Setenv("IS_DEVNET", "true")
+		defer os.Unsetenv("IS_DEVNET")
 
 		// Test that default is used when neither LOCAL_ nor regular version exists
 		result := envutil.GetConditionalEnv("NONEXISTENT_VAR", "default_value")
@@ -70,16 +70,16 @@ func TestConditionalEnvironment(t *testing.T) {
 func TestGetConditionalAccountEnv(t *testing.T) {
 	t.Run("Account variables work with conditional logic", func(t *testing.T) {
 		// Set up test environment
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_SOLVER_PUB_KEY", "0x1234567890123456789012345678901234567890")
 		t.Setenv("SOLVER_PUB_KEY", "0x0987654321098765432109876543210987654321")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_SOLVER_PUB_KEY")
 			os.Unsetenv("SOLVER_PUB_KEY")
 		}()
 
-		// Test that LOCAL_ version is used when FORKING=true
+		// Test that LOCAL_ version is used when IS_DEVNET=true
 		result := GetConditionalAccountEnv("SOLVER_PUB_KEY")
 		assert.Equal(t, "0x1234567890123456789012345678901234567890", result)
 	})

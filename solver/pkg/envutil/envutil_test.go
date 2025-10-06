@@ -8,8 +8,8 @@ import (
 )
 
 func TestGetConditionalEnv(t *testing.T) {
-	t.Run("FORKING=true uses LOCAL_ variables", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+	t.Run("IS_DEVNET=true uses LOCAL_ variables", func(t *testing.T) {
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_TEST_VAR", "local_value")
 		t.Setenv("TEST_VAR", "regular_value")
 
@@ -17,12 +17,12 @@ func TestGetConditionalEnv(t *testing.T) {
 		assert.Equal(t, "local_value", result)
 	})
 
-	t.Run("FORKING=false uses regular variables", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+	t.Run("IS_DEVNET=false uses regular variables", func(t *testing.T) {
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("LOCAL_TEST_VAR", "local_value")
 		t.Setenv("TEST_VAR", "regular_value")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_TEST_VAR")
 			os.Unsetenv("TEST_VAR")
 		}()
@@ -31,8 +31,8 @@ func TestGetConditionalEnv(t *testing.T) {
 		assert.Equal(t, "regular_value", result)
 	})
 
-	t.Run("FORKING unset defaults to regular variables", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+	t.Run("IS_DEVNET unset defaults to regular variables", func(t *testing.T) {
+		os.Unsetenv("IS_DEVNET")
 		t.Setenv("LOCAL_TEST_VAR", "local_value")
 		t.Setenv("TEST_VAR", "regular_value")
 		defer func() {
@@ -45,8 +45,8 @@ func TestGetConditionalEnv(t *testing.T) {
 	})
 
 	t.Run("Missing variables fall back to default", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
-		defer os.Unsetenv("FORKING")
+		t.Setenv("IS_DEVNET", "true")
+		defer os.Unsetenv("IS_DEVNET")
 
 		result := GetConditionalEnv("NONEXISTENT_VAR", "default_value")
 		assert.Equal(t, "default_value", result)
@@ -54,11 +54,11 @@ func TestGetConditionalEnv(t *testing.T) {
 }
 
 func TestGetConditionalUint64(t *testing.T) {
-	t.Run("Get conditional uint64 with FORKING=true", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+	t.Run("Get conditional uint64 with IS_DEVNET=true", func(t *testing.T) {
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_TEST_VAR", "123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_TEST_VAR")
 		}()
 
@@ -66,11 +66,11 @@ func TestGetConditionalUint64(t *testing.T) {
 		assert.Equal(t, uint64(123), value)
 	})
 
-	t.Run("Get conditional uint64 with FORKING=false", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+	t.Run("Get conditional uint64 with IS_DEVNET=false", func(t *testing.T) {
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("TEST_VAR", "789")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("TEST_VAR")
 		}()
 
@@ -79,10 +79,10 @@ func TestGetConditionalUint64(t *testing.T) {
 	})
 
 	t.Run("Get conditional uint64 with invalid value", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_TEST_VAR", "invalid")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_TEST_VAR")
 		}()
 
@@ -92,22 +92,22 @@ func TestGetConditionalUint64(t *testing.T) {
 }
 
 func TestIsForking(t *testing.T) {
-	t.Run("Returns true when FORKING=true", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
-		defer os.Unsetenv("FORKING")
+	t.Run("Returns true when IS_DEVNET=true", func(t *testing.T) {
+		t.Setenv("IS_DEVNET", "true")
+		defer os.Unsetenv("IS_DEVNET")
 
 		assert.True(t, IsForking())
 	})
 
-	t.Run("Returns false when FORKING=false", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
-		defer os.Unsetenv("FORKING")
+	t.Run("Returns false when IS_DEVNET=false", func(t *testing.T) {
+		t.Setenv("IS_DEVNET", "false")
+		defer os.Unsetenv("IS_DEVNET")
 
 		assert.False(t, IsForking())
 	})
 
-	t.Run("Returns false when FORKING unset", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+	t.Run("Returns false when IS_DEVNET unset", func(t *testing.T) {
+		os.Unsetenv("IS_DEVNET")
 
 		assert.False(t, IsForking())
 	})
@@ -115,10 +115,10 @@ func TestIsForking(t *testing.T) {
 
 func TestGetStarknetAliceAddress(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_ALICE_ADDRESS", "0xlocal123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_ALICE_ADDRESS")
 		}()
 
@@ -127,10 +127,10 @@ func TestGetStarknetAliceAddress(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_ALICE_ADDRESS", "0xregular123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_ALICE_ADDRESS")
 		}()
 
@@ -139,7 +139,7 @@ func TestGetStarknetAliceAddress(t *testing.T) {
 	})
 
 	t.Run("Falls back to default when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_ALICE_ADDRESS")
 
 		result := GetStarknetAliceAddress()
@@ -149,10 +149,10 @@ func TestGetStarknetAliceAddress(t *testing.T) {
 
 func TestGetStarknetAlicePrivateKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_ALICE_PRIVATE_KEY", "0xlocalpriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_ALICE_PRIVATE_KEY")
 		}()
 
@@ -161,10 +161,10 @@ func TestGetStarknetAlicePrivateKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_ALICE_PRIVATE_KEY", "0xregularpriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_ALICE_PRIVATE_KEY")
 		}()
 
@@ -173,7 +173,7 @@ func TestGetStarknetAlicePrivateKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_ALICE_PRIVATE_KEY")
 
 		result := GetStarknetAlicePrivateKey()
@@ -183,10 +183,10 @@ func TestGetStarknetAlicePrivateKey(t *testing.T) {
 
 func TestGetStarknetAlicePublicKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_ALICE_PUBLIC_KEY", "0xlocalpub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_ALICE_PUBLIC_KEY")
 		}()
 
@@ -195,10 +195,10 @@ func TestGetStarknetAlicePublicKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_ALICE_PUBLIC_KEY", "0xregularpub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_ALICE_PUBLIC_KEY")
 		}()
 
@@ -207,7 +207,7 @@ func TestGetStarknetAlicePublicKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_ALICE_PUBLIC_KEY")
 
 		result := GetStarknetAlicePublicKey()
@@ -217,10 +217,10 @@ func TestGetStarknetAlicePublicKey(t *testing.T) {
 
 func TestGetStarknetSolverAddress(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_SOLVER_ADDRESS", "0xlocalsolver123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_SOLVER_ADDRESS")
 		}()
 
@@ -229,10 +229,10 @@ func TestGetStarknetSolverAddress(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_SOLVER_ADDRESS", "0xregularsolver123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_SOLVER_ADDRESS")
 		}()
 
@@ -241,7 +241,7 @@ func TestGetStarknetSolverAddress(t *testing.T) {
 	})
 
 	t.Run("Falls back to default when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_SOLVER_ADDRESS")
 
 		result := GetStarknetSolverAddress()
@@ -251,10 +251,10 @@ func TestGetStarknetSolverAddress(t *testing.T) {
 
 func TestGetStarknetSolverPrivateKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_SOLVER_PRIVATE_KEY", "0xlocalsolverpriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_SOLVER_PRIVATE_KEY")
 		}()
 
@@ -263,10 +263,10 @@ func TestGetStarknetSolverPrivateKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_SOLVER_PRIVATE_KEY", "0xregularsolverpriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_SOLVER_PRIVATE_KEY")
 		}()
 
@@ -275,7 +275,7 @@ func TestGetStarknetSolverPrivateKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_SOLVER_PRIVATE_KEY")
 
 		result := GetStarknetSolverPrivateKey()
@@ -285,10 +285,10 @@ func TestGetStarknetSolverPrivateKey(t *testing.T) {
 
 func TestGetStarknetSolverPublicKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_SOLVER_PUBLIC_KEY", "0xlocalsolverpub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_SOLVER_PUBLIC_KEY")
 		}()
 
@@ -297,10 +297,10 @@ func TestGetStarknetSolverPublicKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_SOLVER_PUBLIC_KEY", "0xregularsolverpub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_SOLVER_PUBLIC_KEY")
 		}()
 
@@ -309,7 +309,7 @@ func TestGetStarknetSolverPublicKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_SOLVER_PUBLIC_KEY")
 
 		result := GetStarknetSolverPublicKey()
@@ -319,10 +319,10 @@ func TestGetStarknetSolverPublicKey(t *testing.T) {
 
 func TestGetStarknetRPCURL(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_STARKNET_RPC_URL", "http://localhost:5051")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_STARKNET_RPC_URL")
 		}()
 
@@ -331,10 +331,10 @@ func TestGetStarknetRPCURL(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("STARKNET_RPC_URL", "https://starknet-sepolia.public.blastapi.io")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("STARKNET_RPC_URL")
 		}()
 
@@ -343,7 +343,7 @@ func TestGetStarknetRPCURL(t *testing.T) {
 	})
 
 	t.Run("Falls back to default when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("STARKNET_RPC_URL")
 
 		result := GetStarknetRPCURL()
@@ -353,10 +353,10 @@ func TestGetStarknetRPCURL(t *testing.T) {
 
 func TestGetAlicePublicKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_ALICE_PUB_KEY", "0xlocalalicepub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_ALICE_PUB_KEY")
 		}()
 
@@ -365,10 +365,10 @@ func TestGetAlicePublicKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("ALICE_PUB_KEY", "0xregularalicepub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("ALICE_PUB_KEY")
 		}()
 
@@ -377,7 +377,7 @@ func TestGetAlicePublicKey(t *testing.T) {
 	})
 
 	t.Run("Falls back to default when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("ALICE_PUB_KEY")
 
 		result := GetAlicePublicKey()
@@ -387,10 +387,10 @@ func TestGetAlicePublicKey(t *testing.T) {
 
 func TestGetAlicePrivateKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_ALICE_PRIVATE_KEY", "0xlocalalicepriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_ALICE_PRIVATE_KEY")
 		}()
 
@@ -399,10 +399,10 @@ func TestGetAlicePrivateKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("ALICE_PRIVATE_KEY", "0xregularalicepriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("ALICE_PRIVATE_KEY")
 		}()
 
@@ -411,7 +411,7 @@ func TestGetAlicePrivateKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("ALICE_PRIVATE_KEY")
 
 		result := GetAlicePrivateKey()
@@ -421,10 +421,10 @@ func TestGetAlicePrivateKey(t *testing.T) {
 
 func TestGetSolverPublicKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_SOLVER_PUB_KEY", "0xlocalsolverpub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_SOLVER_PUB_KEY")
 		}()
 
@@ -433,10 +433,10 @@ func TestGetSolverPublicKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("SOLVER_PUB_KEY", "0xregularsolverpub123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("SOLVER_PUB_KEY")
 		}()
 
@@ -445,7 +445,7 @@ func TestGetSolverPublicKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("SOLVER_PUB_KEY")
 
 		result := GetSolverPublicKey()
@@ -455,10 +455,10 @@ func TestGetSolverPublicKey(t *testing.T) {
 
 func TestGetSolverPrivateKey(t *testing.T) {
 	t.Run("Uses LOCAL version when forking", func(t *testing.T) {
-		t.Setenv("FORKING", "true")
+		t.Setenv("IS_DEVNET", "true")
 		t.Setenv("LOCAL_SOLVER_PRIVATE_KEY", "0xlocalsolverpriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("LOCAL_SOLVER_PRIVATE_KEY")
 		}()
 
@@ -467,10 +467,10 @@ func TestGetSolverPrivateKey(t *testing.T) {
 	})
 
 	t.Run("Uses regular version when not forking", func(t *testing.T) {
-		t.Setenv("FORKING", "false")
+		t.Setenv("IS_DEVNET", "false")
 		t.Setenv("SOLVER_PRIVATE_KEY", "0xregularsolverpriv123")
 		defer func() {
-			os.Unsetenv("FORKING")
+			os.Unsetenv("IS_DEVNET")
 			os.Unsetenv("SOLVER_PRIVATE_KEY")
 		}()
 
@@ -479,7 +479,7 @@ func TestGetSolverPrivateKey(t *testing.T) {
 	})
 
 	t.Run("Returns empty when not set", func(t *testing.T) {
-		os.Unsetenv("FORKING")
+		os.Unsetenv("IS_DEVNET")
 		os.Unsetenv("SOLVER_PRIVATE_KEY")
 
 		result := GetSolverPrivateKey()
