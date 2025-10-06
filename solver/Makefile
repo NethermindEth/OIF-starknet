@@ -27,11 +27,13 @@ help:
 	@echo "🌐 Network Management:"
 	@echo "  start-networks   - Start all testnet forks (runs continuously)"
 	@echo "  kill-networks    - Stop all running networks"
-	@echo "  register-*       - Register domains (run after starting networks)"
 	@echo "  kill-all         - Stop all processes (networks + solvers) and clean state"
 	@echo "  fund-accounts    - Fund Alice & Solver with tokens (uses current IS_DEVNET setting)"
 	@echo "  fund-accounts-local - Fund Alice & Solver on local devnet (IS_DEVNET=true)"
 	@echo "  fund-accounts-live - Fund Alice & Solver on live networks (IS_DEVNET=false)"
+	@echo "  register-starknet-on-evm - Register Starknet domain on EVM contracts (uses current IS_DEVNET setting)"
+	@echo "  register-starknet-on-evm-local - Register Starknet domain on EVM contracts (local devnet)"
+	@echo "  register-starknet-on-evm-live - Register Starknet domain on EVM contracts (live networks)"
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
@@ -102,8 +104,6 @@ clean-solver:
 	@echo "🧹 Cleaning solver state..."
 	@rm -f state/solver_state/solver-state.json solver-state.json
 	@echo "✅ Clean complete (solver will start from .env start blocks)"
-
-
 
 # Run linter
 lint:
@@ -194,11 +194,24 @@ fund-accounts-live: build-fund-accounts
 		IS_DEVNET=false ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
 	fi
 
+# Essential setup for testing (register Starknet domain on EVM contracts - uses current IS_DEVNET setting)
 register-starknet-on-evm: build-register-evm-routers
 	./bin/register-evm-routers
 	@echo "✅ Starknet domain registered on all EVM contracts!"
 
-# Not required for testing (register EVM domains on Starknet contract)
+# Register Starknet domain on EVM contracts (local devnet)
+register-starknet-on-evm-local: build-register-evm-routers
+	@echo "Registering Starknet domain on EVM contracts (local devnet)..."
+	IS_DEVNET=true ./bin/register-evm-routers
+	@echo "✅ Starknet domain registered on all EVM contracts!"
+
+# Register Starknet domain on EVM contracts (live networks)
+register-starknet-on-evm-live: build-register-evm-routers
+	@echo "Registering Starknet domain on EVM contracts (live networks)..."
+	IS_DEVNET=false ./bin/register-evm-routers
+	@echo "✅ Starknet domain registered on all EVM contracts!"
+
+# Not required for testing if forking post deployment (register EVM domains on Starknet contract)
 register-evm-on-starknet: build-register-sn-routers
 	./bin/register-sn-routers
 	@echo "✅ EVM domains registered on Starknet contract!"
