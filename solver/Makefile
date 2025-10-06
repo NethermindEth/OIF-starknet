@@ -6,12 +6,13 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-solver-integration - Run full solver tests (executes orders + solver)"
 	@echo "  test-all         - Run all tests (unit + RPC + integration)"
 	@echo "  test-rpc-local   - Run RPC tests with local devnet (requires start-networks)"
 	@echo "  test-rpc-live    - Run RPC tests with live networks"
 	@echo "  test-integration-local - Run basic integration tests with local devnet (network setup and order opening)"
 	@echo "  test-integration-live - Run basic integration tests with live testnets (network setup and order opening)"
+	@echo "  test-solver-local - Run solver integration tests with local devnet (multi-order processing)"
+	@echo "  test-solver-live - Run solver integration tests with live testnets (multi-order processing)"
 	@echo "  test-coverage    - Show coverage for maintainable code"
 	@echo ""
 	@echo "🔧 Development Commands:"
@@ -370,12 +371,21 @@ test-integration-live:
 	@echo "Make sure you have live network access and proper environment variables set"
 	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
 
-# Run full solver integration tests (requires full setup + solver execution)
-test-solver-integration:
-	@echo "🤖 Running full solver integration tests (requires full setup)..."
+# Run solver integration tests with local devnet (order opening + solving)
+test-solver-local:
+	@echo "🤖 Running solver integration tests with local devnet (multi-order processing)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
-	@EXECUTE_SOLVER_TESTS=true go test -v -run "TestSolverIntegration" -timeout 400s -p 1
+	@echo "Funding accounts and setting up contracts..."
+	@make fund-accounts-local
+	@make register-starknet-on-evm-local
+	@echo "Starting multi-order solver integration test..."
+	@set -a && . ./.env && set +a && IS_DEVNET=true EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
+
+# Run solver integration tests with live testnets (order opening + solving)
+test-solver-live:
+	@echo "🤖 Running solver integration tests with live testnets (multi-order processing)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
 test-all: test-unit test-rpc test-integration
