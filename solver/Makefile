@@ -333,7 +333,8 @@ test-unit:
 		./solvercore/logutil \
 		./solvercore/types \
 		./solvercore/solvers/hyperlane7683 \
-		-run "Test.*" -timeout 30s
+		-run "Test.*" -timeout 30s \
+		-skip "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks"
 
 # Run RPC tests with local devnet (requires start-networks)
 test-rpc-local:
