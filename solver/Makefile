@@ -6,11 +6,12 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-integration - Run integration tests (requires full setup)"
 	@echo "  test-solver-integration - Run full solver tests (executes orders + solver)"
 	@echo "  test-all         - Run all tests (unit + RPC + integration)"
 	@echo "  test-rpc-local   - Run RPC tests with local devnet (requires start-networks)"
 	@echo "  test-rpc-live    - Run RPC tests with live networks"
+	@echo "  test-integration-local - Run basic integration tests with local devnet (network setup and order opening)"
+	@echo "  test-integration-live - Run basic integration tests with live testnets (network setup and order opening)"
 	@echo "  test-coverage    - Show coverage for maintainable code"
 	@echo ""
 	@echo "🔧 Development Commands:"
@@ -343,9 +344,6 @@ test-rpc-local:
 		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
 		-timeout 60s
 
-# Run integration tests (requires full setup)
-test-integration:
-	@echo "🔄 Running integration tests (requires full setup)..."
 # Run RPC tests with live networks (requires live network access)
 test-rpc-live:
 	@echo "🌐 Running RPC tests with live networks..."
@@ -356,9 +354,21 @@ test-rpc-live:
 		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
 		-timeout 60s
 
+# Run basic integration tests with local devnet (order opening only)
+test-integration-local:
+	@echo "🔄 Running basic integration tests with local devnet (order opening only)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
-	@go test -v -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestSolverIntegration" -timeout 300s -p 1
+	@echo "Funding accounts and setting up contracts..."
+	@make fund-accounts-local
+	@make register-starknet-on-evm-local
+	@echo "Starting integration tests..."
+	@set -a && . ./.env && set +a && IS_DEVNET=true EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
+
+# Run basic integration tests with live testnets (order opening only)
+test-integration-live:
+	@echo "🔄 Running basic integration tests with live testnets (order opening only)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
 
 # Run full solver integration tests (requires full setup + solver execution)
 test-solver-integration:
