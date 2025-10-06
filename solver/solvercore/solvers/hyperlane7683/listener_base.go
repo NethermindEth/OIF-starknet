@@ -104,7 +104,7 @@ func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandl
 		if err := config.UpdateLastIndexedBlock(listenerConfig.ChainName, newLast); err != nil {
 			fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", listenerConfig.ChainName, err)
 		} else {
-			//fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, listenerConfig.ChainName)
+			// fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, listenerConfig.ChainName)
 		}
 	}
 

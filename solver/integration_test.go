@@ -814,7 +814,7 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	afterOrderBalances := getAllNetworkBalances()
 
 	//// Debug: Log balance changes
-	//t.Log("🔍 Balance changes after order creation:")
+	// t.Log("🔍 Balance changes after order creation:")
 	//for network, beforeBalance := range beforeOrderBalances.AliceBalances {
 	//	afterBalance := afterOrderBalances.AliceBalances[network]
 	//	change := new(big.Int).Sub(afterBalance, beforeBalance)
@@ -980,13 +980,13 @@ func testCompleteOrderLifecycle(t *testing.T, solverPath string, orderCommand []
 	require.NoError(t, err)
 
 	//// Log solver balances
-	//t.Log("📋 Before solver execution balances:")
+	// t.Log("📋 Before solver execution balances:")
 	//for network, balance := range beforeSolverBalances.Balances {
 	//	t.Logf("   %s Solver DogCoin: %s", network, balance.String())
 	//}
 
 	//// Debug: Log solver addresses
-	//t.Log("🔍 Solver addresses:")
+	// t.Log("🔍 Solver addresses:")
 	//for _, network := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
 	//	address, err := getSolverAddress(network)
 	//	if err != nil {

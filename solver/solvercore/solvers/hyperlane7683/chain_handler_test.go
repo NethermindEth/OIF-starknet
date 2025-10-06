@@ -102,7 +102,7 @@ func TestChainHandlerErrorHandling(t *testing.T) {
 
 // TestChainHandlerContextHandling tests context handling
 func TestChainHandlerContextHandling(t *testing.T) {
-	t.Run("cancelled_context", func(t *testing.T) {
+	t.Run("canceled_context", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 

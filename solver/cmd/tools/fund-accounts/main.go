@@ -99,7 +99,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 
 	var networkConfig *config.NetworkConfig
 	for name, cfg := range config.Networks {
-		if strings.ToLower(name) == networkName {
+		if strings.EqualFold(name, networkName) {
 			networkConfig = &cfg
 			break
 		}
