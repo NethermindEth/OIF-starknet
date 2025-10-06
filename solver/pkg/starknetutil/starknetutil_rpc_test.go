@@ -29,17 +29,17 @@ func TestMaintainableWithNetworks(t *testing.T) {
 		t.Skip("RPC tests disabled via SKIP_INTEGRATION_TESTS")
 	}
 
-	useLocalForks := os.Getenv("DEVNET") == "true"
-	t.Logf("Running Starknet maintainable code tests with networks (DEVNET=%t)", useLocalForks)
+	isDevnet := os.Getenv("DEVNET") == "true"
+	t.Logf("Running Starknet maintainable code tests with networks (DEVNET=%t)", isDevnet)
 
 	// Test Starknet RPC functions
 	t.Run("Starknet_RPC_Functions", func(t *testing.T) {
-		testStarknetRPCFunctions(t, useLocalForks)
+		testStarknetRPCFunctions(t, isDevnet)
 	})
 }
 
 // testStarknetRPCFunctions tests Starknet RPC-dependent functions
-func testStarknetRPCFunctions(t *testing.T, useLocalForks bool) {
+func testStarknetRPCFunctions(t *testing.T, isDevnet bool) {
 	// Get Starknet network configuration
 	networkConfig, err := config.GetNetworkConfig("Starknet")
 	if err != nil {
@@ -55,13 +55,13 @@ func testStarknetRPCFunctions(t *testing.T, useLocalForks bool) {
 	}
 
 	// Test Starknet ERC20 functions if we have token addresses
-	testStarknetERC20Functions(t, provider, useLocalForks)
+	testStarknetERC20Functions(t, provider, isDevnet)
 }
 
 // testStarknetERC20Functions tests Starknet ERC20 functions
-func testStarknetERC20Functions(t *testing.T, provider *rpc.Provider, useLocalForks bool) {
+func testStarknetERC20Functions(t *testing.T, provider *rpc.Provider, isDevnet bool) {
 	// Get Alice's address
-	aliceAddress, err := getAliceAddressForNetwork("Starknet", useLocalForks)
+	aliceAddress, err := getAliceAddressForNetwork("Starknet", isDevnet)
 	if err != nil {
 		t.Skipf("Skipping Starknet ERC20 tests: %v", err)
 		return
@@ -95,8 +95,8 @@ func testStarknetERC20Functions(t *testing.T, provider *rpc.Provider, useLocalFo
 }
 
 // Helper functions
-func getAliceAddressForNetwork(_ string, useLocalForks bool) (string, error) {
-	if useLocalForks {
+func getAliceAddressForNetwork(_ string, isDevnet bool) (string, error) {
+	if isDevnet {
 		address := os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS")
 		if address == "" {
 			return "", fmt.Errorf("LOCAL_STARKNET_ALICE_ADDRESS not set")

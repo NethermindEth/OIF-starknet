@@ -27,7 +27,7 @@ import (
 
 // IntegrationTestConfig holds configuration for integration tests
 type IntegrationTestConfig struct {
-	UseLocalForks bool
+	IsDevnet bool
 	TestNetworks  []string
 	Timeout       time.Duration
 }
@@ -44,15 +44,15 @@ func TestOrderLifecycleIntegration(t *testing.T) {
 	}
 
 	// Determine test configuration
-	useLocalForks := os.Getenv("DEVNET") == "true"
+	isDevnet := os.Getenv("DEVNET") == "true"
 
 	testConfig := IntegrationTestConfig{
-		UseLocalForks: useLocalForks,
+		IsDevnet: isDevnet,
 		TestNetworks:  []string{"Base", "Ethereum", "Starknet"},
 		Timeout:       180 * time.Second,
 	}
 
-	t.Logf("Running integration tests with DEVNET=%t", useLocalForks)
+	t.Logf("Running integration tests with DEVNET=%t", isDevnet)
 
 	// Test 1: Configuration Loading
 	t.Run("ConfigurationLoading", func(t *testing.T) {
@@ -131,23 +131,23 @@ func TestCrossChainOperations(t *testing.T) {
 		t.Skip("Integration tests disabled via SKIP_INTEGRATION_TESTS")
 	}
 
-	useLocalForks := os.Getenv("DEVNET") == "true"
+	isDevnet := os.Getenv("DEVNET") == "true"
 
 	t.Run("EVM_to_EVM", func(t *testing.T) {
-		testCrossChainOrder(t, "Base", "Ethereum", useLocalForks)
+		testCrossChainOrder(t, "Base", "Ethereum", isDevnet)
 	})
 
 	t.Run("EVM_to_Starknet", func(t *testing.T) {
-		testCrossChainOrder(t, "Base", "Starknet", useLocalForks)
+		testCrossChainOrder(t, "Base", "Starknet", isDevnet)
 	})
 
 	t.Run("Starknet_to_EVM", func(t *testing.T) {
-		testCrossChainOrder(t, "Starknet", "Base", useLocalForks)
+		testCrossChainOrder(t, "Starknet", "Base", isDevnet)
 	})
 }
 
 // testCrossChainOrder tests a specific cross-chain order scenario
-func testCrossChainOrder(t *testing.T, originNetwork, destinationNetwork string, useLocalForks bool) {
+func testCrossChainOrder(t *testing.T, originNetwork, destinationNetwork string, isDevnet bool) {
 	// Get network configurations
 	originConfig, err := config.GetNetworkConfig(originNetwork)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func testCrossChainOrder(t *testing.T, originNetwork, destinationNetwork string,
 	destinationConfig, err := config.GetNetworkConfig(destinationNetwork)
 	require.NoError(t, err)
 
-	t.Logf("Testing %s -> %s order (DEVNET=%t)", originNetwork, destinationNetwork, useLocalForks)
+	t.Logf("Testing %s -> %s order (DEVNET=%t)", originNetwork, destinationNetwork, isDevnet)
 	t.Logf("Origin: %s (ChainID: %d)", originConfig.RPCURL, originConfig.ChainID)
 	t.Logf("Destination: %s (ChainID: %d)", destinationConfig.RPCURL, destinationConfig.ChainID)
 
@@ -484,15 +484,15 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 func getAliceAddress(networkName string) (string, error) {
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("DEVNET") == "true"
-		if useLocalForks {
+		isDevnet := os.Getenv("DEVNET") == "true"
+		if isDevnet {
 			return os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS"), nil
 		}
 		return os.Getenv("STARKNET_ALICE_ADDRESS"), nil
 	} else {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("DEVNET") == "true"
-		if useLocalForks {
+		isDevnet := os.Getenv("DEVNET") == "true"
+		if isDevnet {
 			return os.Getenv("LOCAL_ALICE_PUB_KEY"), nil
 		}
 		return os.Getenv("ALICE_PUB_KEY"), nil
@@ -1199,8 +1199,8 @@ func getSolverDogCoinBalance(networkName string) (*big.Int, error) {
 func getSolverAddress(networkName string) (string, error) {
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("DEVNET") == "true"
-		if useLocalForks {
+		isDevnet := os.Getenv("DEVNET") == "true"
+		if isDevnet {
 			address := os.Getenv("LOCAL_STARKNET_SOLVER_ADDRESS")
 			if address == "" {
 				return "", fmt.Errorf("LOCAL_STARKNET_SOLVER_ADDRESS not set")
@@ -1214,8 +1214,8 @@ func getSolverAddress(networkName string) (string, error) {
 		return address, nil
 	} else {
 		// Use conditional environment variable
-		useLocalForks := os.Getenv("DEVNET") == "true"
-		if useLocalForks {
+		isDevnet := os.Getenv("DEVNET") == "true"
+		if isDevnet {
 			address := os.Getenv("LOCAL_SOLVER_PUB_KEY")
 			if address == "" {
 				return "", fmt.Errorf("LOCAL_SOLVER_PUB_KEY not set")

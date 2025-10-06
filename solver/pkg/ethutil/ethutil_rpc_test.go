@@ -31,20 +31,20 @@ func TestMaintainableWithNetworks(t *testing.T) {
 		t.Skip("RPC tests disabled via SKIP_INTEGRATION_TESTS")
 	}
 
-	useLocalForks := os.Getenv("DEVNET") == "true"
-	t.Logf("Running maintainable code tests with networks (DEVNET=%t)", useLocalForks)
+	isDevnet := os.Getenv("DEVNET") == "true"
+	t.Logf("Running maintainable code tests with networks (DEVNET=%t)", isDevnet)
 
 	// Test EVM RPC functions
 	t.Run("EVM_RPC_Functions", func(t *testing.T) {
-		testEVMRPCFunctions(t, useLocalForks)
+		testEVMRPCFunctions(t, isDevnet)
 	})
 }
 
 // testEVMRPCFunctions tests EVM RPC-dependent functions
-func testEVMRPCFunctions(t *testing.T, useLocalForks bool) {
+func testEVMRPCFunctions(t *testing.T, isDevnet bool) {
 	// Test networks (prioritize local forks if available)
 	networks := []string{"Base", "Ethereum", "Optimism", "Arbitrum"}
-	if useLocalForks {
+	if isDevnet {
 		networks = []string{"Base", "Ethereum"} // Local forks are typically faster
 	}
 
@@ -87,15 +87,15 @@ func testEVMRPCFunctions(t *testing.T, useLocalForks bool) {
 			})
 
 			// Test ERC20 functions if we have token addresses
-			testERC20Functions(t, client, networkName, useLocalForks)
+			testERC20Functions(t, client, networkName, isDevnet)
 		})
 	}
 }
 
 // testERC20Functions tests EVM ERC20 functions
-func testERC20Functions(t *testing.T, client *ethclient.Client, networkName string, useLocalForks bool) {
+func testERC20Functions(t *testing.T, client *ethclient.Client, networkName string, isDevnet bool) {
 	// Get Alice's address
-	aliceAddress, err := getAliceAddressForNetwork(networkName, useLocalForks)
+	aliceAddress, err := getAliceAddressForNetwork(networkName, isDevnet)
 	if err != nil {
 		t.Skipf("Skipping ERC20 tests for %s: %v", networkName, err)
 		return
@@ -126,8 +126,8 @@ func testERC20Functions(t *testing.T, client *ethclient.Client, networkName stri
 }
 
 // Helper functions
-func getAliceAddressForNetwork(_ string, useLocalForks bool) (string, error) {
-	if useLocalForks {
+func getAliceAddressForNetwork(_ string, isDevnet bool) (string, error) {
+	if isDevnet {
 		address := os.Getenv("LOCAL_ALICE_PUB_KEY")
 		if address == "" {
 			return "", fmt.Errorf("LOCAL_ALICE_PUB_KEY not set")
