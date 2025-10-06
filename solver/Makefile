@@ -6,7 +6,6 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-all         - Run all tests (unit + RPC + integration)"
 	@echo "  test-rpc-local   - Run RPC tests with local devnet (requires start-networks)"
 	@echo "  test-rpc-live    - Run RPC tests with live networks"
 	@echo "  test-integration-local - Run basic integration tests with local devnet (network setup and order opening)"
@@ -389,7 +388,7 @@ test-solver-live:
 	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
-test-all: test-unit test-rpc test-integration
+test-all: test-unit test-rpc-local test-integration-local
 	@echo "✅ All tests completed!"
 
 # Show coverage for maintainable code
