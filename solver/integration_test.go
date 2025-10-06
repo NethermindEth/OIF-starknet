@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/oif-starknet/solver/pkg/envutil"
 	"github.com/NethermindEth/oif-starknet/solver/pkg/ethutil"
 	"github.com/NethermindEth/oif-starknet/solver/pkg/starknetutil"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
@@ -504,19 +505,10 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 
 // getAliceAddress gets Alice's address for a specific network
 func getAliceAddress(networkName string) (string, error) {
-	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	if networkName == "Starknet" {
-		// Use conditional environment variable
-		if isDevnet {
-			return os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS"), nil
-		}
-		return os.Getenv("STARKNET_ALICE_ADDRESS"), nil
+		return envutil.GetStarknetAliceAddress(), nil
 	} else {
-		// Use conditional environment variable
-		if isDevnet {
-			return os.Getenv("LOCAL_ALICE_PUB_KEY"), nil
-		}
-		return os.Getenv("ALICE_PUB_KEY"), nil
+		return envutil.GetAlicePublicKey(), nil
 	}
 }
 
