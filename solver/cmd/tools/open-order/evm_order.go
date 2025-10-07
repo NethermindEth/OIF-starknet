@@ -589,9 +589,9 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		}
 
 		fmt.Printf("   🚀 Approval transaction sent: %s\n", approveTx.Hash().Hex())
-		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
 
 		// Wait for approval transaction to be mined
+		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
 		receipt, err := ethutil.WaitForTransaction(client, approveTx)
 		if err != nil {
 			log.Fatalf("Failed to wait for approval transaction: %v", err)
