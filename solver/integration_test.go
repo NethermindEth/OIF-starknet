@@ -1505,6 +1505,197 @@ func verifyMultiOrderBalanceChanges(t *testing.T, beforeOrder, finalAlice *Netwo
 	t.Log("🎉 Multi-order balance verification completed successfully!")
 }
 
+// waitForAllOrdersProcessed monitors solver output in real-time to detect when all orders are processed
+func waitForAllOrdersProcessed(t *testing.T, solverCmd *exec.Cmd, orderInfos []*OrderInfo) bool {
+	t.Logf("🔍 Monitoring solver output for %d orders...", len(orderInfos))
+
+	// Count how many orders have valid order IDs
+	validOrderCount := 0
+	for _, orderInfo := range orderInfos {
+		if orderInfo.OrderID != "" {
+			validOrderCount++
+		}
+	}
+
+	t.Logf("🔍 Valid order IDs found: %d/%d", validOrderCount, len(orderInfos))
+
+	// Check if we already have enough completion patterns
+	// This handles the case where order IDs don't match but we have the right number of completions
+	stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	output := stdout + stderr
+	completionCount := strings.Count(output, OrderProcessingPattern)
+	if completionCount >= len(orderInfos) {
+		t.Logf("🎉 Found %d completion patterns (expected: %d) - all orders already processed!", completionCount, len(orderInfos))
+		return true
+	}
+
+	// If no valid order IDs, fall back to counting completion patterns
+	if validOrderCount == 0 {
+		t.Log("⚠️  No valid order IDs found, falling back to completion pattern counting")
+		return waitForCompletionPatterns(t, solverCmd, len(orderInfos))
+	}
+
+	// Create a map to track which orders have been processed
+	processedOrders := make(map[string]bool)
+	for _, orderInfo := range orderInfos {
+		if orderInfo.OrderID != "" {
+			processedOrders[orderInfo.OrderID] = false
+		}
+	}
+
+	// Set up monitoring with timeout
+	timeout := time.After(SolverMaxTimeout)
+	ticker := time.NewTicker(SolverCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after %v, stopping solver monitoring", SolverMaxTimeout)
+			return false
+
+		case <-ticker.C:
+			// Read current solver output
+			stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+			stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+			output := stdout + stderr
+
+			// Debug: Log the current output length and any completion patterns found
+			if len(output) > 0 {
+				completionCount := strings.Count(output, OrderProcessingPattern)
+				if completionCount > 0 {
+					t.Logf("🔍 Found %d completion patterns in solver output", completionCount)
+
+					// Check if we have enough completion patterns to exit early
+					if completionCount >= len(orderInfos) {
+						t.Logf("🎉 Found %d completion patterns (expected: %d) - all orders processed! Exiting early.", completionCount, len(orderInfos))
+						return true
+					}
+
+					// Debug: Show what order IDs we're looking for
+					var lookingFor []string
+					for orderID := range processedOrders {
+						if !processedOrders[orderID] {
+							truncated := orderID
+							if len(orderID) > 8 {
+								truncated = orderID[:8]
+							}
+							lookingFor = append(lookingFor, truncated)
+						}
+					}
+					t.Logf("🔍 Looking for order IDs: %v", lookingFor)
+
+					// Debug: Show actual completion lines in the output
+					lines := strings.Split(output, "\n")
+					for _, line := range lines {
+						if strings.Contains(line, OrderProcessingPattern) {
+							t.Logf("🔍 Found completion line: %s", line)
+						}
+					}
+				}
+			}
+
+			// Check for order processing completion patterns
+			ordersProcessedThisCheck := 0
+			for orderID, isProcessed := range processedOrders {
+				if !isProcessed {
+					// Look for the completion pattern with this specific order ID
+					// The actual pattern is: "[ETH] → [STRK] ✅ Order processing completed (Order: 0x5bd09b...)"
+					// We need to match the truncated order ID (first 8 characters)
+					truncatedOrderID := orderID
+					if len(orderID) > 8 {
+						truncatedOrderID = orderID[:8]
+					}
+
+					// Check if this specific order has the completion pattern
+					// Look for: "✅ Order processing completed (Order: 0x5bd09b...)"
+					orderCompletionPattern := OrderProcessingPattern + " (Order: " + truncatedOrderID + "...)"
+					if strings.Contains(output, orderCompletionPattern) {
+						processedOrders[orderID] = true
+						ordersProcessedThisCheck++
+						t.Logf("✅ Order %s processed successfully", orderID)
+					}
+				}
+			}
+
+			// Check if all orders have been processed
+			allProcessed := true
+			for _, isProcessed := range processedOrders {
+				if !isProcessed {
+					allProcessed = false
+					break
+				}
+			}
+
+			if allProcessed {
+				t.Logf("🎉 All %d orders have been processed!", len(processedOrders))
+				return true
+			}
+
+			// Log progress if any orders were processed in this check
+			if ordersProcessedThisCheck > 0 {
+				processedCount := 0
+				for _, isProcessed := range processedOrders {
+					if isProcessed {
+						processedCount++
+					}
+				}
+				t.Logf("📊 Progress: %d/%d orders processed", processedCount, len(processedOrders))
+			}
+		}
+	}
+}
+
+// waitForCompletionPatterns is a fallback method that counts completion patterns instead of matching order IDs
+func waitForCompletionPatterns(t *testing.T, solverCmd *exec.Cmd, expectedOrderCount int) bool {
+	t.Logf("🔍 Monitoring solver output for %d completion patterns...", expectedOrderCount)
+
+	// Set up monitoring with timeout
+	timeout := time.After(SolverMaxTimeout)
+	ticker := time.NewTicker(SolverCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after %v, stopping solver monitoring", SolverMaxTimeout)
+			return false
+
+		case <-ticker.C:
+			// Read current solver output
+			stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+			stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+			output := stdout + stderr
+
+			// Count completion patterns
+			completionCount := strings.Count(output, OrderProcessingPattern)
+			if completionCount > 0 {
+				t.Logf("🔍 Found %d completion patterns in solver output (expected: %d)", completionCount, expectedOrderCount)
+
+				// Debug: Show actual completion lines in the output
+				lines := strings.Split(output, "\n")
+				for _, line := range lines {
+					if strings.Contains(line, OrderProcessingPattern) {
+						t.Logf("🔍 Found completion line: %s", line)
+					}
+				}
+
+				// Check if we have enough completion patterns to exit early
+				if completionCount >= expectedOrderCount {
+					t.Logf("🎉 Found %d completion patterns (expected: %d) - all orders processed! Exiting early.", completionCount, expectedOrderCount)
+					return true
+				}
+			}
+
+			// Log progress
+			if completionCount > 0 {
+				t.Logf("📊 Progress: %d/%d completion patterns found", completionCount, expectedOrderCount)
+			}
+		}
+	}
+}
+
 func TestMain(m *testing.M) {
 	// Load environment variables
 	if _, err := config.LoadConfig(); err != nil {
