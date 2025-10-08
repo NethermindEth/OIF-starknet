@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"math/big"
@@ -21,6 +22,7 @@ import (
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/solvers/hyperlane7683"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/types"
 	"github.com/NethermindEth/starknet.go/rpc"
+	"github.com/NethermindEth/starknet.go/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
@@ -32,6 +34,18 @@ type IntegrationTestConfig struct {
 	TestNetworks []string
 	Timeout      time.Duration
 }
+
+// Integration test constants
+const (
+	// Solver monitoring constants
+	SolverCheckInterval    = 1 * time.Second                // How often to check solver output
+	SolverMaxTimeout       = 3 * time.Minute                // Maximum time to wait for solver
+	OrderProcessingPattern = "✅ Order processing completed" // Pattern to look for in solver output
+
+	// Order creation constants
+	OrderCreationTimeout   = 60 * time.Second // Max time to wait for order creation
+	OrderConfirmationDelay = 2 * time.Second  // Delay between order creation and confirmation check
+)
 
 // TestOrderLifecycleIntegration tests the complete order lifecycle
 func TestOrderLifecycleIntegration(t *testing.T) {
