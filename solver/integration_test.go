@@ -355,6 +355,83 @@ type OrderInfo struct {
 	OutputAmount     string
 }
 
+// waitForOpenTransaction waits for the `open` transaction to be confirmed using the appropriate method
+// based on the origin chain (EVM vs Starknet)
+func waitForOpenTransaction(t *testing.T, orderInfo *OrderInfo) error {
+	if orderInfo.TransactionHash == "" {
+		return fmt.Errorf("no transaction hash available for waiting")
+	}
+
+	// Get network configuration for the origin chain
+	networkConfig, err := config.GetNetworkConfig(orderInfo.OriginChain)
+	if err != nil {
+		return fmt.Errorf("failed to get network config for %s: %w", orderInfo.OriginChain, err)
+	}
+
+	t.Logf("⏳ Waiting for transaction confirmation: %s on %s", orderInfo.TransactionHash, orderInfo.OriginChain)
+
+	// Wait for transaction with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), OrderCreationTimeout)
+	defer cancel()
+
+	if orderInfo.OriginChain == "Starknet" {
+		// Use Starknet RPC
+		provider, err := rpc.NewProvider(networkConfig.RPCURL)
+		if err != nil {
+			return fmt.Errorf("failed to create Starknet provider: %w", err)
+		}
+
+		// Convert hex hash to felt
+		hashFelt, err := utils.HexToFelt(orderInfo.TransactionHash)
+		if err != nil {
+			return fmt.Errorf("failed to convert hash to felt: %w", err)
+		}
+
+		// Poll for transaction status using GetTransactionStatus
+		for {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("timeout waiting for Starknet transaction: %w", ctx.Err())
+			default:
+				status, err := provider.GetTransactionStatus(ctx, hashFelt)
+				if err == nil && status != nil {
+					// Check if transaction is accepted on L2
+					if status.FinalityStatus == "ACCEPTED_ON_L2" {
+						t.Logf("✅ Starknet transaction confirmed: %s", orderInfo.TransactionHash)
+						return nil
+					}
+				}
+				time.Sleep(OrderConfirmationDelay)
+			}
+		}
+	} else {
+		// Use EVM RPC
+		client, err := ethclient.Dial(networkConfig.RPCURL)
+		if err != nil {
+			return fmt.Errorf("failed to create EVM client: %w", err)
+		}
+		defer client.Close()
+
+		// Convert hex hash to common.Hash
+		txHash := common.HexToHash(orderInfo.TransactionHash)
+
+		// Poll for transaction receipt directly
+		for {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("timeout waiting for EVM transaction: %w", ctx.Err())
+			default:
+				receipt, err := client.TransactionReceipt(ctx, txHash)
+				if err == nil && receipt != nil {
+					t.Logf("✅ EVM transaction confirmed: %s (gas used: %d)", orderInfo.TransactionHash, receipt.GasUsed)
+					return nil
+				}
+				time.Sleep(OrderConfirmationDelay)
+			}
+		}
+	}
+}
+
 // getAllNetworkBalances gets Alice's DogCoin balance and Hyperlane contract balance for all networks
 func getAllNetworkBalances() *NetworkBalances {
 	balances := &NetworkBalances{
