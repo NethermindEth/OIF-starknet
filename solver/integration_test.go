@@ -207,45 +207,9 @@ func TestErrorScenarios(t *testing.T) {
 	})
 }
 
-// TestPerformanceScenarios tests performance-related scenarios
-func TestPerformanceScenarios(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	if os.Getenv("SKIP_INTEGRATION_TESTS") == "true" {
-		t.Skip("Integration tests disabled via SKIP_INTEGRATION_TESTS")
-	}
-
-	t.Run("ConcurrentOrderProcessing", func(t *testing.T) {
-		// Create multiple mock orders for concurrent processing test
-		orders := make([]types.ParsedArgs, 10)
-		for i := 0; i < 10; i++ {
-			orders[i] = types.ParsedArgs{
-				OrderID:       fmt.Sprintf("concurrent-test-%d", i),
-				SenderAddress: "0x1234567890123456789012345678901234567890",
-			}
-		}
-
-		// Test concurrent order creation/validation (placeholder)
-		start := time.Now()
-		for _, order := range orders {
-			go func(o types.ParsedArgs) {
-				// Placeholder for concurrent processing
-				_ = o.OrderID
-			}(order)
-		}
-
-		// Wait a bit for processing
-		time.Sleep(100 * time.Millisecond)
-		duration := time.Since(start)
-
-		t.Logf("Processed %d orders concurrently in %v", len(orders), duration)
-	})
-}
-
 // TestOrderCreationCommandsIntegration tests actual order creation commands
 // This test covers the order creation code paths that are missing from unit tests
+// `make test-integration`
 func TestOrderCreationCommandsIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -835,10 +799,6 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 		delay = 15 * time.Second // Live networks: longer confirmation time
 	}
 
-	t.Logf("⏳ Waiting %v for %s transaction confirmation (IS_DEVNET=%t)...",
-		delay, orderInfo.OriginChain+"->"+orderInfo.DestinationChain, isDevnet)
-	time.Sleep(delay)
-
 	// Step 5: Get all network balances AFTER order creation
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterOrderBalances := getAllNetworkBalances()
@@ -1180,9 +1140,6 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		}
 	}()
 
-	// Give solver time to fully initialize all networks
-	t.Log("⏳ Waiting for solver to fully initialize all networks...")
-	time.Sleep(5 * time.Second)
 
 	// Step 3: Create three orders simultaneously
 	t.Log("🚀 Step 3: Creating three orders simultaneously...")
