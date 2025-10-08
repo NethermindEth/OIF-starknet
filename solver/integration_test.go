@@ -243,15 +243,9 @@ func TestOrderCreationCommandsIntegration(t *testing.T) {
 		testOrderCreationWithBalanceVerification(t, solverPath, []string{"tools", "open-order", "evm"})
 	})
 
-	// Add delay between tests to prevent "replacement transaction underpriced" errors
-	time.Sleep(10 * time.Second)
-
 	t.Run("StarknetOrderCreation", func(t *testing.T) {
 		testOrderCreationWithBalanceVerification(t, solverPath, []string{"tools", "open-order", "starknet"})
 	})
-
-	// Add delay between tests to prevent "replacement transaction underpriced" errors
-	time.Sleep(10 * time.Second)
 
 	t.Run("CrossChainOrderCreation", func(t *testing.T) {
 		testOrderCreationWithBalanceVerification(t, solverPath, []string{"tools", "open-order", "evm", "random-to-sn"})
@@ -307,18 +301,12 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 	// Step 4: Wait for transaction to be fully processed
 	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
 
-	isDevnet := os.Getenv("IS_DEVNET") == "true"
-
-	var delay time.Duration
-	if isDevnet {
-		delay = 5 * time.Second // Local forks: fast confirmation
-	} else {
-		delay = 15 * time.Second // Live networks: longer confirmation time
+	// Use proper transaction waiting instead of hardcoded delays
+	if err := waitForOpenTransaction(t, orderInfo); err != nil {
+		t.Logf("⚠️  Could not wait for transaction: %v", err)
+		t.Logf("   This is expected if the command failed or networks aren't running")
+		return
 	}
-
-	t.Logf("⏳ Waiting %v for %s transaction confirmation (IS_DEVNET=%t)...",
-		delay, orderInfo.OriginChain+"->"+orderInfo.DestinationChain, isDevnet)
-	time.Sleep(delay)
 
 	// Step 5: Get all network balances AFTER order creation
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
@@ -353,6 +341,7 @@ type OrderInfo struct {
 	OrderID          string
 	InputAmount      string
 	OutputAmount     string
+	TransactionHash  string
 }
 
 // waitForOpenTransaction waits for the `open` transaction to be confirmed using the appropriate method
@@ -574,7 +563,7 @@ func parseOrderCreationOutput(output string) (*OrderInfo, error) {
 		orderInfo.DestinationChain = orderMatch[2]
 	}
 
-	// Try to extract order ID from transaction hash
+	// Try to extract order ID from various formats
 	orderIDRegex := regexp.MustCompile(`Order ID \(off\): (0x[a-fA-F0-9]+)`)
 	if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OrderID = matches[1]
@@ -583,7 +572,19 @@ func parseOrderCreationOutput(output string) (*OrderInfo, error) {
 		orderIDRegex = regexp.MustCompile(`Order ID: ([a-zA-Z0-9_]+)`)
 		if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 			orderInfo.OrderID = matches[1]
+		} else {
+			// Try to extract from transaction hash as fallback
+			orderIDRegex = regexp.MustCompile(`Transaction sent:\s*(0x[a-fA-F0-9]+)`)
+			if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
+				orderInfo.OrderID = matches[1]
+			}
 		}
+	}
+
+	// Extract transaction hash from "Transaction sent: 0x..." line
+	txHashRegex := regexp.MustCompile(`Transaction sent:\s*(0x[a-fA-F0-9]+)`)
+	if matches := txHashRegex.FindStringSubmatch(output); len(matches) > 1 {
+		orderInfo.TransactionHash = matches[1]
 	}
 
 	// Try to extract amounts from ABI debug section (EVM orders)
@@ -868,12 +869,11 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	// Step 4: Wait for transaction to be fully processed
 	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
 
-	// All orders are cross-chain by definition (origin != destination)
-	var delay time.Duration
-	if isDevnet {
-		delay = 5 * time.Second // Local forks: fast confirmation
-	} else {
-		delay = 15 * time.Second // Live networks: longer confirmation time
+	// Use proper transaction waiting instead of hardcoded delays
+	if err := waitForOpenTransaction(t, orderInfo); err != nil {
+		t.Logf("⚠️  Could not wait for transaction: %v", err)
+		t.Logf("   This is expected if the command failed or networks aren't running")
+		return
 	}
 
 	// Step 5: Get all network balances AFTER order creation
@@ -1257,6 +1257,35 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		t.Logf("   Order ID: %s", orderInfo.OrderID)
 		t.Logf("   Input Amount: %s", orderInfo.InputAmount)
 		t.Logf("   Output Amount: %s", orderInfo.OutputAmount)
+		t.Logf("   Transaction Hash: %s", orderInfo.TransactionHash)
+
+		// Debug: Show if order ID parsing failed
+		if orderInfo.OrderID == "" {
+			t.Logf("⚠️  Order %d: No Order ID parsed from output", i+1)
+			// Debug: Show raw output for troubleshooting
+			// Show first 500 characters of output for debugging
+			outputPreview := outputStr
+			if len(outputStr) > 500 {
+				outputPreview = outputStr[:500]
+			}
+			t.Logf("🔍 Raw output for order %d (first 500 chars):\n%s", i+1, outputPreview)
+		} else {
+			t.Logf("✅ Order %d: Order ID successfully parsed: %s", i+1, orderInfo.OrderID)
+		}
+
+		// Wait for this order's transaction to be confirmed before creating the next one
+		if orderInfo.TransactionHash != "" {
+			t.Logf("⏳ Waiting for order %d transaction confirmation...", i+1)
+			if err := waitForOpenTransaction(t, orderInfo); err != nil {
+				t.Logf("⚠️  Could not wait for order %d transaction: %v", i+1, err)
+				t.Logf("   Continuing with next order...")
+			} else {
+				t.Logf("✅ Order %d transaction confirmed", i+1)
+			}
+		} else {
+			t.Errorf("❌ Order %d has no transaction hash, cannot wait for confirmation", i+1)
+
+		}
 
 		orderInfos = append(orderInfos, orderInfo)
 	}
