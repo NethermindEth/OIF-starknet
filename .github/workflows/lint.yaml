@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
+          working-directory: contracts-indexer/event-processor
           go-version-file: solver/go.mod
           cache: false
       - name: golangci-lint
