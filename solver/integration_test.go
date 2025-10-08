@@ -1231,7 +1231,6 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		}
 	}()
 
-
 	// Step 3: Create three orders simultaneously
 	t.Log("🚀 Step 3: Creating three orders simultaneously...")
 
