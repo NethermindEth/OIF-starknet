@@ -1297,53 +1297,44 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 
 	t.Logf("✅ Successfully created %d orders", len(orderInfos))
 
-	// Step 4: Wait for all orders to be detected and processed by the solver
-	var orderDetectionDelay time.Duration
-	if isDevnet {
-		orderDetectionDelay = 5 * time.Second // Local forks: orders detected quickly
-	} else {
-		orderDetectionDelay = 15 * time.Second // Live networks: orders detected within 15 seconds
+	t.Log("⏳ Monitoring solver output for order processing...")
+
+	t.Log("🔍 Order IDs to monitor:")
+	for i, orderInfo := range orderInfos {
+		if orderInfo.OrderID != "" {
+			t.Logf("   Order %d: %s", i+1, orderInfo.OrderID)
+		} else {
+			t.Logf("   Order %d: NO ORDER ID PARSED", i+1)
+		}
 	}
 
-	t.Logf("⏳ Waiting %v for all orders to be detected and processed (IS_DEVNET=%t)...", orderDetectionDelay, isDevnet)
-	time.Sleep(orderDetectionDelay)
+	// Wait for all orders to be processed or timeout
+	allOrdersProcessed := waitForAllOrdersProcessed(t, solverCmd, orderInfos)
 
-	// The solver is a long-running process, so we just let it run for a reasonable time
-	// to process all orders, then we'll check the results
-	t.Log("⏳ Solver is running and processing all orders...")
-
-	// Give the solver time to process all orders
-	var processingTime time.Duration
-	if isDevnet {
-		processingTime = 5 * time.Second // Local forks: solver processes orders quickly
+	if allOrdersProcessed {
+		t.Log("✅ All orders processed successfully!")
+		// Terminate solver immediately since all orders are processed
+		if solverCmd.Process != nil {
+			t.Log("🛑 Terminating solver process since all orders are processed...")
+			solverCmd.Process.Signal(syscall.SIGTERM)
+			// Give it a moment to shut down gracefully
+			time.Sleep(2 * time.Second)
+			if solverCmd.Process != nil {
+				t.Log("🔨 Force killing solver process...")
+				solverCmd.Process.Kill()
+			}
+		}
 	} else {
-		processingTime = 30 * time.Second // Live networks: solver processes orders within 45 seconds
+		t.Log("⚠️  Not all orders were processed within the timeout period")
 	}
-
-	t.Logf("⏳ Waiting %v for solver to process all orders (IS_DEVNET=%t)...", processingTime, isDevnet)
-	time.Sleep(processingTime)
 
 	// Collect solver output for logging
 	stdout := solverCmd.Stdout.(*bytes.Buffer).String()
 	stderr := solverCmd.Stderr.(*bytes.Buffer).String()
 	solverOutputStr := stdout + stderr
 
-	// Log solver output
-	t.Logf("📝 Solver output:\n%s", solverOutputStr)
 
-	t.Log("✅ Solver processing time completed")
-
-	// Step 5: Wait for fill and settle to complete for all orders
-	t.Log("⏳ Step 5: Waiting for fill and settle to complete for all orders...")
-	var fillSettleDelay time.Duration
-	if isDevnet {
-		fillSettleDelay = 5 * time.Second // Local forks: fill and settle quickly
-	} else {
-		fillSettleDelay = 30 * time.Second // Live networks: fill and settle within 30 seconds, scanners may take up to 1 minute
-	}
-
-	t.Logf("⏳ Waiting %v for fill and settle to complete (IS_DEVNET=%t)...", fillSettleDelay, isDevnet)
-	time.Sleep(fillSettleDelay)
+	t.Log("✅ Solver processing completed")
 
 	// Step 6: Get final balances AFTER all orders are processed
 	t.Log("📊 Step 6: Getting final balances AFTER all orders are processed...")
