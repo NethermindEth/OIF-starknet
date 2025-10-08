@@ -193,7 +193,8 @@ func readSolverStateLocked() (*SolverState, error) {
 			time.Sleep(25 * time.Millisecond)
 			continue
 		}
-
+		
+		
 		return &state, nil
 	}
 	return nil, lastErr
