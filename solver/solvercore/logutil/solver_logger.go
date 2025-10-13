@@ -151,8 +151,8 @@ func LogOperationComplete(args types.ParsedArgs, operation string, success bool)
 	}
 }
 
-// LogWithNetworkTag adds a network tag to any log message
-func LogWithNetworkTag(networkName, format string, args ...interface{}) {
+// LogWithNetworkTagf adds a network tag to any log message
+func LogWithNetworkTagf(networkName, format string, args ...interface{}) {
 	tag := Prefix(networkName)
 	fmt.Printf(tag+format, args...)
 }

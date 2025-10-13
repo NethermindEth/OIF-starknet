@@ -92,7 +92,7 @@ func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandl
 			end = toBlock
 		}
 
-		logutil.LogWithNetworkTag(listenerConfig.ChainName, "🧭 %s range: from=%d to=%d (current=%d, conf=%d)\n",
+		logutil.LogWithNetworkTagf(listenerConfig.ChainName, "🧭 %s range: from=%d to=%d (current=%d, conf=%d)\n",
 			networkType, start, end, currentBlock, listenerConfig.ConfirmationBlocks)
 
 		chunkLast, err := processBlockRange(ctx, start, end, handler)

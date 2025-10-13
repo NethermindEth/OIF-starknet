@@ -293,7 +293,7 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 
 		// Only log individual blocks if there are events
 		if len(events) > 0 {
-			logutil.LogWithNetworkTag(l.config.ChainName, "   ✅ Block %d processed: %d events\n", b, len(events))
+			logutil.LogWithNetworkTagf(l.config.ChainName, "   ✅ Block %d processed: %d events\n", b, len(events))
 		}
 	}
 

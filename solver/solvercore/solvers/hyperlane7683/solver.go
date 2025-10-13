@@ -124,7 +124,7 @@ func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs) (
 
 	// Process all fill instructions (supports both single and multiple instructions)
 	for i, instruction := range args.ResolvedOrder.FillInstructions {
-		logutil.LogWithNetworkTag("", "Processing fill instruction %d/%d for chain %s",
+		logutil.LogWithNetworkTagf("", "Processing fill instruction %d/%d for chain %s",
 			i+1, len(args.ResolvedOrder.FillInstructions), instruction.DestinationChainID.String())
 
 		action, err := f.executeChainOperation(ctx, args, instruction.DestinationChainID, "fill", func(handler ChainHandler) (OrderAction, error) {
@@ -141,14 +141,14 @@ func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs) (
 
 		// If this instruction needs settlement, return that action
 		if action == OrderActionSettle {
-			logutil.LogWithNetworkTag("", "Fill instruction %d completed, needs settlement", i+1)
+			logutil.LogWithNetworkTagf("", "Fill instruction %d completed, needs settlement", i+1)
 			return OrderActionSettle, nil
 		}
 
 		// If this instruction completed successfully, continue to next
 		// (In most cases there will only be one instruction, but this supports multiple)
 		if action == OrderActionComplete {
-			logutil.LogWithNetworkTag("", "Fill instruction %d completed successfully", i+1)
+			logutil.LogWithNetworkTagf("", "Fill instruction %d completed successfully", i+1)
 		}
 	}
 
@@ -166,7 +166,7 @@ func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.Parsed
 
 	// Process all settlement instructions (supports both single and multiple instructions)
 	for i, instruction := range args.ResolvedOrder.FillInstructions {
-		logutil.LogWithNetworkTag("", "Processing settlement instruction %d/%d for chain %s",
+		logutil.LogWithNetworkTagf("", "Processing settlement instruction %d/%d for chain %s",
 			i+1, len(args.ResolvedOrder.FillInstructions), instruction.DestinationChainID.String())
 
 		_, err := f.executeChainOperation(ctx, args, instruction.DestinationChainID, "settle", func(handler ChainHandler) (OrderAction, error) {
@@ -177,7 +177,7 @@ func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.Parsed
 			return fmt.Errorf("settlement instruction %d failed: %w", i+1, err)
 		}
 
-		logutil.LogWithNetworkTag("", "Settlement instruction %d completed successfully", i+1)
+		logutil.LogWithNetworkTagf("", "Settlement instruction %d completed successfully", i+1)
 	}
 
 	logutil.LogOperationComplete(args, "Settlement", true)

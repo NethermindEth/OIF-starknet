@@ -364,10 +364,10 @@ func TestLogOperationComplete(t *testing.T) {
 	})
 }
 
-func TestLogWithNetworkTag(t *testing.T) {
-	t.Run("LogWithNetworkTag formats correctly", func(t *testing.T) {
+func TestLogWithNetworkTagf(t *testing.T) {
+	t.Run("LogWithNetworkTagf formats correctly", func(t *testing.T) {
 		output := captureOutput(func() {
-			LogWithNetworkTag("Ethereum", "Test message: %s\n", "hello")
+			LogWithNetworkTagf("Ethereum", "Test message: %s\n", "hello")
 		})
 
 		assert.Contains(t, output, "[ETH]")
