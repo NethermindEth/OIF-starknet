@@ -603,8 +603,14 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 
 		fmt.Printf("   ✅ Approval confirmed!\n")
 
-		// Add a small delay to ensure blockchain state is updated after approval
-		time.Sleep(1 * time.Second)
+		// Add a delay to ensure blockchain state is updated after approval
+		// Live networks need more time for state synchronization
+		isDevnet := os.Getenv("IS_DEVNET") == "true"
+		if isDevnet {
+			time.Sleep(1 * time.Second) // Local forks are fast
+		} else {
+			time.Sleep(5 * time.Second) // Live networks need more time
+		}
 	} else {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
@@ -994,8 +1000,8 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 		// For EVM→Starknet orders, recipient should be the Starknet user address
 		// For EVM→EVM orders, recipient can be the same as sender
 		if orderData.DestinationChainID.Uint64() == config.StarknetSepoliaChainID { // Starknet
-			// Get Starknet user address from environment
-			starknetUserAddr := os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS")
+			// Get Starknet user address using conditional environment variable logic
+			starknetUserAddr := envutil.GetStarknetAliceAddress()
 			if starknetUserAddr != "" {
 				// Convert Starknet address to bytes32 (it's already 32 bytes)
 				starknetBytes := hexToBytes32(starknetUserAddr)
