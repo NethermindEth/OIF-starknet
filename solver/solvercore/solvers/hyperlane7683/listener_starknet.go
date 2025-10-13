@@ -196,8 +196,6 @@ func (l *starknetListener) catchUpHistoricalBlocks(ctx context.Context, handler 
 		l.lastProcessedBlock = newLast
 		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
 			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
-		} else {
-			// fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
 		}
 	}
 	fmt.Printf("%s✅ Historical block processing complete\n", p)
