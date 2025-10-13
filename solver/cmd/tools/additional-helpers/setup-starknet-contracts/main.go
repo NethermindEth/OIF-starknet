@@ -410,9 +410,9 @@ func approveUnlimited(accnt *account.Account, tokenAddress string, spenderAddrFe
 	// For u256, we need to pass (low, high) where both are max u128
 	// Max u128 value is 2^128 - 1, so max u256 = (2^128 - 1) << 128 + (2^128 - 1)
 	maxLowFelt := new(felt.Felt)
-	maxLowFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
+	_, _ = maxLowFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
 	maxHighFelt := new(felt.Felt)
-	maxHighFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
+	_, _ = maxHighFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
 
 	// Debug: Show what allowance values we're setting
 	fmt.Printf("         🔍 Setting allowance: low=%s, high=%s\n", maxLowFelt.String(), maxHighFelt.String())

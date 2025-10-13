@@ -244,7 +244,7 @@ func TestNewTransactor(t *testing.T) {
 
 		// This will panic, so we expect it to panic
 		assert.Panics(t, func() {
-			NewTransactor(chainID, nil)
+			_, _ = NewTransactor(chainID, nil)
 		})
 	})
 }

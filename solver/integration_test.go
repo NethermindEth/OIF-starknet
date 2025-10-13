@@ -1236,19 +1236,19 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	shutdownTimer := time.AfterFunc(5*time.Minute, func() {
 		if solverCmd.Process != nil {
 			t.Log("⏰ Sending graceful shutdown signal to solver...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 		}
 	})
 	defer func() {
 		shutdownTimer.Stop()
 		if solverCmd.Process != nil {
 			t.Log("🧹 Cleaning up solver process...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	}()
@@ -1350,12 +1350,12 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		// Terminate solver immediately since all orders are processed
 		if solverCmd.Process != nil {
 			t.Log("🛑 Terminating solver process since all orders are processed...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	} else {
