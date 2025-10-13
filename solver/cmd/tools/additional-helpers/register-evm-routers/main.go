@@ -117,12 +117,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to dial RPC %s: %v", netCfg.RPCURL, err)
 		}
-		defer rpcClient.Close()
 
 		owner := common.HexToAddress(ownerHex)
 		// Impersonate owner (anvil returns null on success)
 		var dummy any
 		if err := rpcClient.Call(&dummy, "anvil_impersonateAccount", owner.Hex()); err != nil {
+			rpcClient.Close()
 			log.Fatalf("failed to impersonate %s on %s: %v", owner.Hex(), networkName, err)
 		}
 		fmt.Printf("   👤 Impersonating owner %s\n", owner.Hex())
@@ -183,6 +183,9 @@ func main() {
 		// Stop impersonation
 		_ = rpcClient.Call(&dummy, "anvil_stopImpersonatingAccount", owner.Hex())
 		fmt.Printf("   ✅ Routers/gas registered on %s\n", networkName)
+		
+		// Close the RPC connection
+		rpcClient.Close()
 	}
 
 	fmt.Printf("\n✅ EVM router registration complete\n")
