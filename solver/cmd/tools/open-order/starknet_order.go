@@ -476,7 +476,7 @@ func executeStarknetOrder(order *StarknetOrderConfig, networks []StarknetNetwork
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildStarknetOrderData(order *StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
+func buildStarknetOrderData(order *StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
 	// Get the actual user address for the specified user
 	var userAddr string
 	for _, user := range starknetTestUsers {

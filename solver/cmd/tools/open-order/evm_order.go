@@ -463,7 +463,6 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %v", order.OriginChain, err)
 	}
-	defer client.Close()
 
 	// Get user private key using conditional environment variable logic
 	var userKey string
@@ -477,6 +476,9 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		client.Close()
 		log.Fatal("Private key not found for user: %s (IS_DEVNET=%s)", order.User, os.Getenv("IS_DEVNET"))
 	}
+
+	// Now that we've passed all early returns, we can safely defer client.Close()
+	defer client.Close()
 
 	// Parse private key
 	privateKey, err := ethutil.ParsePrivateKey(userKey)
@@ -675,7 +677,7 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildOrderData(order *OrderConfig, originNetwork *NetworkConfig, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
+func buildOrderData(order *OrderConfig, originNetwork, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
 	// Input token from origin network, output token from destination network
 	// inputTokenAddr := originNetwork.dogCoinAddress
 	// outputTokenAddr := destinationNetwork.dogCoinAddress
