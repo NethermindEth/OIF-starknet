@@ -1327,7 +1327,6 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 			}
 		} else {
 			t.Errorf("❌ Order %d has no transaction hash, cannot wait for confirmation", i+1)
-
 		}
 
 		orderInfos = append(orderInfos, orderInfo)
