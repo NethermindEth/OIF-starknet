@@ -271,7 +271,7 @@ func loadNetworks() []NetworkConfig {
 		dogCoinAddr := os.Getenv(envVarName)
 		// if dogCoinAddr != "" {
 		//	fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogCoinAddr)
-		//} else {
+		// } else {
 		//	fmt.Printf("   ⚠️  No DogCoin address found for %s (env var: %s)\n", networkName, envVarName)
 		//}
 
@@ -610,7 +610,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// initialBalances := struct {
 	//	userBalance      *big.Int
 	//	hyperlaneBalance *big.Int
-	//}{
+	// }{
 	//	userBalance:      initialUserBalance,
 	//	hyperlaneBalance: initialHyperlaneBalance,
 	//}
@@ -753,38 +753,20 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 	// - MinReceived: What the solver will receive (origin chain tokens)
 	var maxSpent, minReceived []TokenAmount
 
-	if destinationNetwork.name == starknetNetworkName {
-		// EVM → Starknet order: solver provides Starknet tokens, receives EVM tokens
-		maxSpent = []TokenAmount{
-			{
-				Token:   destinationNetwork.dogCoinAddress.Hex(), // Starknet token
-				Amount:  uint256.MustFromBig(order.OutputAmount), // Amount solver needs to provide
-				ChainID: big.NewInt(int64(destinationChainID)),   // Starknet chain ID
-			},
-		}
-		minReceived = []TokenAmount{
-			{
-				Token:   inputTokenAddr.Hex(),                   // Origin chain token (EVM)
-				Amount:  uint256.MustFromBig(order.InputAmount), // Amount solver will receive
-				ChainID: big.NewInt(int64(originDomain)),        // Origin chain ID
-			},
-		}
-	} else {
-		// EVM → EVM order: solver provides destination EVM tokens, receives origin EVM tokens
-		maxSpent = []TokenAmount{
-			{
-				Token:   destinationNetwork.dogCoinAddress.Hex(), // Destination chain token
-				Amount:  uint256.MustFromBig(order.OutputAmount), // Amount solver needs to provide
-				ChainID: big.NewInt(int64(destinationChainID)),   // Destination chain ID
-			},
-		}
-		minReceived = []TokenAmount{
-			{
-				Token:   inputTokenAddr.Hex(),                   // Origin chain token
-				Amount:  uint256.MustFromBig(order.InputAmount), // Amount solver will receive
-				ChainID: big.NewInt(int64(originDomain)),        // Origin chain ID
-			},
-		}
+	// Set up token amounts (same for both EVM→Starknet and EVM→EVM orders)
+	maxSpent = []TokenAmount{
+		{
+			Token:   destinationNetwork.dogCoinAddress.Hex(), // Destination chain token
+			Amount:  uint256.MustFromBig(order.OutputAmount), // Amount solver needs to provide
+			ChainID: big.NewInt(int64(destinationChainID)),   // Destination chain ID
+		},
+	}
+	minReceived = []TokenAmount{
+		{
+			Token:   inputTokenAddr.Hex(),                   // Origin chain token
+			Amount:  uint256.MustFromBig(order.InputAmount), // Amount solver will receive
+			ChainID: big.NewInt(int64(originDomain)),        // Origin chain ID
+		},
 	}
 
 	return OrderData{
