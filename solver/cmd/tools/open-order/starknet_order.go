@@ -688,12 +688,6 @@ func encodeStarknetOrderData(orderData *StarknetOrderData) []*felt.Felt {
 	)
 	bytesStruct = append(bytesStruct, words...)
 
-	//	for i := 0; i < len(words) && i < 5; i++ {
-	//		fmt.Printf("     • word[%d]: %s\n", i, words[i].String())
-	//	}
-	//	if len(words) > 5 {
-	//		fmt.Printf("     • ... and %d more words\n", len(words)-5)
-	//	}
 
 	return bytesStruct
 }

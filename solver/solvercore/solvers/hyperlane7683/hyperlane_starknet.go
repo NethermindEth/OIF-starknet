@@ -332,7 +332,6 @@ func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args *types.Pars
 
 	// Get origin chain ID for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
-	// logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
