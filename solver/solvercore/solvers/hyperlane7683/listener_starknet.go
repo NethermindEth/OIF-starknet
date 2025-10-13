@@ -286,11 +286,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 			}
 
 			// Parse Open event
-			ro, derr := decodeResolvedOrderFromFelts(event.Event.Data)
-			if derr != nil {
-				fmt.Printf("❌ Failed to decode ResolvedCrossChainOrder: %v\n", derr)
-				continue
-			}
+			ro := decodeResolvedOrderFromFelts(event.Event.Data)
 			parsedArgs := types.ParsedArgs{
 				OrderID:       common.BytesToHash(ro.OrderID[:]).Hex(),
 				SenderAddress: ro.User,
@@ -319,7 +315,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 // --- Decoders ---
 
-func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOrder, error) {
+func decodeResolvedOrderFromFelts(data []*felt.Felt) types.ResolvedCrossChainOrder {
 	decoder := newFeltDecoder(data)
 	
 	ro := types.ResolvedCrossChainOrder{}
@@ -337,7 +333,7 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 	ro.MaxSpent = decoder.readOutputs()
 	ro.MinReceived = decoder.readOutputs()
 	ro.FillInstructions = decoder.readFillInstructions()
-	return ro, nil
+	return ro
 }
 
 // feltDecoder handles decoding of felt data
