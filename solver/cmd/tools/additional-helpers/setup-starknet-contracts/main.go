@@ -387,7 +387,7 @@ func setAllowances(accnt *account.Account, dogCoin TokenInfo, hyperlaneAddress, 
 
 		// Set unlimited allowance for DogCoin
 		fmt.Printf("       🪙 Approving DogCoin unlimited allowance...\n")
-		if err := approveUnlimited(userAccnt, dogCoin.Address, userAddrFelt, hyperlaneAddrFelt); err != nil {
+		if err := approveUnlimited(userAccnt, dogCoin.Address, hyperlaneAddrFelt); err != nil {
 			return fmt.Errorf("failed to approve DogCoin for %s: %w", user.name, err)
 		}
 
@@ -399,7 +399,7 @@ func setAllowances(accnt *account.Account, dogCoin TokenInfo, hyperlaneAddress, 
 }
 
 // approveUnlimited sets unlimited allowance for a token
-func approveUnlimited(accnt *account.Account, tokenAddress string, ownerAddrFelt, spenderAddrFelt *felt.Felt) error {
+func approveUnlimited(accnt *account.Account, tokenAddress string, spenderAddrFelt *felt.Felt) error {
 	// Convert token address to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
