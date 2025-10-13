@@ -124,18 +124,20 @@ func (sm *SolverManager) initializeEVMClients() error {
 	evmCount := 0
 	for networkName, networkConfig := range config.Networks {
 		// Check if this is NOT a Starknet network (i.e., it's an EVM network)
-		if !strings.Contains(strings.ToLower(networkName), "starknet") {
-			fmt.Printf("   🔗 Initializing EVM client for %s (Chain ID: %d)\n", networkName, networkConfig.ChainID)
-
-			client, err := ethclient.Dial(networkConfig.RPCURL)
-			if err != nil {
-				return fmt.Errorf("failed to create EVM client for %s: %w", networkName, err)
-			}
-
-			sm.evmClients[networkConfig.ChainID] = client
-			fmt.Printf("   ✅ EVM client initialized for %s\n", networkName)
-			evmCount++
+		if strings.Contains(strings.ToLower(networkName), "starknet") {
+			continue
 		}
+		
+		fmt.Printf("   🔗 Initializing EVM client for %s (Chain ID: %d)\n", networkName, networkConfig.ChainID)
+
+		client, err := ethclient.Dial(networkConfig.RPCURL)
+		if err != nil {
+			return fmt.Errorf("failed to create EVM client for %s: %w", networkName, err)
+		}
+
+		sm.evmClients[networkConfig.ChainID] = client
+		fmt.Printf("   ✅ EVM client initialized for %s\n", networkName)
+		evmCount++
 	}
 
 	fmt.Printf("✅ All EVM clients initialized (%d networks)\n", evmCount)
@@ -148,18 +150,20 @@ func (sm *SolverManager) initializeStarknetClients() error {
 
 	for networkName, networkConfig := range config.Networks {
 		// Check if this is a Starknet network
-		if strings.Contains(strings.ToLower(networkName), "starknet") {
-			fmt.Printf("   🔗 Initializing Starknet client for %s (Chain ID: %d)\n", networkName, networkConfig.ChainID)
-
-			provider, err := rpc.NewProvider(networkConfig.RPCURL)
-			if err != nil {
-				return fmt.Errorf("failed to create Starknet provider for %s: %w", networkName, err)
-			}
-
-			sm.starknetClient = provider
-			fmt.Printf("✅ Starknet client initialized successfully\n")
-			return nil // Only need one Starknet client
+		if !strings.Contains(strings.ToLower(networkName), "starknet") {
+			continue
 		}
+		
+		fmt.Printf("   🔗 Initializing Starknet client for %s (Chain ID: %d)\n", networkName, networkConfig.ChainID)
+
+		provider, err := rpc.NewProvider(networkConfig.RPCURL)
+		if err != nil {
+			return fmt.Errorf("failed to create Starknet provider for %s: %w", networkName, err)
+		}
+
+		sm.starknetClient = provider
+		fmt.Printf("✅ Starknet client initialized successfully\n")
+		return nil // Only need one Starknet client
 	}
 
 	fmt.Printf("⚠️  No Starknet networks found in config\n")
