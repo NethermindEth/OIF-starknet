@@ -94,7 +94,7 @@ func (f *solverImpl) ProcessIntent(ctx context.Context, args *types.ParsedArgs, 
 func (f *solverImpl) PrepareIntent(ctx context.Context, args *types.ParsedArgs) (*types.Result[types.IntentData], error) {
 	// Check allow/block lists first
 	if !f.isAllowedIntent(args) {
-		result := types.NewErrorResult[types.IntentData](fmt.Errorf("Intent blocked by allow/block lists"))
+		result := types.NewErrorResult[types.IntentData](fmt.Errorf("intent blocked by allow/block lists"))
 		return &result, nil
 	}
 

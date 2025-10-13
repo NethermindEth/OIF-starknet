@@ -149,7 +149,7 @@ func TestPrepareIntent(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.False(t, result.Success)
-		assert.Contains(t, result.Error, "Intent blocked by allow/block lists")
+		assert.Contains(t, result.Error, "intent blocked by allow/block lists")
 	})
 
 	t.Run("Intent allowed by allow list", func(t *testing.T) {
