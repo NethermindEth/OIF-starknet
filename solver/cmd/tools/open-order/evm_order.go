@@ -475,7 +475,7 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	}
 	if userKey == "" {
 		client.Close()
-		log.Fatalf("Private key not found for user: %s (IS_DEVNET=%s)", order.User, os.Getenv("IS_DEVNET"))
+		log.Fatal("Private key not found for user: %s (IS_DEVNET=%s)", order.User, os.Getenv("IS_DEVNET"))
 	}
 
 	// Parse private key
