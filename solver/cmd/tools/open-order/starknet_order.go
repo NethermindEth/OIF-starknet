@@ -576,7 +576,7 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	}
 }
 
-func getOrderDataTypeHashU256() (low *felt.Felt, high *felt.Felt) {
+func getOrderDataTypeHashU256() (low, high *felt.Felt) {
 	// Solidity ORDER_DATA_TYPE_HASH (32 bytes)
 	hashHex := getEnvWithDefault("ORDER_DATA_TYPE_HASH", "0x08d75650babf4de09c9273d48ef647876057ed91d4323f8a2e3ebc2cd8a63b5e")
 	bi, ok := new(big.Int).SetString(hashHex, 0)
@@ -686,8 +686,10 @@ func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
 	}
 
 	bytesStruct := make([]*felt.Felt, 0, 2+len(words))
-	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(raw))))
-	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(words))))
+	bytesStruct = append(bytesStruct, 
+		utils.Uint64ToFelt(uint64(len(raw))),
+		utils.Uint64ToFelt(uint64(len(words))),
+	)
 	bytesStruct = append(bytesStruct, words...)
 
 	//	// Log the first few words to see the structure
