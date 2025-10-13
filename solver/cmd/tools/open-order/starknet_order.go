@@ -503,7 +503,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	evmAddr := common.HexToAddress(evmUserAddr)
 	paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 	recipientFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-	// fmt.Printf("   🔍 EVM recipient address for %s: %s (padded to 32 bytes: %s)\n", order.User, evmUserAddr, hex.EncodeToString(paddedAddr))
 
 	// Output token should be from the destination network, not origin
 	var outputTokenFelt *felt.Felt
@@ -519,7 +518,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 				evmAddr := common.HexToAddress(dogCoinAddr)
 				paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 				outputTokenFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-				// fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 			} else {
 				// Last resort - use origin network (this is wrong but prevents crash)
 				outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)

@@ -611,23 +611,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// Build the order data
 	orderData := buildOrderData(order, originNetwork, destinationNetwork, localDomain, senderNonce)
 
-	//// Debug: Log the order data before encoding
-	// fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
-	// fmt.Printf("   • User: %s\n", orderData.User)
-	// fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
-	// fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
-	// fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
-	// fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
-	// fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
-	// for i, maxSpent := range orderData.MaxSpent {
-	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
-	//		i, maxSpent.Token, maxSpent.Amount.String(), maxSpent.ChainID.String())
-	//}
-	// fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
-	//for i, minReceived := range orderData.MinReceived {
-	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
-	//		i, minReceived.Token, minReceived.Amount.String(), minReceived.ChainID.String())
-	//}
 
 	// Build the OnchainCrossChainOrder
 	crossChainOrder := OnchainCrossChainOrder{

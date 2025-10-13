@@ -179,9 +179,6 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	if status != orderStatusFilled {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
-	// if err := h.verifyOrderStatus(ctx, orderIDArr, destinationSettler, "FILLED"); err != nil {
-	//	return fmt.Errorf("pre-settle check failed: %w", err)
-	//}
 
 	// Get the contract instance using the EVM address
 	contract, err := contracts.NewHyperlane7683(destinationSettler, h.client)
@@ -236,12 +233,6 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	h.signer.Value = new(big.Int).Set(gasPayment)
 	defer func() { h.signer.Value = originalValue }()
 
-	//// Set gas price if not already set
-	// if h.signer.GasPrice == nil || h.signer.GasPrice.Sign() == 0 {
-	//	if suggested, gerr := h.client.SuggestGasPrice(ctx); gerr == nil {
-	//		h.signer.GasPrice = suggested
-	//	}
-	//}
 
 	tx, err := contract.Settle(h.signer, orderIDs)
 	if err != nil {
@@ -278,10 +269,6 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	orderIDBytes := common.FromHex(args.OrderID)
 	copy(orderIDArr[:], orderIDBytes)
 
-	//	// Derive orderId from keccak(origin_data)
-	//	var orderIDArr [32]byte
-	//	orderHash := crypto.Keccak256(instruction.OriginData)
-	//	copy(orderIDArr[:], orderHash)
 
 	// Check order status
 	orderStatusABI := `[{
