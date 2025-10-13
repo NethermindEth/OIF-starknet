@@ -320,153 +320,172 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 // --- Decoders ---
 
 func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOrder, error) {
-	idx := 0
-	readFelt := func() *felt.Felt {
-		f := data[idx]
-		idx++
-		return f
-	}
-	readU32 := func() uint32 {
-		bi := utils.FeltToBigInt(readFelt())
-		return uint32(bi.Uint64())
-	}
-	readU64 := func() uint64 {
-		bi := utils.FeltToBigInt(readFelt())
-		return bi.Uint64()
-	}
-	readU256 := func() *big.Int {
-		low := utils.FeltToBigInt(readFelt())
-		high := utils.FeltToBigInt(readFelt())
-		return new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
-	}
-	readAddress := func() string {
-		feltBytes := readFelt().Bytes()
-		// Convert to slice to handle consistently
-		b := feltBytes[:]
-		// Pad to 32 bytes if shorter (for consistent bytes32 format)
-		if len(b) < 32 {
-			padded := make([]byte, 32)
-			copy(padded[32-len(b):], b)
-			return "0x" + hex.EncodeToString(padded)
-		}
-		return "0x" + hex.EncodeToString(b)
-	}
-
-	readOutput := func() types.Output {
-		out := types.Output{}
-		out.Token = readAddress()
-		out.Amount = readU256()
-		out.Recipient = readAddress()
-		chainDomain := readU32()
-		// Map domain to actual chain ID using config
-		if chainID, err := domainToChainID(chainDomain); err == nil {
-			out.ChainID = chainID
-		} else {
-			fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID for output, using domain as chain ID\n", chainDomain)
-			out.ChainID = new(big.Int).SetUint64(uint64(chainDomain))
-		}
-		return out
-	}
-	readOutputs := func() []types.Output {
-		length := utils.FeltToBigInt(readFelt()).Uint64()
-		outs := make([]types.Output, 0, length)
-		for i := uint64(0); i < length; i++ {
-			outs = append(outs, readOutput())
-		}
-		return outs
-	}
-	readFillInstruction := func() types.FillInstruction {
-		fi := types.FillInstruction{}
-		destinationDomain := readU32()
-		// Map destination domain to actual chain ID using config
-		if chainID, err := domainToChainID(destinationDomain); err == nil {
-			fi.DestinationChainID = chainID
-		} else {
-			fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID, using domain as chain ID\n", destinationDomain)
-			fi.DestinationChainID = new(big.Int).SetUint64(uint64(destinationDomain))
-		}
-		fi.DestinationSettler = readAddress()
-
-		// Parsing Cairo event data
-
-		// Parse the origin_data bytes (OrderData struct) from the event data
-
-		// Read size and u128 array length from the event data (absolute indices)
-		size := utils.FeltToBigInt(data[21]).Uint64()
-		u128ArrayLength := utils.FeltToBigInt(data[22]).Uint64()
-		_ = size
-		_ = u128ArrayLength
-
-		// Parse each bytes32 field from the u128 array
-		orderDataFields := make([][]byte, 0)
-		for i := uint64(0); i < u128ArrayLength && (23+int(i)+1) < len(data); i += 2 {
-			// Read two u128 felts and combine into bytes32
-			lowFelt := data[23+int(i)]
-			highFelt := data[23+int(i)+1]
-			lowBytes := lowFelt.Bytes()
-			highBytes := highFelt.Bytes()
-			lowU128 := lowBytes[16:]
-			highU128 := highBytes[16:]
-			bytes32 := make([]byte, 32)
-			copy(bytes32[0:16], lowU128)
-			copy(bytes32[16:32], highU128)
-			orderDataFields = append(orderDataFields, bytes32)
-		}
-
-		// Build EVM origin_data bytes (ABI-compatible, 448 bytes total)
-		evmOriginData := make([]byte, 0, evmOriginDataSize)
-		firstWord := make([]byte, 32)
-		firstWord[31] = 0x20
-		evmOriginData = append(evmOriginData, firstWord...)
-		evmOriginData = append(evmOriginData, orderDataFields[1]...)  // sender
-		evmOriginData = append(evmOriginData, orderDataFields[2]...)  // recipient
-		evmOriginData = append(evmOriginData, orderDataFields[3]...)  // input_token
-		evmOriginData = append(evmOriginData, orderDataFields[4]...)  // output_token
-		evmOriginData = append(evmOriginData, orderDataFields[5]...)  // amount_in
-		evmOriginData = append(evmOriginData, orderDataFields[6]...)  // amount_out
-		evmOriginData = append(evmOriginData, orderDataFields[7]...)  // sender_nonce
-		evmOriginData = append(evmOriginData, orderDataFields[8]...)  // origin_domain
-		evmOriginData = append(evmOriginData, orderDataFields[9]...)  // destination_domain
-		evmOriginData = append(evmOriginData, orderDataFields[10]...) // destination_settler
-		evmOriginData = append(evmOriginData, orderDataFields[11]...) // fill_deadline
-		dataOffset := make([]byte, 32)
-		dataOffset[31] = 0x80
-		dataOffset[30] = 0x01
-		evmOriginData = append(evmOriginData, dataOffset...)
-		dataSize := make([]byte, 32)
-		dataSize[31] = 0x00
-		evmOriginData = append(evmOriginData, dataSize...)
-		if len(evmOriginData) != evmOriginDataSize {
-			fmt.Printf("   ⚠️  origin_data unexpected length: %d\n", len(evmOriginData))
-		}
-		fi.OriginData = evmOriginData
-		return fi
-	}
-	readFillInstructions := func() []types.FillInstruction {
-		length := utils.FeltToBigInt(readFelt()).Uint64()
-		arr := make([]types.FillInstruction, 0, length)
-		for i := uint64(0); i < length; i++ {
-			arr = append(arr, readFillInstruction())
-		}
-		return arr
-	}
-
+	decoder := newFeltDecoder(data)
+	
 	ro := types.ResolvedCrossChainOrder{}
-	ro.User = readAddress()
-	ro.OriginChainID = new(big.Int).SetUint64(uint64(readU32()))
-	ro.OpenDeadline = uint32(readU64())
-	ro.FillDeadline = uint32(readU64())
+	ro.User = decoder.readAddress()
+	ro.OriginChainID = new(big.Int).SetUint64(uint64(decoder.readU32()))
+	ro.OpenDeadline = uint32(decoder.readU64())
+	ro.FillDeadline = uint32(decoder.readU64())
 
-	orderID := readU256()
+	orderID := decoder.readU256()
 	var orderArr [32]byte
 	orderBytes := orderID.Bytes()
 	copy(orderArr[32-len(orderBytes):], orderBytes)
 
 	ro.OrderID = orderArr
-	ro.MaxSpent = readOutputs()
-	ro.MinReceived = readOutputs()
-	ro.FillInstructions = readFillInstructions()
+	ro.MaxSpent = decoder.readOutputs()
+	ro.MinReceived = decoder.readOutputs()
+	ro.FillInstructions = decoder.readFillInstructions()
 	return ro, nil
+}
+
+// feltDecoder handles decoding of felt data
+type feltDecoder struct {
+	data []*felt.Felt
+	idx  int
+}
+
+func newFeltDecoder(data []*felt.Felt) *feltDecoder {
+	return &feltDecoder{data: data, idx: 0}
+}
+
+func (d *feltDecoder) readFelt() *felt.Felt {
+	f := d.data[d.idx]
+	d.idx++
+	return f
+}
+
+func (d *feltDecoder) readU32() uint32 {
+	bi := utils.FeltToBigInt(d.readFelt())
+	return uint32(bi.Uint64())
+}
+
+func (d *feltDecoder) readU64() uint64 {
+	bi := utils.FeltToBigInt(d.readFelt())
+	return bi.Uint64()
+}
+
+func (d *feltDecoder) readU256() *big.Int {
+	low := utils.FeltToBigInt(d.readFelt())
+	high := utils.FeltToBigInt(d.readFelt())
+	return new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
+}
+
+func (d *feltDecoder) readAddress() string {
+	feltBytes := d.readFelt().Bytes()
+	// Convert to slice to handle consistently
+	b := feltBytes[:]
+	// Pad to 32 bytes if shorter (for consistent bytes32 format)
+	if len(b) < 32 {
+		padded := make([]byte, 32)
+		copy(padded[32-len(b):], b)
+		return "0x" + hex.EncodeToString(padded)
+	}
+	return "0x" + hex.EncodeToString(b)
+}
+
+func (d *feltDecoder) readOutput() types.Output {
+	out := types.Output{}
+	out.Token = d.readAddress()
+	out.Amount = d.readU256()
+	out.Recipient = d.readAddress()
+	chainDomain := d.readU32()
+	// Map domain to actual chain ID using config
+	if chainID, err := domainToChainID(chainDomain); err == nil {
+		out.ChainID = chainID
+	} else {
+		fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID for output, using domain as chain ID\n", chainDomain)
+		out.ChainID = new(big.Int).SetUint64(uint64(chainDomain))
+	}
+	return out
+}
+
+func (d *feltDecoder) readOutputs() []types.Output {
+	length := utils.FeltToBigInt(d.readFelt()).Uint64()
+	outs := make([]types.Output, 0, length)
+	for i := uint64(0); i < length; i++ {
+		outs = append(outs, d.readOutput())
+	}
+	return outs
+}
+
+func (d *feltDecoder) readFillInstruction() types.FillInstruction {
+	fi := types.FillInstruction{}
+	destinationDomain := d.readU32()
+	// Map destination domain to actual chain ID using config
+	if chainID, err := domainToChainID(destinationDomain); err == nil {
+		fi.DestinationChainID = chainID
+	} else {
+		fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID, using domain as chain ID\n", destinationDomain)
+		fi.DestinationChainID = new(big.Int).SetUint64(uint64(destinationDomain))
+	}
+	fi.DestinationSettler = d.readAddress()
+
+	// Parse the origin_data bytes (OrderData struct) from the event data
+	fi.OriginData = d.parseOriginData()
+	return fi
+}
+
+func (d *feltDecoder) parseOriginData() []byte {
+	// Read size and u128 array length from the event data (absolute indices)
+	size := utils.FeltToBigInt(d.data[21]).Uint64()
+	u128ArrayLength := utils.FeltToBigInt(d.data[22]).Uint64()
+	_ = size
+	_ = u128ArrayLength
+
+	// Parse each bytes32 field from the u128 array
+	orderDataFields := make([][]byte, 0)
+	for i := uint64(0); i < u128ArrayLength && (23+int(i)+1) < len(d.data); i += 2 {
+		// Read two u128 felts and combine into bytes32
+		lowFelt := d.data[23+int(i)]
+		highFelt := d.data[23+int(i)+1]
+		lowBytes := lowFelt.Bytes()
+		highBytes := highFelt.Bytes()
+		lowU128 := lowBytes[16:]
+		highU128 := highBytes[16:]
+		bytes32 := make([]byte, 32)
+		copy(bytes32[0:16], lowU128)
+		copy(bytes32[16:32], highU128)
+		orderDataFields = append(orderDataFields, bytes32)
+	}
+
+	// Build EVM origin_data bytes (ABI-compatible, 448 bytes total)
+	evmOriginData := make([]byte, 0, evmOriginDataSize)
+	firstWord := make([]byte, 32)
+	firstWord[31] = 0x20
+	evmOriginData = append(evmOriginData, firstWord...)
+	evmOriginData = append(evmOriginData, orderDataFields[1]...)  // sender
+	evmOriginData = append(evmOriginData, orderDataFields[2]...)  // recipient
+	evmOriginData = append(evmOriginData, orderDataFields[3]...)  // input_token
+	evmOriginData = append(evmOriginData, orderDataFields[4]...)  // output_token
+	evmOriginData = append(evmOriginData, orderDataFields[5]...)  // amount_in
+	evmOriginData = append(evmOriginData, orderDataFields[6]...)  // amount_out
+	evmOriginData = append(evmOriginData, orderDataFields[7]...)  // sender_nonce
+	evmOriginData = append(evmOriginData, orderDataFields[8]...)  // origin_domain
+	evmOriginData = append(evmOriginData, orderDataFields[9]...)  // destination_domain
+	evmOriginData = append(evmOriginData, orderDataFields[10]...) // destination_settler
+	evmOriginData = append(evmOriginData, orderDataFields[11]...) // fill_deadline
+	dataOffset := make([]byte, 32)
+	dataOffset[31] = 0x80
+	dataOffset[30] = 0x01
+	evmOriginData = append(evmOriginData, dataOffset...)
+	dataSize := make([]byte, 32)
+	dataSize[31] = 0x00
+	evmOriginData = append(evmOriginData, dataSize...)
+	if len(evmOriginData) != evmOriginDataSize {
+		fmt.Printf("   ⚠️  origin_data unexpected length: %d\n", len(evmOriginData))
+	}
+	return evmOriginData
+}
+
+func (d *feltDecoder) readFillInstructions() []types.FillInstruction {
+	length := utils.FeltToBigInt(d.readFelt()).Uint64()
+	arr := make([]types.FillInstruction, 0, length)
+	for i := uint64(0); i < length; i++ {
+		arr = append(arr, d.readFillInstruction())
+	}
+	return arr
 }
 
 // domainToChainID maps a Hyperlane domain ID to its corresponding chain ID
