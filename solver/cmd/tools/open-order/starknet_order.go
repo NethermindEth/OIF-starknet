@@ -5,11 +5,11 @@ package openorder
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"math/big"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -198,8 +198,8 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 	}
 
 	// Random amounts
-	inputAmount := CreateTokenAmount(int64(rand.Intn(9901)+100), 18) // 100-10000 tokens
-	delta := CreateTokenAmount(int64(rand.Intn(10)+1), 18)           // 1-10 tokens
+	inputAmount := CreateTokenAmount(int64(secureRandomInt(9901)+100), 18) // 100-10000 tokens
+	delta := CreateTokenAmount(int64(secureRandomInt(10)+1), 18)           // 1-10 tokens
 	outputAmount := new(big.Int).Sub(inputAmount, delta)             // slightly less to ensure it's fillable
 
 	order := StarknetOrderConfig{
@@ -717,7 +717,7 @@ func getRandomDestinationChain(originChain string) string {
 	}
 
 	// Select random destination
-	destIdx := rand.Intn(len(evmDestinations))
+	destIdx := secureRandomInt(len(evmDestinations))
 	return evmDestinations[destIdx]
 }
 
@@ -731,4 +731,22 @@ func isStarknetNetwork(networkName string) bool {
 // TODO: Remove this once all usages are migrated to envutil
 func getEnvWithDefault(key, defaultValue string) string {
 	return envutil.GetEnvWithDefault(key, defaultValue)
+}
+
+// secureRandomInt generates a secure random integer in the range [0, max)
+func secureRandomInt(max int) int {
+	if max <= 0 {
+		return 0
+	}
+	
+	// Generate random bytes
+	b := make([]byte, 4)
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback to time-based seed if crypto/rand fails
+		return int(time.Now().UnixNano()) % max
+	}
+	
+	// Convert bytes to int and mod by max
+	return int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3]) % max
 }
