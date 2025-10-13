@@ -1227,7 +1227,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	solverCmd.Stderr = &bytes.Buffer{}
 
 	// Start solver process in background
-	err = solverCmd.Start()
+	err := solverCmd.Start()
 	if err != nil {
 		t.Fatalf("Failed to start solver: %v", err)
 	}
