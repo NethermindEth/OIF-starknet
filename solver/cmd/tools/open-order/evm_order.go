@@ -458,12 +458,6 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		log.Fatalf("Origin network not found: %s", order.OriginChain)
 	}
 
-	// Connect to origin network
-	client, err := ethclient.Dial(originNetwork.url)
-	if err != nil {
-		log.Fatalf("Failed to connect to %s: %v", order.OriginChain, err)
-	}
-
 	// Get user private key using conditional environment variable logic
 	var userKey string
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
@@ -473,12 +467,8 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		userKey = os.Getenv(fmt.Sprintf("%s_PRIVATE_KEY", strings.ToUpper(order.User)))
 	}
 	if userKey == "" {
-		client.Close()
-		log.Fatal("Private key not found for user: %s (IS_DEVNET=%s)", order.User, os.Getenv("IS_DEVNET"))
+		log.Fatalf("Private key not found for user: %s (IS_DEVNET=%s)", order.User, os.Getenv("IS_DEVNET"))
 	}
-
-	// Now that we've passed all early returns, we can safely defer client.Close()
-	defer client.Close()
 
 	// Parse private key
 	privateKey, err := ethutil.ParsePrivateKey(userKey)
@@ -492,9 +482,16 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
+	// Connect to origin network
+	client, err := ethclient.Dial(originNetwork.url)
+	if err != nil {
+		log.Fatalf("Failed to connect to %s: %v", order.OriginChain, err)
+	}
+
 	// Get current gas price
 	gasPrice, err := ethutil.SuggestGas(client)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get gas price: %v", err)
 	}
 	auth.GasPrice = gasPrice
@@ -530,6 +527,7 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	// Read localDomain from the origin Hyperlane contract to guarantee it matches on-chain
 	localDomain, err := getLocalDomain(client, originNetwork.hyperlaneAddress)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to read localDomain from origin contract: %v", err)
 	}
 
@@ -562,6 +560,7 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   💡 Please mint tokens manually using the MockERC20 contract's mint() function\n")
 		fmt.Printf("   📝 Contract address: %s\n", inputToken.Hex())
 		fmt.Printf("   🔧 Call: mint(\"%s\", \"%s\")\n", owner.Hex(), requiredAmount.String())
+		client.Close()
 		log.Fatalf("Insufficient token balance for order creation")
 	} else {
 		fmt.Printf("   ✅ Alice has sufficient tokens (%s)\n", ethutil.FormatTokenAmount(initialUserBalance, 18))
@@ -583,6 +582,7 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		// Approve the Hyperlane contract to spend the required amount
 		approveTx, err := ethutil.ERC20Approve(client, auth, inputToken, spender, requiredAmount)
 		if err != nil {
+			client.Close()
 			log.Fatalf("Failed to approve tokens: %v", err)
 		}
 
@@ -592,10 +592,12 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
 		receipt, err := ethutil.WaitForTransaction(client, approveTx)
 		if err != nil {
+			client.Close()
 			log.Fatalf("Failed to wait for approval transaction: %v", err)
 		}
 
 		if receipt.Status != 1 {
+			client.Close()
 			log.Fatalf("Approval transaction failed")
 		}
 
@@ -604,10 +606,10 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
 
-
 	// Pick a fresh senderNonce recognized by the contract to avoid InvalidNonce
 	senderNonce, err := pickValidSenderNonce(client, originNetwork.hyperlaneAddress, auth.From)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to pick a valid sender nonce: %v", err)
 	}
 
@@ -631,14 +633,17 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	// Use generated bindings for open()
 	contract, err := contracts.NewHyperlane7683(originNetwork.hyperlaneAddress, client)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to bind Hyperlane7683: %v", err)
 	}
+
 	tx, err := contract.Open(auth, contracts.OnchainCrossChainOrder{
 		FillDeadline:  crossChainOrder.FillDeadline,
 		OrderDataType: crossChainOrder.OrderDataType,
 		OrderData:     crossChainOrder.OrderData,
 	})
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to send open transaction: %v", err)
 	}
 
@@ -648,8 +653,11 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	// Wait for transaction confirmation
 	receipt, err := ethutil.WaitForTransaction(client, tx)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to wait for transaction confirmation: %v", err)
 	}
+
+	defer client.Close()
 
 	if receipt.Status == 1 {
 		fmt.Printf("✅ Order opened successfully!\n")
@@ -677,7 +685,7 @@ func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildOrderData(order *OrderConfig, originNetwork, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
+func buildOrderData(order *OrderConfig, originNetwork, destinationNetwork *NetworkConfig, originDomain uint32, _ *big.Int) OrderData {
 	// Input token from origin network, output token from destination network
 	// inputTokenAddr := originNetwork.dogCoinAddress
 	// outputTokenAddr := destinationNetwork.dogCoinAddress
