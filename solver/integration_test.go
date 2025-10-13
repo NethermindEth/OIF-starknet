@@ -1364,8 +1364,8 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 
 	// Collect solver output for logging
 	// stdout := solverCmd.Stdout.(*bytes.Buffer).String()
-	//stderr := solverCmd.Stderr.(*bytes.Buffer).String()
-	//solverOutputStr := stdout + stderr
+	// stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	// solverOutputStr := stdout + stderr
 	//	// Log solver output
 	//	t.Logf("📝 Solver output:\n%s", solverOutputStr)
 

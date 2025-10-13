@@ -145,7 +145,6 @@ func loadStarknetNetworks() []StarknetNetworkConfig {
 			log.Fatalf("missing STARKNET_HYPERLANE_ADDRESS or STARKNET_DOG_COIN_ADDRESS in .env")
 		}
 
-		// fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogAddr)
 
 		networks = append(networks, StarknetNetworkConfig{
 			name:             networkConfig.Name,

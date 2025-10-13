@@ -269,11 +269,6 @@ func loadNetworks() []NetworkConfig {
 		}
 
 		dogCoinAddr := os.Getenv(envVarName)
-		// if dogCoinAddr != "" {
-		//	fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogCoinAddr)
-		// } else {
-		//	fmt.Printf("   ⚠️  No DogCoin address found for %s (env var: %s)\n", networkName, envVarName)
-		//}
 
 		networks = append(networks, NetworkConfig{
 			name:             networkConfig.Name,
@@ -606,14 +601,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
 
-	//// Store initial balances for comparison
-	// initialBalances := struct {
-	//	userBalance      *big.Int
-	//	hyperlaneBalance *big.Int
-	// }{
-	//	userBalance:      initialUserBalance,
-	//	hyperlaneBalance: initialHyperlaneBalance,
-	//}
 
 	// Pick a fresh senderNonce recognized by the contract to avoid InvalidNonce
 	senderNonce, err := pickValidSenderNonce(client, originNetwork.hyperlaneAddress, auth.From)
@@ -626,17 +613,17 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 
 	//// Debug: Log the order data before encoding
 	// fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
-	//fmt.Printf("   • User: %s\n", orderData.User)
-	//fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
-	//fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
-	//fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
-	//fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
-	//fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
-	//for i, maxSpent := range orderData.MaxSpent {
+	// fmt.Printf("   • User: %s\n", orderData.User)
+	// fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
+	// fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
+	// fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
+	// fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
+	// fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
+	// for i, maxSpent := range orderData.MaxSpent {
 	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
 	//		i, maxSpent.Token, maxSpent.Amount.String(), maxSpent.ChainID.String())
 	//}
-	//fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
+	// fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
 	//for i, minReceived := range orderData.MinReceived {
 	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
 	//		i, minReceived.Token, minReceived.Amount.String(), minReceived.ChainID.String())
@@ -651,9 +638,9 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 
 	// Debug: Log the encoded data
 	// fmt.Printf("🔍 Encoded Order Data Debug:\n")
-	//fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
-	//fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
-	//fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
+	// fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
+	// fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
+	// fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
 
 	// Use generated bindings for open()
 	contract, err := contracts.NewHyperlane7683(originNetwork.hyperlaneAddress, client)
@@ -681,17 +668,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	if receipt.Status == 1 {
 		fmt.Printf("✅ Order opened successfully!\n")
 		fmt.Printf("📊 Gas used: %d\n", receipt.GasUsed)
-
-		//// Verify that balances actually changed as expected
-		// fmt.Printf("   🔍 Verifying input tokens were transferred...\n")
-		//// For balance verification, use the actual input amount the user paid
-		//// This is what the user actually gave up to open the order (not MaxSpent which is output amount)
-		//expectedTransferAmount := order.InputAmount
-		//if err := verifyBalanceChanges(client, inputToken, owner, spender, initialBalances, expectedTransferAmount); err != nil {
-		//	fmt.Printf("⚠️  Balance verification failed: %v\n", err)
-		//} else {
-		//	fmt.Printf("👍 Balance changes verified (accounting for profit margin)\n")
-		//}
 	} else {
 		fmt.Printf("❌ Order opening failed\n")
 		fmt.Printf("🔍 Transaction hash: %s\n", tx.Hash().Hex())
@@ -912,20 +888,6 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 	// Convert OrderData to ABIOrderData for encoding
 	abiOrderData := convertToABIOrderData(orderData, senderNonce, networks)
 
-	//// Debug: Log the ABI order data
-	// fmt.Printf("🔍 ABI Order Data Debug:\n")
-	//fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
-	//fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
-	//fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
-	//fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
-	//fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
-	//fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
-	//fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
-	//fmt.Printf("   • OriginDomain: %d\n", abiOrderData.OriginDomain)
-	//fmt.Printf("   • DestinationDomain: %d\n", abiOrderData.DestinationDomain)
-	//fmt.Printf("   • DestinationSettler: %x\n", abiOrderData.DestinationSettler)
-	//fmt.Printf("   • FillDeadline: %d\n", abiOrderData.FillDeadline)
-	//fmt.Printf("   • Data length: %d bytes\n", len(abiOrderData.Data))
 
 	// Pack as a tuple to match Solidity's abi.encode(order)
 	tupleT, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
