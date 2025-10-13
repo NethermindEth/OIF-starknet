@@ -121,16 +121,16 @@ func ERC20Allowance(client *ethclient.Client, tokenAddress, ownerAddress, spende
 	return allowance, nil
 }
 
-// ERC20Transfer creates a transfer transaction for ERC20 tokens
-func ERC20Transfer(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress, recipientAddress common.Address, amount *big.Int) (*gethtypes.Transaction, error) {
+// createERC20Transaction creates a generic ERC20 transaction
+func createERC20Transaction(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress common.Address, method string, args []interface{}, gasLimit uint64) (*gethtypes.Transaction, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(ERC20ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ERC20 ABI: %w", err)
 	}
 
-	data, err := parsedABI.Pack("transfer", recipientAddress, amount)
+	data, err := parsedABI.Pack(method, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack transfer call: %w", err)
+		return nil, fmt.Errorf("failed to pack %s call: %w", method, err)
 	}
 
 	// Get current nonce
@@ -149,8 +149,8 @@ func ERC20Transfer(client *ethclient.Client, auth *bind.TransactOpts, tokenAddre
 	tx := gethtypes.NewTransaction(
 		nonce,
 		tokenAddress,
-		big.NewInt(0),    // No ETH value
-		transferGasLimit, // Gas limit
+		big.NewInt(0), // No ETH value
+		gasLimit,      // Gas limit
 		gasPrice,
 		data,
 	)
@@ -158,65 +158,26 @@ func ERC20Transfer(client *ethclient.Client, auth *bind.TransactOpts, tokenAddre
 	// Sign transaction
 	signedTx, err := auth.Signer(auth.From, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign transfer transaction: %w", err)
+		return nil, fmt.Errorf("failed to sign %s transaction: %w", method, err)
 	}
 
 	// Send transaction
 	err = client.SendTransaction(context.Background(), signedTx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send transfer transaction: %w", err)
+		return nil, fmt.Errorf("failed to send %s transaction: %w", method, err)
 	}
 
 	return signedTx, nil
 }
 
+// ERC20Transfer creates a transfer transaction for ERC20 tokens
+func ERC20Transfer(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress, recipientAddress common.Address, amount *big.Int) (*gethtypes.Transaction, error) {
+	return createERC20Transaction(client, auth, tokenAddress, "transfer", []interface{}{recipientAddress, amount}, transferGasLimit)
+}
+
 // ERC20Approve creates an approve transaction for ERC20 tokens
 func ERC20Approve(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress, spenderAddress common.Address, amount *big.Int) (*gethtypes.Transaction, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(ERC20ABI))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ERC20 ABI: %w", err)
-	}
-
-	data, err := parsedABI.Pack("approve", spenderAddress, amount)
-	if err != nil {
-		return nil, fmt.Errorf("failed to pack approve call: %w", err)
-	}
-
-	// Get current nonce
-	nonce, err := client.PendingNonceAt(context.Background(), auth.From)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %w", err)
-	}
-
-	// Get current gas price
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get gas price: %w", err)
-	}
-
-	// Create transaction
-	tx := gethtypes.NewTransaction(
-		nonce,
-		tokenAddress,
-		big.NewInt(0),   // No ETH value
-		approveGasLimit, // Gas limit
-		gasPrice,
-		data,
-	)
-
-	// Sign transaction
-	signedTx, err := auth.Signer(auth.From, tx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign approve transaction: %w", err)
-	}
-
-	// Send transaction
-	err = client.SendTransaction(context.Background(), signedTx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send approve transaction: %w", err)
-	}
-
-	return signedTx, nil
+	return createERC20Transaction(client, auth, tokenAddress, "approve", []interface{}{spenderAddress, amount}, approveGasLimit)
 }
 
 // WaitForTransaction waits for a transaction to be mined and returns the receipt
