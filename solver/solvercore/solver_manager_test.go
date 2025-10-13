@@ -273,8 +273,10 @@ func TestShutdown(t *testing.T) {
 
 	// Add some mock shutdown functions
 	shutdownCount := 0
-	sm.activeShutdowns = append(sm.activeShutdowns, func() { shutdownCount++ })
-	sm.activeShutdowns = append(sm.activeShutdowns, func() { shutdownCount++ })
+	sm.activeShutdowns = append(sm.activeShutdowns, 
+		func() { shutdownCount++ },
+		func() { shutdownCount++ },
+	)
 
 	sm.Shutdown()
 
