@@ -358,6 +358,61 @@ type OrderInfo struct {
 	TransactionHash  string
 }
 
+// waitForEVMTransaction waits for an EVM transaction to be confirmed with enhanced timeout and error handling
+func waitForEVMTransaction(t *testing.T, client *ethclient.Client, txHash common.Hash, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
+	defer cancel()
+
+	t.Logf("⏳ Waiting for EVM transaction confirmation: %s", txHash.Hex())
+
+	// Poll for transaction receipt directly
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for EVM transaction: %w", ctx.Err())
+		default:
+			receipt, err := client.TransactionReceipt(ctx, txHash)
+			if err == nil && receipt != nil {
+				t.Logf("✅ EVM transaction confirmed: %s (gas used: %d)", txHash.Hex(), receipt.GasUsed)
+				return nil
+			}
+			time.Sleep(OrderConfirmationDelay)
+		}
+	}
+}
+
+// waitForStarknetTransaction waits for a Starknet transaction to be confirmed with L2 status checking
+func waitForStarknetTransaction(t *testing.T, provider rpc.RpcProvider, txHash string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
+	defer cancel()
+
+	t.Logf("⏳ Waiting for Starknet transaction confirmation: %s", txHash)
+
+	// Convert hex hash to felt
+	hashFelt, err := utils.HexToFelt(txHash)
+	if err != nil {
+		return fmt.Errorf("failed to convert hash to felt: %w", err)
+	}
+
+	// Poll for transaction status using GetTransactionStatus
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for Starknet transaction: %w", ctx.Err())
+		default:
+			status, err := provider.GetTransactionStatus(ctx, hashFelt)
+			if err == nil && status != nil {
+				// Check if transaction is accepted on L2
+				if status.FinalityStatus == "ACCEPTED_ON_L2" {
+					t.Logf("✅ Starknet transaction confirmed: %s", txHash)
+					return nil
+				}
+			}
+			time.Sleep(OrderConfirmationDelay)
+		}
+	}
+}
+
 // waitForOpenTransaction waits for the `open` transaction to be confirmed using the appropriate method
 // based on the origin chain (EVM vs Starknet)
 func waitForOpenTransaction(t *testing.T, orderInfo *OrderInfo) error {
@@ -371,12 +426,6 @@ func waitForOpenTransaction(t *testing.T, orderInfo *OrderInfo) error {
 		return fmt.Errorf("failed to get network config for %s: %w", orderInfo.OriginChain, err)
 	}
 
-	t.Logf("⏳ Waiting for transaction confirmation: %s on %s", orderInfo.TransactionHash, orderInfo.OriginChain)
-
-	// Wait for transaction with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), OrderCreationTimeout)
-	defer cancel()
-
 	if orderInfo.OriginChain == "Starknet" {
 		// Use Starknet RPC
 		provider, err := rpc.NewProvider(networkConfig.RPCURL)
@@ -384,29 +433,7 @@ func waitForOpenTransaction(t *testing.T, orderInfo *OrderInfo) error {
 			return fmt.Errorf("failed to create Starknet provider: %w", err)
 		}
 
-		// Convert hex hash to felt
-		hashFelt, err := utils.HexToFelt(orderInfo.TransactionHash)
-		if err != nil {
-			return fmt.Errorf("failed to convert hash to felt: %w", err)
-		}
-
-		// Poll for transaction status using GetTransactionStatus
-		for {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("timeout waiting for Starknet transaction: %w", ctx.Err())
-			default:
-				status, err := provider.GetTransactionStatus(ctx, hashFelt)
-				if err == nil && status != nil {
-					// Check if transaction is accepted on L2
-					if status.FinalityStatus == "ACCEPTED_ON_L2" {
-						t.Logf("✅ Starknet transaction confirmed: %s", orderInfo.TransactionHash)
-						return nil
-					}
-				}
-				time.Sleep(OrderConfirmationDelay)
-			}
-		}
+		return waitForStarknetTransaction(t, provider, orderInfo.TransactionHash, OrderCreationTimeout)
 	} else {
 		// Use EVM RPC
 		client, err := ethclient.Dial(networkConfig.RPCURL)
@@ -418,20 +445,7 @@ func waitForOpenTransaction(t *testing.T, orderInfo *OrderInfo) error {
 		// Convert hex hash to common.Hash
 		txHash := common.HexToHash(orderInfo.TransactionHash)
 
-		// Poll for transaction receipt directly
-		for {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("timeout waiting for EVM transaction: %w", ctx.Err())
-			default:
-				receipt, err := client.TransactionReceipt(ctx, txHash)
-				if err == nil && receipt != nil {
-					t.Logf("✅ EVM transaction confirmed: %s (gas used: %d)", orderInfo.TransactionHash, receipt.GasUsed)
-					return nil
-				}
-				time.Sleep(OrderConfirmationDelay)
-			}
-		}
+		return waitForEVMTransaction(t, client, txHash, OrderCreationTimeout)
 	}
 }
 
