@@ -129,7 +129,7 @@ func main() {
 	fmt.Printf("   ⚡ Setting destination gas configs (batch mode)...\n")
 
 	// Gas values for different networks (from real event analysis)
-	gasEVM := big.NewInt(gasEVM)       // 64,000 wei for EVM networks
+	gasEVM := big.NewInt(gasEVM)           // 64,000 wei for EVM networks
 	gasStarknet := big.NewInt(gasStarknet) // 100,000 wei for Starknet
 
 	// Build gas_configs array: Option<Array<GasRouterConfig>>
