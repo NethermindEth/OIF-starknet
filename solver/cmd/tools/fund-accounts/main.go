@@ -121,7 +121,6 @@ func fundNetwork(networkName string, amount *big.Int) {
 	if err != nil {
 		log.Fatalf("Failed to connect to %s: %v", networkName, err)
 	}
-	defer client.Close()
 
 	fmt.Printf("   📍 Network: %s (Chain ID: %d)\n", networkConfig.Name, networkConfig.ChainID)
 	fmt.Printf("   🪙 MockERC20: %s\n", tokenAddress)
@@ -140,6 +139,9 @@ func fundNetwork(networkName string, amount *big.Int) {
 		client.Close()
 		log.Fatal("Minter private key not found (Alice's key)")
 	}
+
+	// Now that we've passed all early returns, we can safely defer client.Close()
+	defer client.Close()
 
 	// Parse private key and create auth
 	privateKey, err := ethutil.ParsePrivateKey(minterPrivateKey)
