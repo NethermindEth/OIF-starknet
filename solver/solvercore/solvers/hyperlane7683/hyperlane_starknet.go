@@ -122,12 +122,12 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 		return OrderActionError, err
 	}
 	networkName := logutil.NetworkNameByChainID(h.chainID)
-	logutil.LogStatusCheck(networkName, 1, 1, status, "UNKNOWN")
-	if status == "FILLED" {
+	logutil.LogStatusCheck(networkName, 1, 1, status, orderStatusUnknown)
+	if status == orderStatusFilled {
 		fmt.Printf("⏭️  Order already filled, proceeding to settlement\n")
 		return OrderActionSettle, nil
 	}
-	if status == "SETTLED" {
+	if status == orderStatusSettled {
 		fmt.Printf("🎉  Order already settled, nothing to do\n")
 		return OrderActionSettle, nil
 	}
@@ -199,11 +199,11 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 	}
 
 	// Pre-settle check: ensure order is FILLED with retry logic
-	status, err := h.waitForOrderStatus(ctx, args, "FILLED", 5, 2*time.Second)
+	status, err := h.waitForOrderStatus(ctx, args, orderStatusFilled, 5, 2*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to get order status after retries: %w", err)
 	}
-	if status != "FILLED" {
+	if status != orderStatusFilled {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
 
@@ -266,7 +266,7 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 // GetOrderStatus returns the current status of an order
 func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
-		return "UNKNOWN", fmt.Errorf("no fill instructions found")
+		return orderStatusUnknown, fmt.Errorf("no fill instructions found")
 	}
 
 	instruction := args.ResolvedOrder.FillInstructions[0]
@@ -274,19 +274,19 @@ func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args types.Parse
 	// Convert destination settler string to Starknet address for contract call
 	destinationSettlerAddr, err := types.ToStarknetAddress(instruction.DestinationSettler)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("failed to convert hex Hyperlane address to felt: %w", err)
+		return orderStatusUnknown, fmt.Errorf("failed to convert hex Hyperlane address to felt: %w", err)
 	}
 
 	// Convert order ID to cairo u256
 	orderIDLow, orderIDHigh, err := starknetutil.ConvertSolidityOrderIDForStarknet(args.OrderID)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("failed to convert solidity order id for cairo: %w", err)
+		return orderStatusUnknown, fmt.Errorf("failed to convert solidity order id for cairo: %w", err)
 	}
 
 	call := rpc.FunctionCall{ContractAddress: destinationSettlerAddr, EntryPointSelector: utils.GetSelectorFromNameFelt("order_status"), Calldata: []*felt.Felt{orderIDLow, orderIDHigh}}
 	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
 	if err != nil || len(resp) == 0 {
-		return "UNKNOWN", err
+		return orderStatusUnknown, err
 	}
 	status := resp[0].String()
 
@@ -358,11 +358,11 @@ func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.Parse
 func (h *HyperlaneStarknet) interpretStarknetStatus(status string) string {
 	switch status {
 	case "0x0", "0":
-		return "UNKNOWN"
+		return orderStatusUnknown
 	case "0x46494c4c4544":
-		return "FILLED"
+		return orderStatusFilled
 	case "0x534554544c4544":
-		return "SETTLED"
+		return orderStatusSettled
 	default:
 		return status
 	}
@@ -551,7 +551,7 @@ func (h *HyperlaneStarknet) waitForOrderStatus(ctx context.Context, args types.P
 	// Final attempt to get the current status
 	finalStatus, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("final status check failed after %d attempts: %w", maxRetries, err)
+		return orderStatusUnknown, fmt.Errorf("final status check failed after %d attempts: %w", maxRetries, err)
 	}
 
 	return finalStatus, nil
