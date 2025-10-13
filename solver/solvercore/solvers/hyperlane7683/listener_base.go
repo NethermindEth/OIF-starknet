@@ -125,3 +125,49 @@ func (bl *BaseListener) SetLastProcessedBlock(block uint64) {
 func (bl *BaseListener) GetConfig() base.ListenerConfig {
 	return bl.config
 }
+
+// CatchUpHistoricalBlocks processes historical blocks using the common logic
+func (bl *BaseListener) CatchUpHistoricalBlocks(ctx context.Context, handler base.EventHandler, processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error)) error {
+	p := logutil.Prefix(bl.config.ChainName)
+	fmt.Printf("%s🔄 Catching up on historical blocks...\n", p)
+
+	currentBlock, err := bl.blockProvider.BlockNumber(ctx)
+	if err != nil {
+		return fmt.Errorf("%sfailed to get current block number: %v", p, err)
+	}
+
+	// Apply confirmations during backfill as well
+	safeBlock := currentBlock
+	if bl.config.ConfirmationBlocks > 0 && currentBlock > bl.config.ConfirmationBlocks {
+		safeBlock = currentBlock - bl.config.ConfirmationBlocks
+	}
+
+	// Start from the last processed block + 1 (which should be the solver start block)
+	fromBlock := bl.lastProcessedBlock + 1
+	toBlock := safeBlock
+	if fromBlock >= toBlock {
+		fmt.Printf("%s✅ Already up to date, no historical blocks to process\n", p)
+		return nil
+	}
+
+	chunkSize := bl.config.MaxBlockRange
+	for start := fromBlock; start < toBlock; start += chunkSize {
+		end := start + chunkSize
+		if end > toBlock {
+			end = toBlock
+		}
+
+		newLast, err := processBlockRange(ctx, start, end, handler)
+		if err != nil {
+			return fmt.Errorf("%sfailed to process historical blocks %d-%d: %v", p, start, end, err)
+		}
+
+		bl.lastProcessedBlock = newLast
+		if err := config.UpdateLastIndexedBlock(bl.config.ChainName, newLast); err != nil {
+			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
+		}
+	}
+
+	fmt.Printf("%s✅ Historical block processing complete\n", p)
+	return nil
+}

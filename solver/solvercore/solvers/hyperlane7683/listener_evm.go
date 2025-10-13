@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/base"
-	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 	contracts "github.com/NethermindEth/oif-starknet/solver/solvercore/contracts"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/logutil"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/types"
@@ -36,6 +35,7 @@ type evmListener struct {
 	lastProcessedBlock uint64
 	stopChan           chan struct{}
 	mu                 sync.RWMutex
+	baseListener       *BaseListener
 }
 
 func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Listener, error) {
@@ -49,75 +49,22 @@ func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Li
 		return nil, fmt.Errorf("invalid EVM contract address: %w", err)
 	}
 
-	// Use the start block from config, but check if deployment state has a higher value
-	var lastProcessedBlock uint64
-	configStartBlock := listenerConfig.InitialBlock.Int64()
-
-	// Handle different start block scenarios
-	var resolvedStartBlock uint64
-	if configStartBlock >= 0 {
-		// Positive number or zero - use as-is
-		resolvedStartBlock = uint64(configStartBlock)
-		if configStartBlock == 0 {
-			// Zero means start at current block
-			ctx := context.Background()
-			currentBlock, err := client.BlockNumber(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
-			}
-			resolvedStartBlock = currentBlock
-			fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
-				logutil.Prefix(listenerConfig.ChainName), resolvedStartBlock)
-		}
-	} else {
-		// Negative number - start N blocks before current block
-		ctx := context.Background()
-		currentBlock, err := client.BlockNumber(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current block for negative start block: %w", err)
-		}
-
-		// Calculate start block: current - abs(configStartBlock)
-		resolvedStartBlock = currentBlock - uint64(-configStartBlock)
-
-		// Ensure we don't go below block 0
-		if resolvedStartBlock > currentBlock {
-			resolvedStartBlock = 0
-		}
-
-		fmt.Printf("%s📚 Start block was %d, using current block %d - %d = %d\n",
-			logutil.Prefix(listenerConfig.ChainName), configStartBlock, currentBlock, -configStartBlock, resolvedStartBlock)
-	}
-
-	state, err := config.GetSolverState()
+	ctx := context.Background()
+	commonConfig, err := ResolveCommonListenerConfig(ctx, listenerConfig, client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get solver state: %w", err)
+		return nil, err
 	}
 
-	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
-		deploymentStateBlock := networkState.LastIndexedBlock
-
-		// Use the HIGHER of the two values - this respects updated .env values
-		// while also respecting any actual progress that's been saved
-		if deploymentStateBlock > resolvedStartBlock {
-			lastProcessedBlock = deploymentStateBlock
-			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, resolvedStartBlock)
-		} else {
-			lastProcessedBlock = resolvedStartBlock
-			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, deploymentStateBlock)
-		}
-	} else {
-		return nil, fmt.Errorf("network %s not found in solver state", listenerConfig.ChainName)
-	}
-
+	baseListener := NewBaseListener(*listenerConfig, client, "EVM")
+	baseListener.SetLastProcessedBlock(commonConfig.LastProcessedBlock)
+	
 	return &evmListener{
 		config:             listenerConfig,
 		client:             client,
 		contractAddress:    address,
-		lastProcessedBlock: lastProcessedBlock,
+		lastProcessedBlock: commonConfig.LastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		baseListener:       baseListener,
 	}, nil
 }
 
@@ -160,48 +107,7 @@ func (l *evmListener) startEventLoop(ctx context.Context, handler base.EventHand
 }
 
 func (l *evmListener) catchUpHistoricalBlocks(ctx context.Context, handler base.EventHandler) error {
-	p := logutil.Prefix(l.config.ChainName)
-	fmt.Printf("%s🔄 Catching up on historical blocks...\n", p)
-
-	currentBlock, err := l.client.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("%sfailed to get current block number: %v", p, err)
-	}
-
-	// Apply confirmations during backfill as well
-	safeBlock := currentBlock
-	if l.config.ConfirmationBlocks > 0 && currentBlock > l.config.ConfirmationBlocks {
-		safeBlock = currentBlock - l.config.ConfirmationBlocks
-	}
-
-	// Start from the last processed block + 1 (which should be the solver start block)
-	fromBlock := l.lastProcessedBlock + 1
-	toBlock := safeBlock
-	if fromBlock >= toBlock {
-		fmt.Printf("%s✅ Already up to date, no historical blocks to process\n", p)
-		return nil
-	}
-
-	chunkSize := l.config.MaxBlockRange
-	for start := fromBlock; start < toBlock; start += chunkSize {
-		end := start + chunkSize
-		if end > toBlock {
-			end = toBlock
-		}
-
-		newLast, err := l.processBlockRange(ctx, start, end, handler)
-		if err != nil {
-			return fmt.Errorf("%sfailed to process historical blocks %d-%d: %v", p, start, end, err)
-		}
-
-		l.lastProcessedBlock = newLast
-		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
-			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
-		}
-	}
-
-	fmt.Printf("%s✅ Historical block processing complete\n", p)
-	return nil
+	return l.baseListener.CatchUpHistoricalBlocks(ctx, handler, l.processBlockRange)
 }
 
 func (l *evmListener) startPolling(ctx context.Context, handler base.EventHandler) {
