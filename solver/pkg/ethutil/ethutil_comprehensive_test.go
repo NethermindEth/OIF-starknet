@@ -46,7 +46,7 @@ func TestEthUtilComprehensive(t *testing.T) {
 		// Test comparison
 		assert.True(t, val1.Cmp(val2) < 0)
 		assert.True(t, val2.Cmp(val1) > 0)
-		assert.Equal(t, 0, val1.Cmp(val1))
+		assert.Equal(t, 0, val1.Cmp(new(big.Int).Set(val1)))
 	})
 
 	t.Run("private_key_operations", func(t *testing.T) {
