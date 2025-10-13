@@ -396,48 +396,6 @@ func (sm *SolverManager) GetSolverStatus() map[string]bool {
 	return status
 }
 
-// resolveStartBlock resolves the actual start block based on solver start block configuration
-// - Positive number: start at that specific block
-// - Zero: start at current block (live)
-// - Negative number: start N blocks before current block
-func resolveStartBlock(ctx context.Context, solverStartBlock int64, blockProvider interface{}) (uint64, error) {
-	if solverStartBlock >= 0 {
-		// Positive number or zero - use as-is
-		return uint64(solverStartBlock), nil
-	}
-
-	// Negative number - start N blocks before current block
-	var currentBlock uint64
-	var err error
-
-	// Handle different block provider types
-	switch provider := blockProvider.(type) {
-	case *ethclient.Client:
-		currentBlock, err = provider.BlockNumber(ctx)
-	case *rpc.Provider:
-		block, err := provider.BlockNumber(ctx)
-		if err != nil {
-			return 0, err
-		}
-		currentBlock = block
-	default:
-		return 0, fmt.Errorf("unsupported block provider type")
-	}
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to get current block number: %v", err)
-	}
-
-	// Calculate start block: current - abs(solverStartBlock)
-	startBlock := currentBlock - uint64(-solverStartBlock)
-
-	// Ensure we don't go below block 0
-	if startBlock > currentBlock {
-		startBlock = 0
-	}
-
-	return startBlock, nil
-}
 
 // getStarknetHyperlaneAddress gets the Starknet Hyperlane address from environment
 func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, error) {

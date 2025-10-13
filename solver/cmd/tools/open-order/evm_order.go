@@ -886,22 +886,6 @@ func getOrderDataTypeHash() [32]byte {
 	return hash
 }
 
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// max returns the maximum of two integers
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // hexToBytes32 converts a hex string to bytes32, handling both EVM and Starknet addresses
 func hexToBytes32(hexStr string) [32]byte {
 	s := strings.TrimPrefix(hexStr, "0x")
@@ -1103,60 +1087,3 @@ func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks [
 	}
 }
 
-// verifyBalanceChanges verifies that opening an order actually transferred tokens
-func verifyBalanceChanges(client *ethclient.Client, tokenAddress, userAddress, hyperlaneAddress common.Address, initialBalances struct {
-	userBalance      *big.Int
-	hyperlaneBalance *big.Int
-}, expectedTransferAmount *big.Int) error {
-	// Wait a moment for the transaction to be fully processed
-	time.Sleep(2 * time.Second)
-
-	// Get final balances
-	finalUserBalance, err := ethutil.ERC20Balance(client, tokenAddress, userAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get final user balance: %w", err)
-	}
-
-	finalHyperlaneBalance, err := ethutil.ERC20Balance(client, tokenAddress, hyperlaneAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get final hyperlane balance: %w", err)
-	}
-
-	// Calculate actual changes using uint256 for better performance
-	initialUserU := ToUint256(initialBalances.userBalance)
-	finalUserU := ToUint256(finalUserBalance)
-	initialHyperlaneU := ToUint256(initialBalances.hyperlaneBalance)
-	finalHyperlaneU := ToUint256(finalHyperlaneBalance)
-
-	userBalanceChange := new(uint256.Int)
-	userBalanceChange.Sub(initialUserU, finalUserU)
-	hyperlaneBalanceChange := new(uint256.Int)
-	hyperlaneBalanceChange.Sub(finalHyperlaneU, initialHyperlaneU)
-
-	// Verify the changes match expectations
-	expectedU := ToUint256(expectedTransferAmount)
-	if userBalanceChange.Cmp(expectedU) != 0 {
-		return fmt.Errorf("user balance decreased by %s tokens (actual: %s, expected: %s)",
-			ethutil.FormatTokenAmount(userBalanceChange.ToBig(), 18),
-			userBalanceChange.ToBig().String(),
-			expectedTransferAmount.String())
-	}
-
-	if hyperlaneBalanceChange.Cmp(expectedU) != 0 {
-		return fmt.Errorf("hyperlane balance increased by %s tokens (actual: %s, expected: %s)",
-			ethutil.FormatTokenAmount(hyperlaneBalanceChange.ToBig(), 18),
-			hyperlaneBalanceChange.ToBig().String(),
-			expectedTransferAmount.String())
-	}
-
-	// Verify total supply is preserved (user decrease = hyperlane increase)
-	if userBalanceChange.Cmp(hyperlaneBalanceChange) != 0 {
-		return fmt.Errorf("balance changes don't match: user decreased by %s tokens (actual: %s), hyperlane increased by %s tokens (actual: %s)",
-			ethutil.FormatTokenAmount(userBalanceChange.ToBig(), 18),
-			userBalanceChange.ToBig().String(),
-			ethutil.FormatTokenAmount(hyperlaneBalanceChange.ToBig(), 18),
-			hyperlaneBalanceChange.ToBig().String())
-	}
-
-	return nil
-}

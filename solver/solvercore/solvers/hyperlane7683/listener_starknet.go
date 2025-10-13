@@ -224,13 +224,6 @@ func (l *starknetListener) startPolling(ctx context.Context, handler base.EventH
 }
 
 // getMapKeys returns the keys of a map as a slice
-func getMapKeys(m map[string]config.SolverNetworkState) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
 
 func (l *starknetListener) processCurrentBlockRange(ctx context.Context, handler base.EventHandler) error {
 	l.mu.Lock()
