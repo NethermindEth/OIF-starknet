@@ -216,7 +216,7 @@ func ConvertSolidityOrderIDForStarknet(orderID string) (low, high *felt.Felt, er
 
 	orderBytes := orderBN.Bytes()
 	if len(orderBytes) < Bytes32Length {
-		pad := make([]byte, 0, Bytes32Length-len(orderBytes))
+		pad := make([]byte, Bytes32Length-len(orderBytes))
 		orderBytes = append(pad, orderBytes...)
 	}
 
