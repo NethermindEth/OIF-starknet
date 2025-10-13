@@ -290,7 +290,7 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()
 	outputStr := string(output)
 
 	// Log the command output
@@ -883,7 +883,7 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()
 	outputStr := string(output)
 
 	// Log the command output
@@ -1272,7 +1272,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		cmd.Dir = "."
 		cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
-		output, err := cmd.CombinedOutput()
+		output, _ := cmd.CombinedOutput()
 		outputStr := string(output)
 
 		// Log the command output
