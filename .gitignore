@@ -28,3 +28,5 @@ deployer_account*.json
 !deployer_account.example.json
 
 solver/state/solver_state/solver-state.json
+solver/solvercore/config/solver-state.json
+solver/solvercore/solvers/hyperlane7683/solver-state.json
