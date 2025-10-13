@@ -31,14 +31,14 @@ func getAliceAddressForNetwork(networkName string) (string, error) {
 		// Use conditional environment variable for Starknet
 		address := envutil.GetStarknetAliceAddress()
 		if address == "" {
-			return "", fmt.Errorf("Starknet Alice address not set")
+			return "", fmt.Errorf("starknet Alice address not set")
 		}
 		return address, nil
 	} else {
 		// Use conditional environment variable for EVM networks
 		address := envutil.GetAlicePublicKey()
 		if address == "" {
-			return "", fmt.Errorf("Alice public key not set")
+			return "", fmt.Errorf("alice public key not set")
 		}
 		return address, nil
 	}

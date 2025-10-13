@@ -178,7 +178,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	if status != "FILLED" {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
-	// if err := h.verifyOrderStatus(ctx, orderIdArr, destinationSettler, "FILLED"); err != nil {
+	// if err := h.verifyOrderStatus(ctx, orderIDArr, destinationSettler, "FILLED"); err != nil {
 	//	return fmt.Errorf("pre-settle check failed: %w", err)
 	//}
 
@@ -264,14 +264,14 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 
 	instruction := args.ResolvedOrder.FillInstructions[0]
 
-	var orderIdArr [32]byte
+	var orderIDArr [32]byte
 	orderIDBytes := common.FromHex(args.OrderID)
-	copy(orderIdArr[:], orderIDBytes)
+	copy(orderIDArr[:], orderIDBytes)
 
 	//	// Derive orderId from keccak(origin_data)
-	//	var orderIdArr [32]byte
+	//	var orderIDArr [32]byte
 	//	orderHash := crypto.Keccak256(instruction.OriginData)
-	//	copy(orderIdArr[:], orderHash)
+	//	copy(orderIDArr[:], orderHash)
 
 	// Check order status
 	orderStatusABI := `[{"type":"function","name":"orderStatus","inputs":[{"type":"bytes32","name":"orderId"}],"outputs":[{"type":"bytes32","name":""}],"stateMutability":"view"}]`
@@ -280,7 +280,7 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 		return "UNKNOWN", fmt.Errorf("failed to parse orderStatus ABI: %w", err)
 	}
 
-	callData, err := parsedABI.Pack("orderStatus", orderIdArr)
+	callData, err := parsedABI.Pack("orderStatus", orderIDArr)
 	if err != nil {
 		return "UNKNOWN", fmt.Errorf("failed to pack orderStatus: %w", err)
 	}
