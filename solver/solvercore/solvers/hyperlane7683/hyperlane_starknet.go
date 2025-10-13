@@ -152,9 +152,11 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 	}
 
 	calldata := make([]*felt.Felt, 0, calldataBaseSize+len(words))
-	calldata = append(calldata, orderIDLow, orderIDHigh)
-	calldata = append(calldata, utils.Uint64ToFelt(uint64(len(originData))))
-	calldata = append(calldata, utils.Uint64ToFelt(uint64(len(words))))
+	calldata = append(calldata, 
+		orderIDLow, orderIDHigh,
+		utils.Uint64ToFelt(uint64(len(originData))),
+		utils.Uint64ToFelt(uint64(len(words))),
+	)
 	calldata = append(calldata, words...)
 	calldata = append(calldata, utils.Uint64ToFelt(0), utils.Uint64ToFelt(0)) // empty (size=0, len=0)
 
