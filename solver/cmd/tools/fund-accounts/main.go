@@ -137,6 +137,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 	}
 
 	if minterPrivateKey == "" {
+		client.Close()
 		log.Fatalf("Minter private key not found (Alice's key)")
 	}
 
