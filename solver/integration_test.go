@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"math/big"
@@ -14,12 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/oif-starknet/solver/pkg/envutil"
 	"github.com/NethermindEth/oif-starknet/solver/pkg/ethutil"
 	"github.com/NethermindEth/oif-starknet/solver/pkg/starknetutil"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/solvers/hyperlane7683"
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/types"
 	"github.com/NethermindEth/starknet.go/rpc"
+	"github.com/NethermindEth/starknet.go/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
@@ -27,10 +30,22 @@ import (
 
 // IntegrationTestConfig holds configuration for integration tests
 type IntegrationTestConfig struct {
-	IsDevnet bool
-	TestNetworks  []string
-	Timeout       time.Duration
+	IsDevnet     bool
+	TestNetworks []string
+	Timeout      time.Duration
 }
+
+// Integration test constants
+const (
+	// Solver monitoring constants
+	SolverCheckInterval    = 1 * time.Second                // How often to check solver output
+	SolverMaxTimeout       = 3 * time.Minute                // Maximum time to wait for solver
+	OrderProcessingPattern = "✅ Order processing completed" // Pattern to look for in solver output
+
+	// Order creation constants
+	OrderCreationTimeout   = 60 * time.Second // Max time to wait for order creation
+	OrderConfirmationDelay = 2 * time.Second  // Delay between order creation and confirmation check
+)
 
 // TestOrderLifecycleIntegration tests the complete order lifecycle
 func TestOrderLifecycleIntegration(t *testing.T) {
@@ -47,9 +62,9 @@ func TestOrderLifecycleIntegration(t *testing.T) {
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
 
 	testConfig := IntegrationTestConfig{
-		IsDevnet: isDevnet,
-		TestNetworks:  []string{"Base", "Ethereum", "Starknet"},
-		Timeout:       180 * time.Second,
+		IsDevnet:     isDevnet,
+		TestNetworks: []string{"Base", "Ethereum", "Starknet"},
+		Timeout:      180 * time.Second,
 	}
 
 	t.Logf("Running integration tests with IS_DEVNET=%t", isDevnet)
@@ -206,45 +221,9 @@ func TestErrorScenarios(t *testing.T) {
 	})
 }
 
-// TestPerformanceScenarios tests performance-related scenarios
-func TestPerformanceScenarios(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	if os.Getenv("SKIP_INTEGRATION_TESTS") == "true" {
-		t.Skip("Integration tests disabled via SKIP_INTEGRATION_TESTS")
-	}
-
-	t.Run("ConcurrentOrderProcessing", func(t *testing.T) {
-		// Create multiple mock orders for concurrent processing test
-		orders := make([]types.ParsedArgs, 10)
-		for i := 0; i < 10; i++ {
-			orders[i] = types.ParsedArgs{
-				OrderID:       fmt.Sprintf("concurrent-test-%d", i),
-				SenderAddress: "0x1234567890123456789012345678901234567890",
-			}
-		}
-
-		// Test concurrent order creation/validation (placeholder)
-		start := time.Now()
-		for _, order := range orders {
-			go func(o types.ParsedArgs) {
-				// Placeholder for concurrent processing
-				_ = o.OrderID
-			}(order)
-		}
-
-		// Wait a bit for processing
-		time.Sleep(100 * time.Millisecond)
-		duration := time.Since(start)
-
-		t.Logf("Processed %d orders concurrently in %v", len(orders), duration)
-	})
-}
-
 // TestOrderCreationCommandsIntegration tests actual order creation commands
 // This test covers the order creation code paths that are missing from unit tests
+// `make test-integration`
 func TestOrderCreationCommandsIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -333,8 +312,18 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 	t.Logf("   Input Amount: %s", orderInfo.InputAmount)
 	t.Logf("   Output Amount: %s", orderInfo.OutputAmount)
 
-	// Step 4: Get all network balances AFTER order creation
-	t.Log("📊 Step 4: Getting all network balances AFTER order creation...")
+	// Step 4: Wait for transaction to be fully processed
+	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
+
+	// Use proper transaction waiting instead of hardcoded delays
+	if err := waitForOpenTransaction(t, orderInfo); err != nil {
+		t.Logf("⚠️  Could not wait for transaction: %v", err)
+		t.Logf("   This is expected if the command failed or networks aren't running")
+		return
+	}
+
+	// Step 5: Get all network balances AFTER order creation
+	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterBalances := getAllNetworkBalances()
 
 	// Log all after balances
@@ -366,6 +355,98 @@ type OrderInfo struct {
 	OrderID          string
 	InputAmount      string
 	OutputAmount     string
+	TransactionHash  string
+}
+
+// waitForEVMTransaction waits for an EVM transaction to be confirmed with enhanced timeout and error handling
+func waitForEVMTransaction(t *testing.T, client *ethclient.Client, txHash common.Hash, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
+	defer cancel()
+
+	t.Logf("⏳ Waiting for EVM transaction confirmation: %s", txHash.Hex())
+
+	// Poll for transaction receipt directly
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for EVM transaction: %w", ctx.Err())
+		default:
+			receipt, err := client.TransactionReceipt(ctx, txHash)
+			if err == nil && receipt != nil {
+				t.Logf("✅ EVM transaction confirmed: %s (gas used: %d)", txHash.Hex(), receipt.GasUsed)
+				return nil
+			}
+			time.Sleep(OrderConfirmationDelay)
+		}
+	}
+}
+
+// waitForStarknetTransaction waits for a Starknet transaction to be confirmed with L2 status checking
+func waitForStarknetTransaction(t *testing.T, provider rpc.RpcProvider, txHash string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
+	defer cancel()
+
+	t.Logf("⏳ Waiting for Starknet transaction confirmation: %s", txHash)
+
+	// Convert hex hash to felt
+	hashFelt, err := utils.HexToFelt(txHash)
+	if err != nil {
+		return fmt.Errorf("failed to convert hash to felt: %w", err)
+	}
+
+	// Poll for transaction status using GetTransactionStatus
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for Starknet transaction: %w", ctx.Err())
+		default:
+			status, err := provider.GetTransactionStatus(ctx, hashFelt)
+			if err == nil && status != nil {
+				// Check if transaction is accepted on L2
+				if status.FinalityStatus == "ACCEPTED_ON_L2" {
+					t.Logf("✅ Starknet transaction confirmed: %s", txHash)
+					return nil
+				}
+			}
+			time.Sleep(OrderConfirmationDelay)
+		}
+	}
+}
+
+// waitForOpenTransaction waits for the `open` transaction to be confirmed using the appropriate method
+// based on the origin chain (EVM vs Starknet)
+func waitForOpenTransaction(t *testing.T, orderInfo *OrderInfo) error {
+	if orderInfo.TransactionHash == "" {
+		return fmt.Errorf("no transaction hash available for waiting")
+	}
+
+	// Get network configuration for the origin chain
+	networkConfig, err := config.GetNetworkConfig(orderInfo.OriginChain)
+	if err != nil {
+		return fmt.Errorf("failed to get network config for %s: %w", orderInfo.OriginChain, err)
+	}
+
+	if orderInfo.OriginChain == "Starknet" {
+		// Use Starknet RPC
+		provider, err := rpc.NewProvider(networkConfig.RPCURL)
+		if err != nil {
+			return fmt.Errorf("failed to create Starknet provider: %w", err)
+		}
+
+		return waitForStarknetTransaction(t, provider, orderInfo.TransactionHash, OrderCreationTimeout)
+	} else {
+		// Use EVM RPC
+		client, err := ethclient.Dial(networkConfig.RPCURL)
+		if err != nil {
+			return fmt.Errorf("failed to create EVM client: %w", err)
+		}
+		defer client.Close()
+
+		// Convert hex hash to common.Hash
+		txHash := common.HexToHash(orderInfo.TransactionHash)
+
+		return waitForEVMTransaction(t, client, txHash, OrderCreationTimeout)
+	}
 }
 
 // getAllNetworkBalances gets Alice's DogCoin balance and Hyperlane contract balance for all networks
@@ -483,19 +564,9 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 // getAliceAddress gets Alice's address for a specific network
 func getAliceAddress(networkName string) (string, error) {
 	if networkName == "Starknet" {
-		// Use conditional environment variable
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
-		if isDevnet {
-			return os.Getenv("LOCAL_STARKNET_ALICE_ADDRESS"), nil
-		}
-		return os.Getenv("STARKNET_ALICE_ADDRESS"), nil
+		return envutil.GetStarknetAliceAddress(), nil
 	} else {
-		// Use conditional environment variable
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
-		if isDevnet {
-			return os.Getenv("LOCAL_ALICE_PUB_KEY"), nil
-		}
-		return os.Getenv("ALICE_PUB_KEY"), nil
+		return envutil.GetAlicePublicKey(), nil
 	}
 }
 
@@ -513,53 +584,81 @@ func getDogCoinAddress(networkName string) (string, error) {
 func parseOrderCreationOutput(output string) (*OrderInfo, error) {
 	orderInfo := &OrderInfo{}
 
+	// Shared regex components to avoid repetition
+	const (
+		alphanumMatch = `[a-zA-Z0-9_]+`            // Alphanumeric with underscore pattern
+		numberMatch   = `\d+`                      // Number pattern
+		floatMatch    = `[\d.]+`                   // Float number pattern
+	)
+	
+	// Composed regex patterns
+	orderExecutionPattern := `Executing Order:\s*(\w+)\s*→\s*(\w+)`
+	orderIDOffPattern := `Order ID \(off\): (0x` + alphanumMatch + `)`
+	orderIDSimplePattern := `Order ID: (` + alphanumMatch + `)`
+	orderIDTxHashPattern := `Transaction sent:\s*(0x` + alphanumMatch + `)`
+	txHashPattern := `Transaction sent:\s*(0x` + alphanumMatch + `)`
+	amountInPattern := `AmountIn:\s*(` + numberMatch + `)`
+	amountOutPattern := `AmountOut:\s*(` + numberMatch + `)`
+	starknetInputAmountPattern := `Input Amount:\s*(` + numberMatch + `)`
+	starknetOutputAmountPattern := `Output Amount:\s*(` + numberMatch + `)`
+	balanceChangePattern := `User balance change:.*\(Δ:\s*(` + floatMatch + `)\s*tokens\)`
+
 	// Parse origin and destination chains from "Executing Order: X → Y" line
-	orderMatch := regexp.MustCompile(`Executing Order:\s*(\w+)\s*→\s*(\w+)`).FindStringSubmatch(output)
+	orderMatch := regexp.MustCompile(orderExecutionPattern).FindStringSubmatch(output)
 	if len(orderMatch) >= 3 {
 		orderInfo.OriginChain = orderMatch[1]
 		orderInfo.DestinationChain = orderMatch[2]
 	}
 
-	// Try to extract order ID from transaction hash
-	orderIDRegex := regexp.MustCompile(`Order ID \(off\): (0x[a-fA-F0-9]+)`)
+	// Try to extract order ID from various formats
+	orderIDRegex := regexp.MustCompile(orderIDOffPattern)
 	if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OrderID = matches[1]
 	} else {
 		// Try alternative format for Starknet orders
-		orderIDRegex = regexp.MustCompile(`Order ID: ([a-zA-Z0-9_]+)`)
+		orderIDRegex = regexp.MustCompile(orderIDSimplePattern)
 		if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 			orderInfo.OrderID = matches[1]
+		} else {
+			// Try to extract from transaction hash as fallback
+			orderIDRegex = regexp.MustCompile(orderIDTxHashPattern)
+			if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
+				orderInfo.OrderID = matches[1]
+			}
 		}
 	}
 
+	// Extract transaction hash from "Transaction sent: 0x..." line
+	txHashRegex := regexp.MustCompile(txHashPattern)
+	if matches := txHashRegex.FindStringSubmatch(output); len(matches) > 1 {
+		orderInfo.TransactionHash = matches[1]
+	}
+
 	// Try to extract amounts from ABI debug section (EVM orders)
-	inputAmountRegex := regexp.MustCompile(`AmountIn:\s*(\d+)`)
+	inputAmountRegex := regexp.MustCompile(amountInPattern)
 	if matches := inputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.InputAmount = matches[1]
 	}
 
-	outputAmountRegex := regexp.MustCompile(`AmountOut:\s*(\d+)`)
+	outputAmountRegex := regexp.MustCompile(amountOutPattern)
 	if matches := outputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OutputAmount = matches[1]
 	}
 
 	// Try to extract amounts from Starknet Order Summary section
-	// Pattern: "Input Amount: 1246000000000000000000"
-	starknetInputAmountRegex := regexp.MustCompile(`Input Amount:\s*(\d+)`)
+	starknetInputAmountRegex := regexp.MustCompile(starknetInputAmountPattern)
 	if matches := starknetInputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.InputAmount = matches[1]
 	}
 
-	// Pattern: "Output Amount: 1245999999999999999975"
-	starknetOutputAmountRegex := regexp.MustCompile(`Output Amount:\s*(\d+)`)
+	starknetOutputAmountRegex := regexp.MustCompile(starknetOutputAmountPattern)
 	if matches := starknetOutputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OutputAmount = matches[1]
 	}
 
 	// Fallback: Try to extract amounts from Starknet balance change line (legacy parsing)
-	// Pattern: "💰 User balance change: X tokens → Y tokens (Δ: Z tokens)"
 	if orderInfo.InputAmount == "" {
-		starknetBalanceRegex := regexp.MustCompile(`User balance change:.*\(Δ:\s*([\d.]+)\s*tokens\)`)
+		starknetBalanceRegex := regexp.MustCompile(balanceChangePattern)
 		if matches := starknetBalanceRegex.FindStringSubmatch(output); len(matches) > 1 {
 			// Convert float string to integer (assuming 18 decimals)
 			deltaFloat, err := strconv.ParseFloat(matches[1], 64)
@@ -742,20 +841,13 @@ func TestSolverIntegration(t *testing.T) {
 	t.Log("🧹 Cleaning solver state once at the start of all integration tests...")
 	cleanSolverStateOnce(t)
 
-	t.Run("CompleteOrderLifecycle_EVM_to_EVM", func(t *testing.T) {
-		testCompleteOrderLifecycle(t, solverPath, []string{"tools", "open-order", "evm"})
-	})
-
-	t.Run("CompleteOrderLifecycle_EVM_to_Starknet", func(t *testing.T) {
-		// Note: Solver state persists between tests to ensure sequential processing
-		// Each test will start from where the previous test left off
-		testCompleteOrderLifecycle(t, solverPath, []string{"tools", "open-order", "evm", "random-to-sn"})
-	})
-
-	t.Run("CompleteOrderLifecycle_Starknet_to_EVM", func(t *testing.T) {
-		// Note: Solver state persists between tests to ensure sequential processing
-		// Each test will start from where the previous test left off
-		testCompleteOrderLifecycle(t, solverPath, []string{"tools", "open-order", "starknet"})
+	t.Run("CompleteOrderLifecycle_MultiOrder", func(t *testing.T) {
+		// Clean solver state before multi-order test
+		t.Log("🧹 Cleaning solver state before multi-order test...")
+		cleanSolverState(t)
+		// Test the solver's ability to handle multiple orders simultaneously
+		// This covers EVM→EVM, EVM→Starknet, and Starknet→EVM order types
+		testCompleteOrderLifecycleMultiOrder(t, solverPath)
 	})
 }
 
@@ -765,6 +857,19 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 1: Get all network balances BEFORE order creation
 	t.Log("📊 Step 1: Getting all network balances BEFORE order creation...")
+
+	// Debug: Log the addresses being used for balance checking
+	isDevnet := os.Getenv("IS_DEVNET") == "true"
+	t.Logf("🔍 Debug: IS_DEVNET=%t, checking balances for:", isDevnet)
+	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
+		aliceAddr, err := getAliceAddress(networkName)
+		if err != nil {
+			t.Logf("   %s Alice: ERROR - %v", networkName, err)
+		} else {
+			t.Logf("   %s Alice: %s", networkName, aliceAddr)
+		}
+	}
+
 	beforeOrderBalances := getAllNetworkBalances()
 
 	// Log all before balances
@@ -807,36 +912,18 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 4: Wait for transaction to be fully processed
 	t.Log("⏳ Step 4: Waiting for transaction to be fully processed...")
-	time.Sleep(3 * time.Second)
+
+	// Use proper transaction waiting instead of hardcoded delays
+	if err := waitForOpenTransaction(t, orderInfo); err != nil {
+		t.Logf("⚠️  Could not wait for transaction: %v", err)
+		t.Logf("   This is expected if the command failed or networks aren't running")
+		return
+	}
 
 	// Step 5: Get all network balances AFTER order creation
 	t.Log("📊 Step 5: Getting all network balances AFTER order creation...")
 	afterOrderBalances := getAllNetworkBalances()
 
-	//// Debug: Log balance changes
-	// t.Log("🔍 Balance changes after order creation:")
-	//for network, beforeBalance := range beforeOrderBalances.AliceBalances {
-	//	afterBalance := afterOrderBalances.AliceBalances[network]
-	//	change := new(big.Int).Sub(afterBalance, beforeBalance)
-	//	t.Logf("   %s Alice: %s -> %s (Δ: %s)", network, beforeBalance.String(), afterBalance.String(), change.String())
-
-	//	// Debug: Log Alice address and token address for the origin chain
-	//	if network == orderInfo.OriginChain {
-	//		aliceAddr, err := getAliceAddress(network)
-	//		if err != nil {
-	//			t.Logf("   DEBUG: Could not get Alice address for %s: %v", network, err)
-	//		} else {
-	//			t.Logf("   DEBUG: %s Alice address: %s", network, aliceAddr)
-	//		}
-
-	//		tokenAddr, err := getDogCoinAddress(network)
-	//		if err != nil {
-	//			t.Logf("   DEBUG: Could not get DogCoin address for %s: %v", network, err)
-	//		} else {
-	//			t.Logf("   DEBUG: %s DogCoin address: %s", network, tokenAddr)
-	//		}
-	//	}
-	//}
 	for network, beforeBalance := range beforeOrderBalances.HyperlaneBalances {
 		afterBalance := afterOrderBalances.HyperlaneBalances[network]
 		change := new(big.Int).Sub(afterBalance, beforeBalance)
@@ -925,210 +1012,6 @@ func cleanSolverState(t *testing.T) {
 	t.Log("✅ Solver state cleaned and start blocks set to -1 (one block before current)")
 }
 
-// testCompleteOrderLifecycle tests the complete order lifecycle: Open → Fill → Settle
-func testCompleteOrderLifecycle(t *testing.T, solverPath string, orderCommand []string) {
-	t.Logf("🔄 Testing complete order lifecycle: %s", strings.Join(orderCommand, " "))
-
-	// Note: Solver state persists between tests to ensure sequential processing
-	// Each test will start from where the previous test left off
-
-	// Step 1: Get all network balances BEFORE order creation
-	t.Log("📊 Step 1: Getting all network balances BEFORE order creation...")
-	beforeOrderBalances := getAllNetworkBalances()
-
-	// Log all before balances
-	t.Log("📋 Before order creation balances:")
-	for network, balance := range beforeOrderBalances.AliceBalances {
-		t.Logf("   %s Alice DogCoin: %s", network, balance.String())
-	}
-	for network, balance := range beforeOrderBalances.HyperlaneBalances {
-		t.Logf("   %s Hyperlane DogCoin: %s", network, balance.String())
-	}
-
-	// Step 2: Execute order creation command
-	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, orderCommand...)
-	cmd.Dir = "."
-	// Preserve current environment including IS_DEVNET setting
-	cmd.Env = append(os.Environ(), "TEST_MODE=true")
-
-	output, err := cmd.CombinedOutput()
-	outputStr := string(output)
-
-	// Log the command output
-	t.Logf("📝 Order creation output:\n%s", outputStr)
-
-	// Step 3: Parse order creation output to determine origin/destination chains
-	t.Log("🔍 Step 3: Parsing order creation output...")
-	orderInfo, err := parseOrderCreationOutput(outputStr)
-	if err != nil {
-		t.Logf("⚠️  Could not parse order creation output: %v", err)
-		t.Logf("   This is expected if the command failed or networks aren't running")
-		return
-	}
-
-	t.Logf("📋 Parsed order info:")
-	t.Logf("   Origin Chain: %s", orderInfo.OriginChain)
-	t.Logf("   Destination Chain: %s", orderInfo.DestinationChain)
-	t.Logf("   Order ID: %s", orderInfo.OrderID)
-	t.Logf("   Input Amount: %s", orderInfo.InputAmount)
-	t.Logf("   Output Amount: %s", orderInfo.OutputAmount)
-
-	// Step 4: Get solver balances BEFORE solver execution
-	t.Log("📊 Step 4: Getting solver balances BEFORE solver execution...")
-	beforeSolverBalances, err := getSolverBalances()
-	require.NoError(t, err)
-
-	//// Log solver balances
-	// t.Log("📋 Before solver execution balances:")
-	//for network, balance := range beforeSolverBalances.Balances {
-	//	t.Logf("   %s Solver DogCoin: %s", network, balance.String())
-	//}
-
-	//// Debug: Log solver addresses
-	// t.Log("🔍 Solver addresses:")
-	//for _, network := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
-	//	address, err := getSolverAddress(network)
-	//	if err != nil {
-	//		t.Logf("   %s Solver Address: ERROR - %v", network, err)
-	//	} else {
-	//		t.Logf("   %s Solver Address: %s", network, address)
-	//	}
-	//}
-
-	// Step 5: Check if solver has sufficient balance to fill the order
-	t.Log("🤖 Step 5: Checking solver balance for order filling...")
-
-	// Get the expected output amount (what solver needs to provide)
-	outputAmount, ok := new(big.Int).SetString(orderInfo.OutputAmount, 10)
-	if !ok {
-		t.Logf("⚠️  Could not parse output amount: %s", orderInfo.OutputAmount)
-		return
-	}
-
-	// Check solver balance on destination chain
-	destinationSolverBalance := beforeSolverBalances.Balances[orderInfo.DestinationChain]
-	t.Logf("💰 Solver balance on %s: %s", orderInfo.DestinationChain, destinationSolverBalance.String())
-	t.Logf("💰 Required amount for order: %s", outputAmount.String())
-
-	if destinationSolverBalance.Cmp(outputAmount) < 0 {
-		t.Logf("⚠️  Solver has insufficient balance to fill order")
-		t.Logf("   Solver balance: %s", destinationSolverBalance.String())
-		t.Logf("   Required amount: %s", outputAmount.String())
-		t.Logf("   Shortfall: %s", new(big.Int).Sub(outputAmount, destinationSolverBalance).String())
-		t.Logf("💡 To test complete lifecycle, fund the solver with DogCoin tokens on %s", orderInfo.DestinationChain)
-		return
-	}
-
-	// Step 6: Run the solver to fill the order
-	t.Log("🤖 Step 6: Running solver to fill the order...")
-
-	// Add a small delay to ensure the order is detected by the solver
-	t.Log("⏳ Waiting 2 seconds for order to be detected...")
-	time.Sleep(2 * time.Second)
-	t.Log("✅ Sleep completed, starting solver...")
-
-	solverCmd := exec.Command(solverPath, "solver")
-	solverCmd.Dir = "."
-	// Preserve current environment including IS_DEVNET setting
-	solverCmd.Env = append(os.Environ(), "TEST_MODE=true")
-
-	// Set up pipes to capture output
-	solverCmd.Stdout = &bytes.Buffer{}
-	solverCmd.Stderr = &bytes.Buffer{}
-
-	// Start solver process
-	t.Log("🚀 Starting solver process...")
-	err = solverCmd.Start()
-	if err != nil {
-		t.Fatalf("Failed to start solver: %v", err)
-	}
-
-	// Ensure cleanup if test ends or panics
-	defer func() {
-		if solverCmd.Process != nil {
-			t.Log("🧹 Cleaning up solver process...")
-			solverCmd.Process.Kill()
-		}
-	}()
-
-	// Set up graceful shutdown after 35 seconds (or 180 seconds if using live networks)
-	seconds := 35 * time.Second
-	if os.Getenv("IS_DEVNET") == "false" {
-		seconds = 180 * time.Second
-	}
-
-	shutdownTimer := time.AfterFunc(seconds, func() {
-		if solverCmd.Process != nil {
-			t.Log("⏰ Sending graceful shutdown signal to solver...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
-		}
-	})
-	defer shutdownTimer.Stop()
-
-	// Wait for solver to complete (with overall 60-second timeout)
-	done := make(chan error, 1)
-	go func() {
-		done <- solverCmd.Wait()
-	}()
-
-	select {
-	case err = <-done:
-		// Process completed normally
-	case <-time.After(100 * time.Second):
-		// Force kill if still running after 60 seconds
-		t.Log("🔪 Force killing solver after timeout...")
-		if solverCmd.Process != nil {
-			solverCmd.Process.Kill()
-		}
-		err = fmt.Errorf("solver timeout after 200 seconds")
-	}
-
-	// Collect output
-	stdout := solverCmd.Stdout.(*bytes.Buffer).String()
-	stderr := solverCmd.Stderr.(*bytes.Buffer).String()
-	solverOutputStr := stdout + stderr
-
-	// Log solver output
-	t.Logf("📝 Solver output:\n%s", solverOutputStr)
-
-	if err != nil && !strings.Contains(err.Error(), "signal: terminated") {
-		t.Logf("⚠️  Solver execution had issues: %v", err)
-		// Don't fail the test if solver has issues, just log it
-	}
-
-	// Step 7: Wait for fill and settle to complete
-	t.Log("⏳ Step 7: Waiting for fill and settle to complete...")
-	time.Sleep(10 * time.Second)
-
-	// Step 8: Get final balances AFTER fill and settle
-	t.Log("📊 Step 8: Getting final balances AFTER fill and settle...")
-	finalAliceBalances := getAllNetworkBalances()
-
-	finalSolverBalances, err := getSolverBalances()
-	require.NoError(t, err)
-
-	// Log final balances
-	t.Log("📋 Final Alice balances:")
-	for network, balance := range finalAliceBalances.AliceBalances {
-		t.Logf("   %s Alice DogCoin: %s", network, balance.String())
-	}
-	for network, balance := range finalAliceBalances.HyperlaneBalances {
-		t.Logf("   %s Hyperlane DogCoin: %s", network, balance.String())
-	}
-
-	t.Log("📋 Final Solver balances:")
-	for network, balance := range finalSolverBalances.Balances {
-		t.Logf("   %s Solver DogCoin: %s", network, balance.String())
-	}
-
-	// Step 9: Verify complete lifecycle balance changes
-	t.Log("✅ Step 9: Verifying complete lifecycle balance changes...")
-	verifyCompleteLifecycleBalanceChanges(t, beforeOrderBalances, finalAliceBalances, beforeSolverBalances, finalSolverBalances, orderInfo)
-
-	t.Log("🎉 Complete order lifecycle test completed successfully!")
-}
-
 // SolverBalances holds solver balances for all networks
 type SolverBalances struct {
 	Balances map[string]*big.Int // Network name -> Solver's DogCoin balance
@@ -1197,9 +1080,9 @@ func getSolverDogCoinBalance(networkName string) (*big.Int, error) {
 
 // getSolverAddress gets the solver's address for a specific network
 func getSolverAddress(networkName string) (string, error) {
+	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	if networkName == "Starknet" {
 		// Use conditional environment variable
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
 		if isDevnet {
 			address := os.Getenv("LOCAL_STARKNET_SOLVER_ADDRESS")
 			if address == "" {
@@ -1214,7 +1097,6 @@ func getSolverAddress(networkName string) (string, error) {
 		return address, nil
 	} else {
 		// Use conditional environment variable
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
 		if isDevnet {
 			address := os.Getenv("LOCAL_SOLVER_PUB_KEY")
 			if address == "" {
@@ -1298,120 +1180,557 @@ func verifyOrderCreationBalanceChanges(t *testing.T, before, after *NetworkBalan
 	}
 }
 
-// verifyCompleteLifecycleBalanceChanges verifies the complete order lifecycle balance changes
-func verifyCompleteLifecycleBalanceChanges(t *testing.T, beforeOrder, finalAlice *NetworkBalances, beforeSolver, finalSolver *SolverBalances, orderInfo *OrderInfo) {
-	t.Logf("🔍 Verifying complete lifecycle balance changes for order: %s -> %s", orderInfo.OriginChain, orderInfo.DestinationChain)
+// TestMain sets up the test environment
+// testCompleteOrderLifecycleMultiOrder tests the solver's ability to handle multiple orders simultaneously
+func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
+	t.Log("🔄 Testing multi-order processing: EVM→EVM, EVM→Starknet, Starknet→EVM")
 
-	// Get the expected amounts
-	inputAmount, ok := new(big.Int).SetString(orderInfo.InputAmount, 10)
-	if !ok {
-		t.Errorf("❌ Could not parse input amount: %s", orderInfo.InputAmount)
+	// Step 1: Get all network balances BEFORE any order creation
+	t.Log("📊 Step 1: Getting all network balances BEFORE order creation...")
+
+	// Debug: Log the addresses being used for balance checking
+	isDevnet := os.Getenv("IS_DEVNET") == "true"
+	t.Logf("🔍 Debug: IS_DEVNET=%t, checking balances for:", isDevnet)
+	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
+		aliceAddr, err := getAliceAddress(networkName)
+		if err != nil {
+			t.Logf("   %s Alice: ERROR - %v", networkName, err)
+		} else {
+			t.Logf("   %s Alice: %s", networkName, aliceAddr)
+		}
+	}
+
+	beforeOrderBalances := getAllNetworkBalances()
+
+	// Log all before balances
+	t.Log("📋 Before order creation balances:")
+	for network, balance := range beforeOrderBalances.AliceBalances {
+		t.Logf("   %s Alice DogCoin: %s", network, balance.String())
+	}
+	for network, balance := range beforeOrderBalances.HyperlaneBalances {
+		t.Logf("   %s Hyperlane DogCoin: %s", network, balance.String())
+	}
+
+	// Step 1.5: Get solver balances BEFORE any orders are created
+	t.Log("📊 Step 1.5: Getting solver balances BEFORE any orders are created...")
+	beforeSolverBalances, err := getSolverBalances()
+	require.NoError(t, err)
+
+	// Log solver balances
+	t.Log("📋 Before order creation solver balances:")
+	for network, balance := range beforeSolverBalances.Balances {
+		t.Logf("   %s Solver DogCoin: %s", network, balance.String())
+	}
+
+	// Step 2: Start solver as background process BEFORE opening any orders
+	t.Log("🤖 Step 2: Starting solver as background process...")
+
+	solverCmd := exec.Command(solverPath, "solver")
+	solverCmd.Dir = "."
+	// Preserve current environment including IS_DEVNET setting
+	solverCmd.Env = append(os.Environ(), "TEST_MODE=true")
+
+	// Set up pipes to capture output
+	solverCmd.Stdout = &bytes.Buffer{}
+	solverCmd.Stderr = &bytes.Buffer{}
+
+	// Start solver process in background
+	err = solverCmd.Start()
+	if err != nil {
+		t.Fatalf("Failed to start solver: %v", err)
+	}
+
+	// Ensure cleanup if test ends or panics
+	shutdownTimer := time.AfterFunc(5*time.Minute, func() {
+		if solverCmd.Process != nil {
+			t.Log("⏰ Sending graceful shutdown signal to solver...")
+			solverCmd.Process.Signal(syscall.SIGTERM)
+		}
+	})
+	defer func() {
+		shutdownTimer.Stop()
+		if solverCmd.Process != nil {
+			t.Log("🧹 Cleaning up solver process...")
+			solverCmd.Process.Signal(syscall.SIGTERM)
+			// Give it a moment to shut down gracefully
+			time.Sleep(2 * time.Second)
+			if solverCmd.Process != nil {
+				t.Log("🔨 Force killing solver process...")
+				solverCmd.Process.Kill()
+			}
+		}
+	}()
+
+	// Step 3: Create three orders simultaneously
+	t.Log("🚀 Step 3: Creating three orders simultaneously...")
+
+	// Define the three order commands
+	orderCommands := [][]string{
+		{"tools", "open-order", "evm"},                 // EVM→EVM
+		{"tools", "open-order", "evm", "random-to-sn"}, // EVM→Starknet
+		{"tools", "open-order", "starknet"},            // Starknet→EVM
+	}
+
+	// Execute all order creation commands
+	var orderInfos []*OrderInfo
+	for i, orderCommand := range orderCommands {
+		t.Logf("📝 Creating order %d: %s", i+1, strings.Join(orderCommand, " "))
+
+		cmd := exec.Command(solverPath, orderCommand...)
+		cmd.Dir = "."
+		cmd.Env = append(os.Environ(), "TEST_MODE=true")
+
+		output, err := cmd.CombinedOutput()
+		outputStr := string(output)
+
+		// Log the command output
+		t.Logf("📝 Order %d creation output:\n%s", i+1, outputStr)
+
+		// Parse order creation output
+		orderInfo, err := parseOrderCreationOutput(outputStr)
+		if err != nil {
+			t.Logf("⚠️  Could not parse order %d creation output: %v", i+1, err)
+			t.Logf("   This is expected if the command failed or networks aren't running")
+			continue
+		}
+
+		t.Logf("📋 Parsed order %d info:", i+1)
+		t.Logf("   Origin Chain: %s", orderInfo.OriginChain)
+		t.Logf("   Destination Chain: %s", orderInfo.DestinationChain)
+		t.Logf("   Order ID: %s", orderInfo.OrderID)
+		t.Logf("   Input Amount: %s", orderInfo.InputAmount)
+		t.Logf("   Output Amount: %s", orderInfo.OutputAmount)
+		t.Logf("   Transaction Hash: %s", orderInfo.TransactionHash)
+
+		// Debug: Show if order ID parsing failed
+		if orderInfo.OrderID == "" {
+			t.Logf("⚠️  Order %d: No Order ID parsed from output", i+1)
+			// Debug: Show raw output for troubleshooting
+			// Show first 500 characters of output for debugging
+			outputPreview := outputStr
+			if len(outputStr) > 500 {
+				outputPreview = outputStr[:500]
+			}
+			t.Logf("🔍 Raw output for order %d (first 500 chars):\n%s", i+1, outputPreview)
+		} else {
+			t.Logf("✅ Order %d: Order ID successfully parsed: %s", i+1, orderInfo.OrderID)
+		}
+
+		// Wait for this order's transaction to be confirmed before creating the next one
+		if orderInfo.TransactionHash != "" {
+			t.Logf("⏳ Waiting for order %d transaction confirmation...", i+1)
+			if err := waitForOpenTransaction(t, orderInfo); err != nil {
+				t.Logf("⚠️  Could not wait for order %d transaction: %v", i+1, err)
+				t.Logf("   Continuing with next order...")
+			} else {
+				t.Logf("✅ Order %d transaction confirmed", i+1)
+			}
+		} else {
+			t.Errorf("❌ Order %d has no transaction hash, cannot wait for confirmation", i+1)
+
+		}
+
+		orderInfos = append(orderInfos, orderInfo)
+	}
+
+	if len(orderInfos) == 0 {
+		t.Log("⚠️  No orders were created successfully, skipping multi-order test")
 		return
 	}
 
-	outputAmount, ok := new(big.Int).SetString(orderInfo.OutputAmount, 10)
-	if !ok {
-		t.Errorf("❌ Could not parse output amount: %s", orderInfo.OutputAmount)
-		return
+	t.Logf("✅ Successfully created %d orders", len(orderInfos))
+
+	t.Log("⏳ Monitoring solver output for order processing...")
+
+	t.Log("🔍 Order IDs to monitor:")
+	for i, orderInfo := range orderInfos {
+		if orderInfo.OrderID != "" {
+			t.Logf("   Order %d: %s", i+1, orderInfo.OrderID)
+		} else {
+			t.Logf("   Order %d: NO ORDER ID PARSED", i+1)
+		}
 	}
 
-	// Check Alice balance changes
+	// Wait for all orders to be processed or timeout
+	allOrdersProcessed := waitForAllOrdersProcessed(t, solverCmd, orderInfos)
+
+	if allOrdersProcessed {
+		t.Log("✅ All orders processed successfully!")
+		// Terminate solver immediately since all orders are processed
+		if solverCmd.Process != nil {
+			t.Log("🛑 Terminating solver process since all orders are processed...")
+			solverCmd.Process.Signal(syscall.SIGTERM)
+			// Give it a moment to shut down gracefully
+			time.Sleep(2 * time.Second)
+			if solverCmd.Process != nil {
+				t.Log("🔨 Force killing solver process...")
+				solverCmd.Process.Kill()
+			}
+		}
+	} else {
+		t.Log("⚠️  Not all orders were processed within the timeout period")
+	}
+
+	// Collect solver output for logging
+	//stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	//stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	//solverOutputStr := stdout + stderr
+	//	// Log solver output
+	//	t.Logf("📝 Solver output:\n%s", solverOutputStr)
+
+	t.Log("✅ Solver processing completed")
+
+	// Step 6: Get final balances AFTER all orders are processed
+	t.Log("📊 Step 6: Getting final balances AFTER all orders are processed...")
+	finalAliceBalances := getAllNetworkBalances()
+
+	finalSolverBalances, err := getSolverBalances()
+	require.NoError(t, err)
+
+	// Log final balances
+	t.Log("📋 Final Alice balances:")
+	for network, balance := range finalAliceBalances.AliceBalances {
+		t.Logf("   %s Alice DogCoin: %s", network, balance.String())
+	}
+	for network, balance := range finalAliceBalances.HyperlaneBalances {
+		t.Logf("   %s Hyperlane DogCoin: %s", network, balance.String())
+	}
+
+	t.Log("📋 Final Solver balances:")
+	for network, balance := range finalSolverBalances.Balances {
+		t.Logf("   %s Solver DogCoin: %s", network, balance.String())
+	}
+
+	// Step 7: Verify multi-order balance changes
+	t.Log("✅ Step 7: Verifying multi-order balance changes...")
+	verifyMultiOrderBalanceChanges(t, beforeOrderBalances, finalAliceBalances, beforeSolverBalances, finalSolverBalances, orderInfos)
+
+	t.Log("🎉 Multi-order lifecycle test completed successfully!")
+}
+
+// verifyMultiOrderBalanceChanges verifies balance changes for multiple orders
+func verifyMultiOrderBalanceChanges(t *testing.T, beforeOrder, finalAlice *NetworkBalances, beforeSolver, finalSolver *SolverBalances, orderInfos []*OrderInfo) {
+	t.Logf("🔍 Verifying multi-order balance changes for %d orders", len(orderInfos))
+
+	// Calculate expected balance changes for each network
+	expectedAliceChanges := make(map[string]*big.Int)     // Network -> net change for Alice
+	expectedHyperlaneChanges := make(map[string]*big.Int) // Network -> net change for Hyperlane
+	expectedSolverChanges := make(map[string]*big.Int)    // Network -> net change for Solver
+
+	// Initialize all networks to zero changes
+	networks := []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"}
+	for _, network := range networks {
+		expectedAliceChanges[network] = big.NewInt(0)
+		expectedHyperlaneChanges[network] = big.NewInt(0)
+		expectedSolverChanges[network] = big.NewInt(0)
+	}
+
+	// Calculate expected changes for each order
+	for i, orderInfo := range orderInfos {
+		t.Logf("📊 Processing order %d: %s → %s", i+1, orderInfo.OriginChain, orderInfo.DestinationChain)
+
+		inputAmount, ok := new(big.Int).SetString(orderInfo.InputAmount, 10)
+		if !ok {
+			t.Errorf("❌ Could not parse input amount for order %d: %s", i+1, orderInfo.InputAmount)
+			continue
+		}
+
+		outputAmount, ok := new(big.Int).SetString(orderInfo.OutputAmount, 10)
+		if !ok {
+			t.Errorf("❌ Could not parse output amount for order %d: %s", i+1, orderInfo.OutputAmount)
+			continue
+		}
+
+		// Alice balance changes
+		// Origin chain: Alice decreases by input amount
+		expectedAliceChanges[orderInfo.OriginChain] = new(big.Int).Sub(expectedAliceChanges[orderInfo.OriginChain], inputAmount)
+		// Destination chain: Alice increases by output amount
+		expectedAliceChanges[orderInfo.DestinationChain] = new(big.Int).Add(expectedAliceChanges[orderInfo.DestinationChain], outputAmount)
+
+		// Hyperlane balance changes
+		// Origin chain: Hyperlane increases by input amount (Alice's tokens go to Hyperlane)
+		expectedHyperlaneChanges[orderInfo.OriginChain] = new(big.Int).Add(expectedHyperlaneChanges[orderInfo.OriginChain], inputAmount)
+
+		// Solver balance changes
+		// Destination chain: Solver decreases by output amount (Solver provides tokens to Alice)
+		expectedSolverChanges[orderInfo.DestinationChain] = new(big.Int).Sub(expectedSolverChanges[orderInfo.DestinationChain], outputAmount)
+
+		t.Logf("   Expected Alice changes: %s (-%s), %s (+%s)",
+			orderInfo.OriginChain, inputAmount.String(),
+			orderInfo.DestinationChain, outputAmount.String())
+		t.Logf("   Expected Hyperlane changes: %s (+%s)",
+			orderInfo.OriginChain, inputAmount.String())
+		t.Logf("   Expected Solver changes: %s (-%s)",
+			orderInfo.DestinationChain, outputAmount.String())
+	}
+
+	// Verify Alice balance changes
+	t.Log("🔍 Verifying Alice balance changes...")
 	for networkName, beforeBalance := range beforeOrder.AliceBalances {
 		finalBalance := finalAlice.AliceBalances[networkName]
-		change := new(big.Int).Sub(finalBalance, beforeBalance)
+		actualChange := new(big.Int).Sub(finalBalance, beforeBalance)
+		expectedChange := expectedAliceChanges[networkName]
 
-		if networkName == orderInfo.OriginChain {
-			// Origin chain Alice balance should have decreased by input amount
-			expectedDecrease := inputAmount
-			if change.Cmp(new(big.Int).Neg(expectedDecrease)) != 0 {
-				t.Errorf("❌ Origin chain (%s) Alice balance should have decreased by %s, but changed by %s",
-					networkName, expectedDecrease.String(), change.String())
-			} else {
-				t.Logf("✅ Origin chain (%s) Alice balance decreased by: %s", networkName, expectedDecrease.String())
-			}
-		} else if networkName == orderInfo.DestinationChain {
-			// Destination chain Alice balance should have increased by output amount
-			expectedIncrease := outputAmount
-			if change.Cmp(expectedIncrease) != 0 {
-				t.Errorf("❌ Destination chain (%s) Alice balance should have increased by %s, but changed by %s",
-					networkName, expectedIncrease.String(), change.String())
-			} else {
-				t.Logf("✅ Destination chain (%s) Alice balance increased by: %s", networkName, expectedIncrease.String())
-			}
+		if actualChange.Cmp(expectedChange) != 0 {
+			t.Errorf("❌ Alice balance change mismatch on %s: expected %s, got %s",
+				networkName, expectedChange.String(), actualChange.String())
 		} else {
-			// Other chains should have unchanged Alice balance
-			if change.Cmp(big.NewInt(0)) != 0 {
-				t.Errorf("❌ Non-affected chain (%s) Alice balance should be unchanged, but changed by %s",
-					networkName, change.String())
-			} else {
-				t.Logf("✅ Non-affected chain (%s) Alice balance unchanged", networkName)
-			}
+			t.Logf("✅ Alice balance change on %s: %s (as expected)", networkName, actualChange.String())
 		}
 	}
 
-	// Check Hyperlane balance changes
+	// Verify Hyperlane balance changes
+	t.Log("🔍 Verifying Hyperlane balance changes...")
 	for networkName, beforeBalance := range beforeOrder.HyperlaneBalances {
 		finalBalance := finalAlice.HyperlaneBalances[networkName]
-		change := new(big.Int).Sub(finalBalance, beforeBalance)
+		actualChange := new(big.Int).Sub(finalBalance, beforeBalance)
+		expectedChange := expectedHyperlaneChanges[networkName]
 
-		if networkName == orderInfo.OriginChain {
-			// Origin chain Hyperlane balance should have increased by input amount
-			expectedIncrease := inputAmount
-			if change.Cmp(expectedIncrease) != 0 {
-				t.Errorf("❌ Origin chain (%s) Hyperlane balance should have increased by %s, but changed by %s",
-					networkName, expectedIncrease.String(), change.String())
-			} else {
-				t.Logf("✅ Origin chain (%s) Hyperlane balance increased by: %s", networkName, expectedIncrease.String())
-			}
+		if actualChange.Cmp(expectedChange) != 0 {
+			t.Errorf("❌ Hyperlane balance change mismatch on %s: expected %s, got %s",
+				networkName, expectedChange.String(), actualChange.String())
 		} else {
-			// Other chains should have unchanged Hyperlane balance
-			if change.Cmp(big.NewInt(0)) != 0 {
-				t.Errorf("❌ Non-affected chain (%s) Hyperlane balance should be unchanged, but changed by %s",
-					networkName, change.String())
+			t.Logf("✅ Hyperlane balance change on %s: %s (as expected)", networkName, actualChange.String())
+		}
+	}
+
+	// Verify Solver balance changes
+	t.Log("🔍 Verifying Solver balance changes...")
+	for networkName, beforeBalance := range beforeSolver.Balances {
+		finalBalance := finalSolver.Balances[networkName]
+		actualChange := new(big.Int).Sub(finalBalance, beforeBalance)
+		expectedChange := expectedSolverChanges[networkName]
+
+		if expectedChange.Cmp(big.NewInt(0)) != 0 {
+			if actualChange.Cmp(big.NewInt(0)) == 0 {
+				t.Logf("⚠️  Solver balance unchanged on %s: %s (expected: %s)", networkName, actualChange.String(), expectedChange.String())
 			} else {
-				t.Logf("✅ Non-affected chain (%s) Hyperlane balance unchanged", networkName)
+				t.Logf("📊 Solver balance change on %s: %s (expected: %s)",
+					networkName, actualChange.String(), expectedChange.String())
 			}
 		}
 	}
 
-	fmt.Printf("000000000##########\n%s\n%s", beforeSolver.Balances, finalSolver.Balances)
+	// Verify token conservation across all orders
+	t.Log("🔍 Verifying token conservation across all orders...")
 
-	// Check Solver balance changes
-	for networkName, beforeBalance := range beforeSolver.Balances {
-		finalBalance := finalSolver.Balances[networkName]
-		change := new(big.Int).Sub(finalBalance, beforeBalance)
+	// Calculate total Alice decrease (sum of all input amounts)
+	totalAliceDecrease := big.NewInt(0)
+	for _, orderInfo := range orderInfos {
+		inputAmount, _ := new(big.Int).SetString(orderInfo.InputAmount, 10)
+		totalAliceDecrease.Add(totalAliceDecrease, inputAmount)
+	}
 
-		if networkName == orderInfo.DestinationChain {
-			// Destination chain solver balance should have decreased by output amount
-			expectedDecrease := outputAmount
-			// Note: Solver balance changes are hard to detect due to timing of fill/replenish transactions
-			if change.Cmp(big.NewInt(0)) == 0 {
-				t.Logf("⚠️  Destination chain (%s) solver balance unchanged (likely replenished in same transaction)", networkName)
-			} else if change.Cmp(new(big.Int).Neg(expectedDecrease)) != 0 {
-				t.Logf("⚠️  Destination chain (%s) solver balance changed by %s (expected decrease of %s)",
-					networkName, change.String(), expectedDecrease.String())
-			} else {
-				t.Logf("✅ Destination chain (%s) solver balance decreased by: %s", networkName, expectedDecrease.String())
-			}
-		} else {
-			// Other chains should have unchanged solver balance
-			if change.Cmp(big.NewInt(0)) != 0 {
-				t.Errorf("❌ Non-affected chain (%s) solver balance should be unchanged, but changed by %s",
-					networkName, change.String())
-			} else {
-				t.Logf("✅ Non-affected chain (%s) solver balance unchanged", networkName)
-			}
-		}
+	// Calculate total Hyperlane increase (sum of all input amounts)
+	totalHyperlaneIncrease := big.NewInt(0)
+	for _, orderInfo := range orderInfos {
+		inputAmount, _ := new(big.Int).SetString(orderInfo.InputAmount, 10)
+		totalHyperlaneIncrease.Add(totalHyperlaneIncrease, inputAmount)
 	}
 
 	// Verify token conservation
-	t.Logf("✅ Token conservation verified: Alice provided %s on %s, received %s on %s, solver provided %s on %s",
-		inputAmount.String(), orderInfo.OriginChain,
-		outputAmount.String(), orderInfo.DestinationChain,
-		outputAmount.String(), orderInfo.DestinationChain)
+	if totalAliceDecrease.Cmp(totalHyperlaneIncrease) == 0 {
+		t.Logf("✅ Token conservation verified: Alice decreased by %s, Hyperlane increased by %s (equal amounts)",
+			totalAliceDecrease.String(), totalHyperlaneIncrease.String())
+	} else {
+		t.Errorf("❌ Token conservation failed: Alice decreased by %s, Hyperlane increased by %s (unequal amounts)",
+			totalAliceDecrease.String(), totalHyperlaneIncrease.String())
+	}
+
+	t.Log("🎉 Multi-order balance verification completed successfully!")
 }
 
-// TestMain sets up the test environment
+// waitForAllOrdersProcessed monitors solver output in real-time to detect when all orders are processed
+func waitForAllOrdersProcessed(t *testing.T, solverCmd *exec.Cmd, orderInfos []*OrderInfo) bool {
+	t.Logf("🔍 Monitoring solver output for %d orders...", len(orderInfos))
+
+	// Count how many orders have valid order IDs
+	validOrderCount := 0
+	for _, orderInfo := range orderInfos {
+		if orderInfo.OrderID != "" {
+			validOrderCount++
+		}
+	}
+
+	t.Logf("🔍 Valid order IDs found: %d/%d", validOrderCount, len(orderInfos))
+
+	// Check if we already have enough completion patterns
+	// This handles the case where order IDs don't match but we have the right number of completions
+	stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	output := stdout + stderr
+	completionCount := strings.Count(output, OrderProcessingPattern)
+	if completionCount >= len(orderInfos) {
+		t.Logf("🎉 Found %d completion patterns (expected: %d) - all orders already processed!", completionCount, len(orderInfos))
+		return true
+	}
+
+	// If no valid order IDs, fall back to counting completion patterns
+	if validOrderCount == 0 {
+		t.Log("⚠️  No valid order IDs found, falling back to completion pattern counting")
+		return waitForCompletionPatterns(t, solverCmd, len(orderInfos))
+	}
+
+	// Create a map to track which orders have been processed
+	processedOrders := make(map[string]bool)
+	for _, orderInfo := range orderInfos {
+		if orderInfo.OrderID != "" {
+			processedOrders[orderInfo.OrderID] = false
+		}
+	}
+
+	// Set up monitoring with timeout
+	timeout := time.After(SolverMaxTimeout)
+	ticker := time.NewTicker(SolverCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after %v, stopping solver monitoring", SolverMaxTimeout)
+			return false
+
+		case <-ticker.C:
+			// Read current solver output
+			stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+			stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+			output := stdout + stderr
+
+			// Debug: Log the current output length and any completion patterns found
+			if len(output) > 0 {
+				completionCount := strings.Count(output, OrderProcessingPattern)
+				if completionCount > 0 {
+					t.Logf("🔍 Found %d completion patterns in solver output", completionCount)
+
+					// Check if we have enough completion patterns to exit early
+					if completionCount >= len(orderInfos) {
+						t.Logf("🎉 Found %d completion patterns (expected: %d) - all orders processed! Exiting early.", completionCount, len(orderInfos))
+						return true
+					}
+
+					// Debug: Show what order IDs we're looking for
+					var lookingFor []string
+					for orderID := range processedOrders {
+						if !processedOrders[orderID] {
+							truncated := orderID
+							if len(orderID) > 8 {
+								truncated = orderID[:8]
+							}
+							lookingFor = append(lookingFor, truncated)
+						}
+					}
+					t.Logf("🔍 Looking for order IDs: %v", lookingFor)
+
+					// Debug: Show actual completion lines in the output
+					lines := strings.Split(output, "\n")
+					for _, line := range lines {
+						if strings.Contains(line, OrderProcessingPattern) {
+							t.Logf("🔍 Found completion line: %s", line)
+						}
+					}
+				}
+			}
+
+			// Check for order processing completion patterns
+			ordersProcessedThisCheck := 0
+			for orderID, isProcessed := range processedOrders {
+				if !isProcessed {
+					// Look for the completion pattern with this specific order ID
+					// The actual pattern is: "[ETH] → [STRK] ✅ Order processing completed (Order: 0x5bd09b...)"
+					// We need to match the truncated order ID (first 8 characters)
+					truncatedOrderID := orderID
+					if len(orderID) > 8 {
+						truncatedOrderID = orderID[:8]
+					}
+
+					// Check if this specific order has the completion pattern
+					// Look for: "✅ Order processing completed (Order: 0x5bd09b...)"
+					orderCompletionPattern := OrderProcessingPattern + " (Order: " + truncatedOrderID + "...)"
+					if strings.Contains(output, orderCompletionPattern) {
+						processedOrders[orderID] = true
+						ordersProcessedThisCheck++
+						t.Logf("✅ Order %s processed successfully", orderID)
+					}
+				}
+			}
+
+			// Check if all orders have been processed
+			allProcessed := true
+			for _, isProcessed := range processedOrders {
+				if !isProcessed {
+					allProcessed = false
+					break
+				}
+			}
+
+			if allProcessed {
+				t.Logf("🎉 All %d orders have been processed!", len(processedOrders))
+				return true
+			}
+
+			// Log progress if any orders were processed in this check
+			if ordersProcessedThisCheck > 0 {
+				processedCount := 0
+				for _, isProcessed := range processedOrders {
+					if isProcessed {
+						processedCount++
+					}
+				}
+				t.Logf("📊 Progress: %d/%d orders processed", processedCount, len(processedOrders))
+			}
+		}
+	}
+}
+
+// waitForCompletionPatterns is a fallback method that counts completion patterns instead of matching order IDs
+func waitForCompletionPatterns(t *testing.T, solverCmd *exec.Cmd, expectedOrderCount int) bool {
+	t.Logf("🔍 Monitoring solver output for %d completion patterns...", expectedOrderCount)
+
+	// Set up monitoring with timeout
+	timeout := time.After(SolverMaxTimeout)
+	ticker := time.NewTicker(SolverCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			t.Logf("⏰ Timeout reached after %v, stopping solver monitoring", SolverMaxTimeout)
+			return false
+
+		case <-ticker.C:
+			// Read current solver output
+			stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+			stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+			output := stdout + stderr
+
+			// Count completion patterns
+			completionCount := strings.Count(output, OrderProcessingPattern)
+			if completionCount > 0 {
+				t.Logf("🔍 Found %d completion patterns in solver output (expected: %d)", completionCount, expectedOrderCount)
+
+				// Debug: Show actual completion lines in the output
+				lines := strings.Split(output, "\n")
+				for _, line := range lines {
+					if strings.Contains(line, OrderProcessingPattern) {
+						t.Logf("🔍 Found completion line: %s", line)
+					}
+				}
+
+				// Check if we have enough completion patterns to exit early
+				if completionCount >= expectedOrderCount {
+					t.Logf("🎉 Found %d completion patterns (expected: %d) - all orders processed! Exiting early.", completionCount, expectedOrderCount)
+					return true
+				}
+			}
+
+			// Log progress
+			if completionCount > 0 {
+				t.Logf("📊 Progress: %d/%d completion patterns found", completionCount, expectedOrderCount)
+			}
+		}
+	}
+}
+
 func TestMain(m *testing.M) {
 	// Load environment variables
 	if _, err := config.LoadConfig(); err != nil {

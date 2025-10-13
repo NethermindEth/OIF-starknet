@@ -186,7 +186,7 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 	fmt.Println("🎲 Opening Random Starknet Test Order...")
 
 	// Use configured Starknet network as origin
-	originChain := getEnvWithDefault("STARKNET_NETWORK_NAME", "Starknet")
+	originChain := "Starknet"
 
 	// Get available destination networks from config
 	destinationChain := getRandomDestinationChain(originChain)
@@ -221,7 +221,7 @@ func openDefaultStarknetToEvm(networks []StarknetNetworkConfig) {
 	fmt.Println("🎯 Opening Default Starknet → EVM Test Order...")
 
 	// Use configured networks instead of hardcoded names
-	originChain := getEnvWithDefault("STARKNET_NETWORK_NAME", "Starknet")
+	originChain := "Starknet"
 	destinationChain := getEnvWithDefault("DEFAULT_EVM_DESTINATION", "Ethereum")
 
 	// Get Alice's address for the destination chain
@@ -400,9 +400,6 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 		}
 
 		fmt.Printf("   ✅ Approval confirmed!\n")
-
-		// Add a small delay to ensure blockchain state is updated after approval
-		time.Sleep(1 * time.Second)
 	} else {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
@@ -467,14 +464,6 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	}
 
 	fmt.Printf("   ✅ Order opened successfully!\n")
-
-	//// Verify that balances actually changed as expected
-	// fmt.Printf("   🔍 Verifying balance changes...\n")
-	//if err := verifyStarknetBalanceChanges(client, inputToken, owner, initialBalance, order.InputAmount); err != nil {
-	//	fmt.Printf("   ⚠️  Balance verification failed: %v\n", err)
-	//} else {
-	//	fmt.Printf("   👍 Balance changes verified!\n")
-	//}
 
 	fmt.Printf("\n🎉 Order execution completed!\n")
 	fmt.Printf("📊 Order Summary:\n")
@@ -706,36 +695,6 @@ func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
 	//	}
 
 	return bytesStruct
-}
-
-// verifyStarknetBalanceChanges verifies that opening an order actually transferred tokens using RPC
-func verifyStarknetBalanceChanges(client rpc.RpcProvider, tokenAddress, userAddress string, initialBalance, expectedTransferAmount *big.Int) error {
-	// Wait a moment for the transaction to be fully processed
-	time.Sleep(2 * time.Second)
-
-	// Get final balance
-	finalUserBalance, err := starknetutil.ERC20Balance(client, tokenAddress, userAddress)
-	if err != nil {
-		return fmt.Errorf("failed to get final user balance: %w", err)
-	}
-
-	// Calculate actual change
-	userBalanceChange := new(big.Int).Sub(initialBalance, finalUserBalance)
-
-	// Print balance changes
-	fmt.Printf("     💰 User balance change: %s → %s (Δ: %s)\n",
-		starknetutil.FormatTokenAmount(initialBalance, 18),
-		starknetutil.FormatTokenAmount(finalUserBalance, 18),
-		starknetutil.FormatTokenAmount(userBalanceChange, 18))
-
-	// Verify the change matches expectations
-	if userBalanceChange.Cmp(expectedTransferAmount) != 0 {
-		return fmt.Errorf("user balance decreased by %s, expected %s",
-			starknetutil.FormatTokenAmount(userBalanceChange, 18),
-			starknetutil.FormatTokenAmount(expectedTransferAmount, 18))
-	}
-
-	return nil
 }
 
 // getRandomDestinationChain gets a random destination chain from available networks

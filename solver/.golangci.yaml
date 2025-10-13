@@ -142,7 +142,7 @@ linters:
         path: integration_test\.go
       - linters:
           - lll
-        source: '^//go:generate '
+        source: "^//go:generate "
       - path: (.+)\.go$
         text: target/
       - path: (.+)\.go$

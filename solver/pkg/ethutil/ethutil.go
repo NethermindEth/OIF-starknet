@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/types"
 	"github.com/ethereum/go-ethereum"
@@ -220,7 +221,12 @@ func ERC20Approve(client *ethclient.Client, auth *bind.TransactOpts, tokenAddres
 
 // WaitForTransaction waits for a transaction to be mined and returns the receipt
 func WaitForTransaction(client *ethclient.Client, tx *gethtypes.Transaction) (*gethtypes.Receipt, error) {
-	return bind.WaitMined(context.Background(), client, tx)
+	receipt, err := bind.WaitMined(context.Background(), client, tx)
+
+	// NOTE: Sometimes the Base network has unexpected latency on the useable state changes, this is a patch to overcome that.
+	time.Sleep(2 * time.Second)
+
+	return receipt, err
 }
 
 // FormatTokenAmount formats a token amount from wei to tokens with specified decimals

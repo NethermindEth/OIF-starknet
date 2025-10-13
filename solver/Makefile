@@ -1,4 +1,5 @@
-.PHONY: help build run test clean deps lint
+
+.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks kill-networks
 
 # Default target
 help:
@@ -6,17 +7,21 @@ help:
 	@echo ""
 	@echo "📋 Testing Commands:"
 	@echo "  test-unit        - Run unit tests (no RPC required)"
-	@echo "  test-rpc         - Run RPC tests (requires start-networks)"
-	@echo "  test-integration - Run integration tests (requires full setup)"
-	@echo "  test-solver-integration - Run full solver tests (executes orders + solver)"
-	@echo "  test-all         - Run all tests (unit + RPC + integration)"
+	@echo "  test-rpc-local   - Run RPC tests with local devnet (requires start-networks)"
+	@echo "  test-rpc-live    - Run RPC tests with live networks"
+	@echo "  test-integration-local - Run basic integration tests with local devnet (network setup and order opening)"
+	@echo "  test-integration-live - Run basic integration tests with live testnets (network setup and order opening)"
+	@echo "  test-solver-local - Run solver integration tests with local devnet (multi-order processing)"
+	@echo "  test-solver-live - Run solver integration tests with live testnets (multi-order processing)"
 	@echo "  test-coverage    - Show coverage for maintainable code"
 	@echo ""
 	@echo "🔧 Development Commands:"
 	@echo "  deps             - Install dependencies"
 	@echo "  dev-deps         - Install development tools (linter, debugger)"
 	@echo "  build            - Build the solver binary"
-	@echo "  run              - Run the solver"
+	@echo "  run              - Run the solver (uses current IS_DEVNET setting)"
+	@echo "  run-local        - Run the solver with local devnet (IS_DEVNET=true)"
+	@echo "  run-live         - Run the solver with live networks (IS_DEVNET=false)"
 	@echo "  clean            - Clean build artifacts"
 	@echo "  clean-solver     - Clean solver state (keep binaries)"
 	@echo "  lint             - Run linter"
@@ -24,13 +29,19 @@ help:
 	@echo "🌐 Network Management:"
 	@echo "  start-networks   - Start all testnet forks (runs continuously)"
 	@echo "  kill-networks    - Stop all running networks"
-	@echo "  fund-accounts    - Fund Alice & Solver with tokens"
-	@echo "  register-*       - Register domains (run after starting networks)"
+	@echo "  kill-all         - Stop all processes (networks + solvers) and clean state"
+	@echo "  fund-accounts    - Fund Alice & Solver with tokens (uses current IS_DEVNET setting)"
+	@echo "  fund-accounts-local - Fund Alice & Solver on local devnet (IS_DEVNET=true)"
+	@echo "  fund-accounts-live - Fund Alice & Solver on live networks (IS_DEVNET=false)"
+	@echo "  register-starknet-on-evm - Register Starknet domain on EVM contracts (uses current IS_DEVNET setting)"
+	@echo "  register-starknet-on-evm-local - Register Starknet domain on EVM contracts (local devnet)"
+	@echo "  register-starknet-on-evm-live - Register Starknet domain on EVM contracts (live networks)"
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
-	@echo "  test-coverage-with-integration - Show coverage including integration tests"
-	@echo "  coverage-help    - Show all coverage commands"
+	@echo "  test-coverage-html - Generate HTML coverage report"
+	@echo "  test-coverage-check - Check coverage thresholds"
+	@echo "  test-coverage-all - Show coverage for all packages"
 	@echo ""
 	@echo "🔍 Advanced Testing:"
 	@echo "  test-pkg PKG=./path     - Run tests for specific package"
@@ -54,9 +65,21 @@ dev-deps:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/go-delve/delve/cmd/dlv@latest
 
-# Run the solver
+# Run the solver (uses current IS_DEVNET setting)
 run: build
 	./bin/solver solver
+
+# Run the solver with local devnet (sets IS_DEVNET=true)
+run-local: build
+	@echo "🤖 Starting solver with local devnet (IS_DEVNET=true)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	IS_DEVNET=true ./bin/solver solver
+
+# Run the solver with live networks (sets IS_DEVNET=false)
+run-live: build
+	@echo "🤖 Starting solver with live networks (IS_DEVNET=false)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	IS_DEVNET=false ./bin/solver solver
 
 # Build the solver
 build:
@@ -84,8 +107,6 @@ clean-solver:
 	@echo "🧹 Cleaning solver state..."
 	@rm -f state/solver_state/solver-state.json solver-state.json
 	@echo "✅ Clean complete (solver will start from .env start blocks)"
-
-
 
 # Run linter
 lint:
@@ -120,6 +141,27 @@ kill-networks:
 	@pkill -f "anvil" 2>/dev/null || true
 	@echo "✅ All networks stopped"
 
+# Kill all solver processes and networks
+kill-all:
+	@echo "🧹 Cleaning up all processes..."
+	@echo "🛑 Stopping solver processes..."
+	@pkill -f "solver solver" 2>/dev/null || true
+	@pkill -f "./bin/solver solver" 2>/dev/null || true
+	@echo "🛑 Stopping all networks..."
+	@for port in 8545 8546 8547 8548; do \
+		if [ -f "/tmp/anvil_$$port.pid" ]; then \
+			pid=$$(cat "/tmp/anvil_$$port.pid"); \
+			kill $$pid 2>/dev/null || true; \
+			rm -f "/tmp/anvil_$$port.pid"; \
+		fi; \
+	done
+	@pkill -f "anvil" 2>/dev/null || true
+	@pkill -f "katana" 2>/dev/null || true
+	@echo "🧹 Cleaning solver state..."
+	@rm -f solvercore/config/solver-state.json 2>/dev/null || true
+	@rm -f solvercore/solvers/hyperlane7683/solver-state.json 2>/dev/null || true
+	@echo "✅ All processes cleaned up"
+
 # Note: setup-networks removed because start-networks runs continuously
 # Use separate terminals:
 # Terminal 1: make start-networks
@@ -127,7 +169,7 @@ kill-networks:
 
 ### Individual Setup Commands (use as needed) ###
 
-# Fund Alice and Solver accounts with MockERC20 tokens
+# Fund Alice and Solver accounts with MockERC20 tokens (uses current IS_DEVNET setting)
 fund-accounts: build-fund-accounts
 	@if [ -z "$(NETWORK)" ]; then \
 		echo "Funding Alice & Solver on all networks..."; \
@@ -137,12 +179,42 @@ fund-accounts: build-fund-accounts
 		./bin/fund-accounts $(NETWORK) $(AMOUNT); \
 	fi
 
-# Essential setup for testing (register Starknet domain on EVM contracts)
+# Fund Alice and Solver accounts with MockERC20 tokens (local devnet)
+fund-accounts-local: build-fund-accounts
+	@echo "Funding Alice & Solver on local devnet (IS_DEVNET=true)..."
+	@if [ -z "$(NETWORK)" ]; then \
+		IS_DEVNET=true ./bin/fund-accounts all $(AMOUNT); \
+	else \
+		IS_DEVNET=true ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
+	fi
+
+# Fund Alice and Solver accounts with MockERC20 tokens (live networks)
+fund-accounts-live: build-fund-accounts
+	@echo "Funding Alice & Solver on live networks (IS_DEVNET=false)..."
+	@if [ -z "$(NETWORK)" ]; then \
+		IS_DEVNET=false ./bin/fund-accounts all $(AMOUNT); \
+	else \
+		IS_DEVNET=false ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
+	fi
+
+# Essential setup for testing (register Starknet domain on EVM contracts - uses current IS_DEVNET setting)
 register-starknet-on-evm: build-register-evm-routers
 	./bin/register-evm-routers
 	@echo "✅ Starknet domain registered on all EVM contracts!"
 
-# Not required for testing (register EVM domains on Starknet contract)
+# Register Starknet domain on EVM contracts (local devnet)
+register-starknet-on-evm-local: build-register-evm-routers
+	@echo "Registering Starknet domain on EVM contracts (local devnet)..."
+	IS_DEVNET=true ./bin/register-evm-routers
+	@echo "✅ Starknet domain registered on all EVM contracts!"
+
+# Register Starknet domain on EVM contracts (live networks)
+register-starknet-on-evm-live: build-register-evm-routers
+	@echo "Registering Starknet domain on EVM contracts (live networks)..."
+	IS_DEVNET=false ./bin/register-evm-routers
+	@echo "✅ Starknet domain registered on all EVM contracts!"
+
+# Not required for testing if forking post deployment (register EVM domains on Starknet contract)
 register-evm-on-starknet: build-register-sn-routers
 	./bin/register-sn-routers
 	@echo "✅ EVM domains registered on Starknet contract!"
@@ -262,45 +334,68 @@ test-unit:
 		./solvercore/logutil \
 		./solvercore/types \
 		./solvercore/solvers/hyperlane7683 \
-		-run "Test.*" -timeout 30s
+		-run "Test.*" -timeout 30s \
+		-skip "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks"
 
-# Run RPC tests (requires start-networks)
-test-rpc:
-	@echo "🌐 Running RPC tests (requires start-networks)..."
+# Run RPC tests with local devnet (requires start-networks)
+test-rpc-local:
+	@echo "🌐 Running RPC tests with local devnet (requires start-networks)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@go test -v \
+	@set -a && . ./.env && set +a && IS_DEVNET=true go test -v -count=1 \
 		./pkg/starknetutil \
 		./pkg/ethutil \
 		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
 		-timeout 60s
 
-# Run integration tests (requires full setup)
-test-integration:
-	@echo "🔄 Running integration tests (requires full setup)..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
-	@go test -v -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestSolverIntegration" -timeout 300s -p 1
+# Run RPC tests with live networks (requires live network access)
+test-rpc-live:
+	@echo "🌐 Running RPC tests with live networks..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && IS_DEVNET=false go test -v -count=1 \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
+		-timeout 60s
 
-# Run full solver integration tests (requires full setup + solver execution)
-test-solver-integration:
-	@echo "🤖 Running full solver integration tests (requires full setup)..."
+# Run basic integration tests with local devnet (order opening only)
+test-integration-local:
+	@echo "🔄 Running basic integration tests with local devnet (order opening only)..."
 	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@echo "And setup is complete with: make fund-accounts register-starknet-on-evm"
-	@EXECUTE_SOLVER_TESTS=true go test -v -run "TestSolverIntegration" -timeout 400s -p 1
+	@echo "Funding accounts and setting up contracts..."
+	@make fund-accounts-local
+	@make register-starknet-on-evm-local
+	@echo "Starting integration tests..."
+	@set -a && . ./.env && set +a && IS_DEVNET=true EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
+
+# Run basic integration tests with live testnets (order opening only)
+test-integration-live:
+	@echo "🔄 Running basic integration tests with live testnets (order opening only)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
+
+# Run solver integration tests with local devnet (order opening + solving)
+test-solver-local:
+	@echo "🤖 Running solver integration tests with local devnet (multi-order processing)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	@echo "Funding accounts and setting up contracts..."
+	@make fund-accounts-local
+	@make register-starknet-on-evm-local
+	@echo "Starting multi-order solver integration test..."
+	@set -a && . ./.env && set +a && IS_DEVNET=true EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
+
+# Run solver integration tests with live testnets (order opening + solving)
+test-solver-live:
+	@echo "🤖 Running solver integration tests with live testnets (multi-order processing)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
-test-all: test-unit test-rpc test-integration
+test-all: test-unit test-rpc-local test-integration-local
 	@echo "✅ All tests completed!"
 
 # Show coverage for maintainable code
 test-coverage:
 	@echo "📊 Running coverage analysis for maintainable code..."
-	@make test-coverage-maintainable
-
-# Show coverage including integration tests
-test-coverage-with-integration:
-	@echo "📊 Running coverage analysis including integration tests..."
-	@echo "This includes unit tests + integration tests for more accurate coverage"
 	@go test -cover \
 		./pkg/envutil \
 		./pkg/starknetutil \
@@ -310,82 +405,42 @@ test-coverage-with-integration:
 		./solvercore/logutil \
 		./solvercore/types \
 		./solvercore/solvers/hyperlane7683 \
-		-coverprofile=coverage.unit.out
-	@echo ""
-	@echo "Running integration tests with coverage..."
-	@go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" \
-		-coverprofile=coverage.integration.out
-	@echo ""
-	@echo "Combining coverage reports..."
-	@echo "mode: set" > coverage.combined.out
-	@tail -n +2 coverage.unit.out >> coverage.combined.out
-	@tail -n +2 coverage.integration.out >> coverage.combined.out
-	@echo ""
-	@echo "Combined coverage summary:"
-	@go tool cover -func=coverage.combined.out | tail -1
-
-# Show available coverage commands
-coverage-help:
-	@echo "📊 Available coverage commands:"
-	@echo ""
-	@echo "  make test-coverage                    - Show coverage for maintainable code"
-	@echo "  make test-coverage-with-integration   - Show coverage including integration tests"
-	@echo "  make test-coverage-unit               - Show coverage for unit tests only"
-	@echo "  make test-coverage-rpc                - Show coverage for RPC tests only"
-	@echo "  make test-coverage-all                - Show coverage for all packages"
-	@echo "  make test-coverage-html               - Generate HTML coverage report"
-	@echo ""
-# Note: test-coverage-html is defined below in the Additional Coverage Commands section
-
-# Run tests with coverage for all packages
-test-coverage-all:
-	@echo "Running coverage analysis for all packages..."
-	@go test -cover ./... -coverprofile=coverage.out
+		-coverprofile=coverage.out
 	@echo ""
 	@echo "Coverage summary:"
 	@go tool cover -func=coverage.out | tail -1
+
+# Generate HTML coverage report
+test-coverage-html:
+	@echo "📊 Generating HTML coverage report..."
+	@go test -cover \
+		./pkg/envutil \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		./solvercore/base \
+		./solvercore/config \
+		./solvercore/logutil \
+		./solvercore/types \
+		./solvercore/solvers/hyperlane7683 \
+		-coverprofile=coverage.out
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Check coverage thresholds (simplified)
+test-coverage-check:
+	@echo "📊 Checking coverage thresholds..."
+	@go test -cover \
+		./pkg/envutil \
+		./pkg/starknetutil \
+		./pkg/ethutil \
+		./solvercore/base \
+		./solvercore/config \
+		./solvercore/logutil \
+		./solvercore/types \
+		./solvercore/solvers/hyperlane7683 \
+		-coverprofile=coverage.out
 	@echo ""
 	@echo "Coverage by package:"
-	@go test -cover ./... | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
-		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Run tests with coverage excluding auto-generated and untestable packages
-test-coverage-core:
-	@echo "Running coverage analysis for core packages (excluding auto-generated and cmd tools)..."
-	@go test -cover ./pkg/... ./solvercore/... -coverprofile=coverage.core.out
-	@echo ""
-	@echo "Core coverage summary:"
-	@go tool cover -func=coverage.core.out | tail -1
-	@echo ""
-	@echo "Core coverage by package:"
-	@go test -cover ./pkg/... ./solvercore/... | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
-		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Run tests with coverage for maintainable code only (excludes contracts, cmd tools, and generated code)
-test-coverage-maintainable:
-	@echo "Running coverage analysis for maintainable code only..."
-	@echo "Excluding: contracts (auto-generated), cmd tools, and other untestable packages"
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 \
-		-coverprofile=coverage.maintainable.out
-	@echo ""
-	@echo "Maintainable code coverage summary:"
-	@go tool cover -func=coverage.maintainable.out | tail -1
-	@echo ""
-	@echo "Maintainable code coverage by package:"
 	@go test -cover \
 		./pkg/envutil \
 		./pkg/starknetutil \
@@ -398,162 +453,18 @@ test-coverage-maintainable:
 		pkg=$$(echo "$$line" | awk '{print $$1}'); \
 		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
 		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Run tests with network coverage (requires running networks)
-test-coverage-networks:
-	@echo "Running coverage analysis with network tests..."
-	@echo "Note: This requires running networks and may take longer"
-	@echo "Set SKIP_RPC_TESTS=true to skip network-dependent tests"
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 \
-		-coverprofile=coverage.networks.out
-	@echo ""
-	@echo "Network coverage summary:"
-	@go tool cover -func=coverage.networks.out | tail -1
-	@echo ""
-	@echo "Network coverage by package:"
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2); \
-		echo "  - $$pkg: $$coverage"; \
-	done
-
-# Check coverage thresholds
-test-coverage-check:
-	@echo "Checking coverage thresholds..."
-	@echo "Running comprehensive coverage analysis..."
-	@go test -cover ./... -coverprofile=coverage.out
-	@echo ""
-	@echo "Coverage analysis by package:"
-	@go test -cover ./... | grep -E "coverage:" | while read line; do \
-		pkg=$$(echo "$$line" | awk '{print $$1}'); \
-		coverage=$$(echo "$$line" | grep -o 'coverage: [0-9.]*%' | cut -d' ' -f2 | cut -d'%' -f1); \
-		if [ "$$(echo "$$coverage < 50" | bc -l)" = "1" ]; then \
-			echo "❌ $$pkg: $$coverage% (Target: 50%+)"; \
-		elif [ "$$(echo "$$coverage < 70" | bc -l)" = "1" ]; then \
-			echo "⚠️  $$pkg: $$coverage% (Target: 70%+)"; \
-		elif [ "$$(echo "$$coverage < 80" | bc -l)" = "1" ]; then \
-			echo "✅ $$pkg: $$coverage% (Target: 80%+)"; \
-		else \
-			echo "🎉 $$pkg: $$coverage% (Target: 80%+)"; \
-		fi; \
 	done
 	@echo ""
 	@echo "Overall coverage:"
 	@go tool cover -func=coverage.out | tail -1
 
-# Note: test-unit and test-integration are defined above in the Testing Commands section
-
-# Run integration tests with local forks
-test-integration-local:
-	@echo "Running integration tests with local forks..."
-	@echo "Make sure local forks are running with: make start-networks"
-	IS_DEVNET=true go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
-
-# Run integration tests with live testnets
-test-integration-live:
-	@echo "Running integration tests with live testnets..."
-	@echo "Make sure you have valid API keys in your .env file"
-	IS_DEVNET=false go test -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v
-
-# Run integration tests with coverage (includes order creation commands)
-test-integration-coverage:
-	@echo "Running integration tests with coverage..."
-	@echo "This will cover order creation code paths that are missing from unit tests"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios" -v -p 1
-
-# Run integration tests with coverage and order command execution
-test-integration-coverage-full:
-	@echo "Running full integration tests with coverage (includes order creation commands)..."
-	@echo "This will execute actual order creation commands to cover missing code paths"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderLifecycleIntegration|TestCrossChainOperations|TestErrorScenarios|TestPerformanceScenarios|TestOrderCreationCommandsIntegration" -v -p 1
-
-# Run comprehensive order creation integration tests with balance verification
-test-order-creation-integration:
-	@echo "Running comprehensive order creation integration tests..."
-	@echo "This will test order creation with full balance verification across all networks"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -run "TestOrderCreationCommandsIntegration" -v -p 1
-
-# Run comprehensive order creation integration tests with coverage
-test-order-creation-integration-coverage:
-	@echo "Running comprehensive order creation integration tests with coverage..."
-	@echo "This will test order creation with full balance verification and coverage analysis"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_ORDER_COMMANDS=true go test -cover -run "TestOrderCreationCommandsIntegration" -v -p 1
-
-# Note: test-solver-integration is defined above in the Testing Commands section
-
-# Run complete order lifecycle integration tests with coverage
-test-solver-integration-coverage:
-	@echo "Running complete order lifecycle integration tests with coverage..."
-	@echo "This will test the full order lifecycle with coverage analysis"
-	@echo "Tests all 3 order types: EVM→EVM, EVM→Starknet, Starknet→EVM"
-	@echo "Make sure networks are running with: make start-networks"
-	@echo "Set IS_DEVNET=true for local forks or IS_DEVNET=false for live testnets"
-	EXECUTE_SOLVER_TESTS=true go test -cover -run "TestSolverIntegration" -v -p 1
-
-### Additional Coverage Commands ###
-
-# Show coverage for unit tests only
-test-coverage-unit:
-	@echo "📊 Running coverage analysis for unit tests..."
-	@go test -cover \
-		./pkg/envutil \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		./solvercore/base \
-		./solvercore/config \
-		./solvercore/logutil \
-		./solvercore/types \
-		./solvercore/solvers/hyperlane7683 \
-		-run "Test.*" \
-		-coverprofile=coverage.unit.out
+# Run tests with coverage for all packages (including cmd tools)
+test-coverage-all:
+	@echo "📊 Running coverage analysis for all packages..."
+	@go test -cover ./... -coverprofile=coverage.all.out || true
 	@echo ""
-	@echo "Unit test coverage summary:"
-	@go tool cover -func=coverage.unit.out | tail -1
-
-# Show coverage for RPC tests only
-test-coverage-rpc:
-	@echo "📊 Running coverage analysis for RPC tests..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
-	@go test -cover \
-		./pkg/starknetutil \
-		./pkg/ethutil \
-		-run "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks" \
-		-coverprofile=coverage.rpc.out
-	@echo ""
-	@echo "RPC test coverage summary:"
-	@go tool cover -func=coverage.rpc.out | tail -1
-
-# Generate HTML coverage report
-test-coverage-html:
-	@echo "📊 Generating HTML coverage report..."
-	@go test -cover ./... -coverprofile=coverage.out
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@echo "Coverage summary:"
+	@go tool cover -func=coverage.all.out | tail -1
 
 # Run tests for specific package
 test-pkg:
@@ -575,5 +486,4 @@ test-pattern:
 # # Generate mocks (if using mockery)
 # mocks:
 # 	mockery --all --keeptree --output=./solvercore/mocks
-
 

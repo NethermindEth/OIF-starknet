@@ -589,9 +589,9 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		}
 
 		fmt.Printf("   🚀 Approval transaction sent: %s\n", approveTx.Hash().Hex())
-		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
 
 		// Wait for approval transaction to be mined
+		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
 		receipt, err := ethutil.WaitForTransaction(client, approveTx)
 		if err != nil {
 			log.Fatalf("Failed to wait for approval transaction: %v", err)
@@ -602,15 +602,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		}
 
 		fmt.Printf("   ✅ Approval confirmed!\n")
-
-		// Add a delay to ensure blockchain state is updated after approval
-		// Live networks need more time for state synchronization
-		isDevnet := os.Getenv("IS_DEVNET") == "true"
-		if isDevnet {
-			time.Sleep(1 * time.Second) // Local forks are fast
-		} else {
-			time.Sleep(5 * time.Second) // Live networks need more time
-		}
 	} else {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
