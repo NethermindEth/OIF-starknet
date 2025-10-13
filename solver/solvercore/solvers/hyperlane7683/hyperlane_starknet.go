@@ -283,7 +283,11 @@ func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args types.Parse
 		return orderStatusUnknown, fmt.Errorf("failed to convert solidity order id for cairo: %w", err)
 	}
 
-	call := rpc.FunctionCall{ContractAddress: destinationSettlerAddr, EntryPointSelector: utils.GetSelectorFromNameFelt("order_status"), Calldata: []*felt.Felt{orderIDLow, orderIDHigh}}
+	call := rpc.FunctionCall{
+		ContractAddress:      destinationSettlerAddr,
+		EntryPointSelector:   utils.GetSelectorFromNameFelt("order_status"),
+		Calldata:             []*felt.Felt{orderIDLow, orderIDHigh},
+	}
 	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
 	if err != nil || len(resp) == 0 {
 		return orderStatusUnknown, err

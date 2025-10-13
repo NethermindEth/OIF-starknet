@@ -61,7 +61,15 @@ func ResolveSolverStartBlock(ctx context.Context, solverStartBlock int64, blockP
 
 // ProcessCurrentBlockRangeCommon processes the current block range using the common algorithm
 // This eliminates duplication between EVM and Starknet listeners
-func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandler, blockProvider BlockNumberProvider, listenerConfig *base.ListenerConfig, lastProcessedBlock *uint64, networkType string, processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error)) error {
+func ProcessCurrentBlockRangeCommon(
+	ctx context.Context,
+	handler base.EventHandler,
+	blockProvider BlockNumberProvider,
+	listenerConfig *base.ListenerConfig,
+	lastProcessedBlock *uint64,
+	networkType string,
+	processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error),
+) error {
 	currentBlock, err := blockProvider.BlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current block number: %v", err)
@@ -127,7 +135,11 @@ func (bl *BaseListener) GetConfig() base.ListenerConfig {
 }
 
 // CatchUpHistoricalBlocks processes historical blocks using the common logic
-func (bl *BaseListener) CatchUpHistoricalBlocks(ctx context.Context, handler base.EventHandler, processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error)) error {
+func (bl *BaseListener) CatchUpHistoricalBlocks(
+	ctx context.Context,
+	handler base.EventHandler,
+	processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error),
+) error {
 	p := logutil.Prefix(bl.config.ChainName)
 	fmt.Printf("%s🔄 Catching up on historical blocks...\n", p)
 
@@ -170,4 +182,68 @@ func (bl *BaseListener) CatchUpHistoricalBlocks(ctx context.Context, handler bas
 
 	fmt.Printf("%s✅ Historical block processing complete\n", p)
 	return nil
+}
+
+// CommonListenerConfig holds common configuration for both EVM and Starknet listeners
+type CommonListenerConfig struct {
+	ListenerConfig *base.ListenerConfig
+	LastProcessedBlock uint64
+}
+
+// ResolveCommonListenerConfig resolves common listener configuration
+func ResolveCommonListenerConfig(
+	ctx context.Context,
+	listenerConfig *base.ListenerConfig,
+	blockProvider BlockNumberProvider,
+) (*CommonListenerConfig, error) {
+	configStartBlock := listenerConfig.InitialBlock.Int64()
+	var resolvedStartBlock uint64
+
+	if configStartBlock >= 0 {
+		// Positive number or zero - use as-is
+		resolvedStartBlock = uint64(configStartBlock)
+	} else {
+		// Negative number - start N blocks before current block
+		currentBlock, err := blockProvider.BlockNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current block number: %v", err)
+		}
+
+		// Calculate start block: current - abs(configStartBlock)
+		resolvedStartBlock = currentBlock - uint64(-configStartBlock)
+
+		// Ensure we don't go below block 0
+		if resolvedStartBlock > currentBlock {
+			resolvedStartBlock = 0
+		}
+
+		fmt.Printf("%s📚 Start block was %d, using current block %d - %d = %d\n",
+			logutil.Prefix(listenerConfig.ChainName), configStartBlock, currentBlock, -configStartBlock, resolvedStartBlock)
+	}
+
+	state, err := config.GetSolverState()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get solver state: %w", err)
+	}
+
+	var lastProcessedBlock uint64
+	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
+		deploymentStateBlock := networkState.LastIndexedBlock
+		if deploymentStateBlock > resolvedStartBlock {
+			lastProcessedBlock = deploymentStateBlock
+			fmt.Printf("%s📚 Using deployment state block %d (higher than config start block %d)\n",
+				logutil.Prefix(listenerConfig.ChainName), deploymentStateBlock, resolvedStartBlock)
+		} else {
+			lastProcessedBlock = resolvedStartBlock
+			fmt.Printf("%s📚 Using config start block %d (deployment state block %d is lower)\n",
+				logutil.Prefix(listenerConfig.ChainName), resolvedStartBlock, deploymentStateBlock)
+		}
+	} else {
+		return nil, fmt.Errorf("network %s not found in solver state", listenerConfig.ChainName)
+	}
+
+	return &CommonListenerConfig{
+		ListenerConfig:     listenerConfig,
+		LastProcessedBlock: lastProcessedBlock,
+	}, nil
 }

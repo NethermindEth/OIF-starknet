@@ -252,7 +252,10 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 		return fmt.Errorf("settle transaction failed on %s at block %d", destinationSettler, receipt.BlockNumber)
 	}
 
-	logutil.CrossChainOperation(fmt.Sprintf("Settle transaction confirmed at block %d (gasUsed=%d)", receipt.BlockNumber, receipt.GasUsed), originChainID, destChainID, args.OrderID)
+	logutil.CrossChainOperation(
+		fmt.Sprintf("Settle transaction confirmed at block %d (gasUsed=%d)", receipt.BlockNumber, receipt.GasUsed),
+		originChainID, destChainID, args.OrderID,
+	)
 	return nil
 }
 
@@ -274,7 +277,13 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	//	copy(orderIDArr[:], orderHash)
 
 	// Check order status
-	orderStatusABI := `[{"type":"function","name":"orderStatus","inputs":[{"type":"bytes32","name":"orderId"}],"outputs":[{"type":"bytes32","name":""}],"stateMutability":"view"}]`
+	orderStatusABI := `[{
+		"type": "function",
+		"name": "orderStatus",
+		"inputs": [{"type": "bytes32", "name": "orderId"}],
+		"outputs": [{"type": "bytes32", "name": ""}],
+		"stateMutability": "view"
+	}]`
 	parsedABI, err := abi.JSON(strings.NewReader(orderStatusABI))
 	if err != nil {
 		return orderStatusUnknown, fmt.Errorf("failed to parse orderStatus ABI: %w", err)
@@ -396,7 +405,16 @@ func (h *HyperlaneEVM) interpretStatusHash(_ context.Context, statusHash common.
 // ensureTokenApproval ensures the solver has approved an arbitrary ERC20 token for the Hyperlane contract
 func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spender common.Address, amount *big.Int) error {
 	// Check current allowance
-	allowanceABI := `[{"type":"function","name":"allowance","inputs":[{"type":"address","name":"owner"},{"type":"address","name":"spender"}],"outputs":[{"type":"uint256","name":""}],"stateMutability":"view"}]`
+	allowanceABI := `[{
+		"type": "function",
+		"name": "allowance",
+		"inputs": [
+			{"type": "address", "name": "owner"},
+			{"type": "address", "name": "spender"}
+		],
+		"outputs": [{"type": "uint256", "name": ""}],
+		"stateMutability": "view"
+	}]`
 	parsedABI, err := abi.JSON(strings.NewReader(allowanceABI))
 	if err != nil {
 		return fmt.Errorf("failed to parse allowance ABI: %w", err)
@@ -434,7 +452,16 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 	}
 
 	// Approve exact amount needed
-	approveABI := `[{"type":"function","name":"approve","inputs":[{"type":"address","name":"spender"},{"type":"uint256","name":"amount"}],"outputs":[{"type":"bool","name":""}],"stateMutability":"nonpayable"}]`
+	approveABI := `[{
+		"type": "function",
+		"name": "approve",
+		"inputs": [
+			{"type": "address", "name": "spender"},
+			{"type": "uint256", "name": "amount"}
+		],
+		"outputs": [{"type": "bool", "name": ""}],
+		"stateMutability": "nonpayable"
+	}]`
 	parsedApproveABI, err := abi.JSON(strings.NewReader(approveABI))
 	if err != nil {
 		return fmt.Errorf("failed to parse approve ABI: %w", err)

@@ -410,7 +410,11 @@ func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, er
 
 //// getStarknetHyperlaneFromDeploymentState loads Starknet Hyperlane address from deployment state
 // func getStarknetHyperlaneFromDeploymentState() string {
-//	paths := []string{"state/network_state/deployment-state.json", "../state/network_state/deployment-state.json", "../../state/network_state/deployment-state.json"}
+//	paths := []string{
+//		"state/network_state/deployment-state.json",
+//		"../state/network_state/deployment-state.json",
+//		"../../state/network_state/deployment-state.json",
+//	}
 //	for _, path := range paths {
 //		data, err := os.ReadFile(path)
 //		if err != nil {

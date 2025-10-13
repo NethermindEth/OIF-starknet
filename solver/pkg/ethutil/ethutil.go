@@ -26,10 +26,43 @@ const (
 
 // ERC20ABI contains the minimal ABI for ERC20 operations
 var ERC20ABI = `[
-	{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"internalType":"address","name":"recipient","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},
-	{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}
+	{
+		"inputs": [{"internalType": "address", "name": "", "type": "address"}],
+		"name": "balanceOf",
+		"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{"internalType": "address", "name": "", "type": "address"},
+			{"internalType": "address", "name": "", "type": "address"}
+		],
+		"name": "allowance",
+		"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{"internalType": "address", "name": "recipient", "type": "address"},
+			{"internalType": "uint256", "name": "amount", "type": "uint256"}
+		],
+		"name": "transfer",
+		"outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{"internalType": "address", "name": "spender", "type": "address"},
+			{"internalType": "uint256", "name": "amount", "type": "uint256"}
+		],
+		"name": "approve",
+		"outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
 ]`
 
 // NewTransactor creates a new transactor for transaction signing
@@ -122,7 +155,14 @@ func ERC20Allowance(client *ethclient.Client, tokenAddress, ownerAddress, spende
 }
 
 // createERC20Transaction creates a generic ERC20 transaction
-func createERC20Transaction(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress common.Address, method string, args []interface{}, gasLimit uint64) (*gethtypes.Transaction, error) {
+func createERC20Transaction(
+	client *ethclient.Client,
+	auth *bind.TransactOpts,
+	tokenAddress common.Address,
+	method string,
+	args []interface{},
+	gasLimit uint64,
+) (*gethtypes.Transaction, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(ERC20ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ERC20 ABI: %w", err)
@@ -171,12 +211,22 @@ func createERC20Transaction(client *ethclient.Client, auth *bind.TransactOpts, t
 }
 
 // ERC20Transfer creates a transfer transaction for ERC20 tokens
-func ERC20Transfer(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress, recipientAddress common.Address, amount *big.Int) (*gethtypes.Transaction, error) {
+func ERC20Transfer(
+	client *ethclient.Client,
+	auth *bind.TransactOpts,
+	tokenAddress, recipientAddress common.Address,
+	amount *big.Int,
+) (*gethtypes.Transaction, error) {
 	return createERC20Transaction(client, auth, tokenAddress, "transfer", []interface{}{recipientAddress, amount}, transferGasLimit)
 }
 
 // ERC20Approve creates an approve transaction for ERC20 tokens
-func ERC20Approve(client *ethclient.Client, auth *bind.TransactOpts, tokenAddress, spenderAddress common.Address, amount *big.Int) (*gethtypes.Transaction, error) {
+func ERC20Approve(
+	client *ethclient.Client,
+	auth *bind.TransactOpts,
+	tokenAddress, spenderAddress common.Address,
+	amount *big.Int,
+) (*gethtypes.Transaction, error) {
 	return createERC20Transaction(client, auth, tokenAddress, "approve", []interface{}{spenderAddress, amount}, approveGasLimit)
 }
 
