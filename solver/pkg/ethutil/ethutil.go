@@ -223,6 +223,7 @@ func ERC20Approve(client *ethclient.Client, auth *bind.TransactOpts, tokenAddres
 func WaitForTransaction(client *ethclient.Client, tx *gethtypes.Transaction) (*gethtypes.Receipt, error) {
 	receipt, err := bind.WaitMined(context.Background(), client, tx)
 
+	// NOTE: Sometimes the Base network has unexpected latency on the useable state changes, this is a patch to overcome that.
 	time.Sleep(2 * time.Second)
 
 	return receipt, err
