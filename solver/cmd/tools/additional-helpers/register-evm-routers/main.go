@@ -188,7 +188,7 @@ func main() {
 	fmt.Printf("\n✅ EVM router registration complete\n")
 }
 
-func sendImpersonatedTx(c *rpc.Client, from common.Address, to common.Address, data []byte) error {
+func sendImpersonatedTx(c *rpc.Client, from, to common.Address, data []byte) error {
 	params := map[string]interface{}{
 		"from": from.Hex(),
 		"to":   to.Hex(),
