@@ -213,7 +213,13 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
 	destChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
 	logutil.CrossChainOperation(fmt.Sprintf("Quoting gas payment for origin domain: %d", originDomain), originChainID, destChainID, args.OrderID)
-	gasPayment, err := contract.QuoteGasPayment(&bind.CallOpts{Context: ctx}, originDomain)
+	gasPayment, err := contract.QuoteGasPayment(&bind.CallOpts{
+		Pending:     false,
+		From:        common.Address{},
+		BlockNumber: nil,
+		BlockHash:   common.Hash{},
+		Context:     ctx,
+	}, originDomain)
 	if err != nil {
 		return fmt.Errorf("quoteGasPayment failed on %s: %w", destinationSettler, err)
 	}
@@ -301,7 +307,20 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	}
 
 	dummyFrom := common.HexToAddress("0x1000000000000000000000000000000000000000")
-	res, err := h.client.CallContract(ctx, ethereum.CallMsg{From: dummyFrom, To: &destinationSettlerAddr, Data: callData}, nil)
+	res, err := h.client.CallContract(ctx, ethereum.CallMsg{
+		From:            dummyFrom,
+		To:              &destinationSettlerAddr,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            callData,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}, nil)
 	if err != nil {
 		return orderStatusUnknown, fmt.Errorf("orderStatus call failed: %w", err)
 	}
@@ -425,7 +444,20 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 		return fmt.Errorf("failed to pack allowance call: %w", err)
 	}
 
-	result, err := h.client.CallContract(ctx, ethereum.CallMsg{To: &tokenAddr, Data: callData}, nil)
+	result, err := h.client.CallContract(ctx, ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &tokenAddr,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            callData,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("allowance call failed: %w", err)
 	}

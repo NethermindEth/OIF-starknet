@@ -816,7 +816,20 @@ func getLocalDomain(client *ethclient.Client, contractAddress common.Address) (u
 		return 0, err
 	}
 
-	msg := ethereum.CallMsg{To: &contractAddress, Data: data}
+	msg := ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &contractAddress,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            data,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}
 	result, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		return 0, err
@@ -844,7 +857,20 @@ func isValidNonce(client *ethclient.Client, contractAddress, from common.Address
 		return false, err
 	}
 
-	msg := ethereum.CallMsg{To: &contractAddress, Data: data}
+	msg := ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &contractAddress,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            data,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}
 	result, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		return false, err
@@ -925,24 +951,24 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 
 	// Pack as a tuple to match Solidity's abi.encode(order)
 	tupleT, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{Name: "sender", Type: "bytes32"},
-		{Name: "recipient", Type: "bytes32"},
-		{Name: "inputToken", Type: "bytes32"},
-		{Name: "outputToken", Type: "bytes32"},
-		{Name: "amountIn", Type: "uint256"},
-		{Name: "amountOut", Type: "uint256"},
-		{Name: "senderNonce", Type: "uint256"},
-		{Name: "originDomain", Type: "uint32"},
-		{Name: "destinationDomain", Type: "uint32"},
-		{Name: "destinationSettler", Type: "bytes32"},
-		{Name: "fillDeadline", Type: "uint32"},
-		{Name: "data", Type: "bytes"},
+		{Name: "sender", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "recipient", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "inputToken", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "outputToken", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "amountIn", Type: "uint256", InternalType: "", Components: nil, Indexed: false},
+		{Name: "amountOut", Type: "uint256", InternalType: "", Components: nil, Indexed: false},
+		{Name: "senderNonce", Type: "uint256", InternalType: "", Components: nil, Indexed: false},
+		{Name: "originDomain", Type: "uint32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "destinationDomain", Type: "uint32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "destinationSettler", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "fillDeadline", Type: "uint32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "data", Type: "bytes", InternalType: "", Components: nil, Indexed: false},
 	})
 	if err != nil {
 		log.Fatalf("Failed to define OrderData tuple type: %v", err)
 	}
 
-	args := abi.Arguments{{Type: tupleT}}
+	args := abi.Arguments{{Type: tupleT, Name: "", Indexed: false}}
 
 	encoded, err := args.Pack(abiOrderData)
 	if err != nil {

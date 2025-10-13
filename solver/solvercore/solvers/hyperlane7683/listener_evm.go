@@ -145,10 +145,11 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 
 	// Fetch events for the block range
 	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(fromBlock)),
-		ToBlock:   big.NewInt(int64(toBlock)),
-		Addresses: []common.Address{l.contractAddress},
-		Topics:    [][]common.Hash{{openEventTopic}},
+		FromBlock:  big.NewInt(int64(fromBlock)),
+		ToBlock:    big.NewInt(int64(toBlock)),
+		Addresses:  []common.Address{l.contractAddress},
+		Topics:     [][]common.Hash{{openEventTopic}},
+		BlockHash:  nil,
 	}
 
 	logs, err := l.client.FilterLogs(ctx, query)
