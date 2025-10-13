@@ -171,11 +171,11 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	}
 
 	// Pre-settle check: ensure order is FILLED with retry logic
-	status, err := h.waitForOrderStatus(ctx, args, "FILLED", maxRetryAttempts, 2*time.Second)
+	status, err := h.waitForOrderStatus(ctx, args, orderStatusFilled, maxRetryAttempts, 2*time.Second)
 	if err != nil {
 		return fmt.Errorf("failed to get order status after retries: %w", err)
 	}
-	if status != "FILLED" {
+	if status != orderStatusFilled {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
 	// if err := h.verifyOrderStatus(ctx, orderIDArr, destinationSettler, "FILLED"); err != nil {
@@ -277,28 +277,28 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	orderStatusABI := `[{"type":"function","name":"orderStatus","inputs":[{"type":"bytes32","name":"orderId"}],"outputs":[{"type":"bytes32","name":""}],"stateMutability":"view"}]`
 	parsedABI, err := abi.JSON(strings.NewReader(orderStatusABI))
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("failed to parse orderStatus ABI: %w", err)
+		return orderStatusUnknown, fmt.Errorf("failed to parse orderStatus ABI: %w", err)
 	}
 
 	callData, err := parsedABI.Pack("orderStatus", orderIDArr)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("failed to pack orderStatus: %w", err)
+		return orderStatusUnknown, fmt.Errorf("failed to pack orderStatus: %w", err)
 	}
 
 	// Convert destination settler string to EVM address for contract call
 	destinationSettlerAddr, err := types.ToEVMAddress(instruction.DestinationSettler)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("failed to convert destination settler to EVM address: %w", err)
+		return orderStatusUnknown, fmt.Errorf("failed to convert destination settler to EVM address: %w", err)
 	}
 
 	dummyFrom := common.HexToAddress("0x1000000000000000000000000000000000000000")
 	res, err := h.client.CallContract(ctx, ethereum.CallMsg{From: dummyFrom, To: &destinationSettlerAddr, Data: callData}, nil)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("orderStatus call failed: %w", err)
+		return orderStatusUnknown, fmt.Errorf("orderStatus call failed: %w", err)
 	}
 
 	if len(res) < 32 {
-		return "UNKNOWN", fmt.Errorf("invalid orderStatus result length: %d", len(res))
+		return orderStatusUnknown, fmt.Errorf("invalid orderStatus result length: %d", len(res))
 	}
 
 	statusHash := common.BytesToHash(res[:32])
@@ -373,13 +373,13 @@ func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs
 
 func (h *HyperlaneEVM) interpretStatusHash(_ context.Context, statusHash common.Hash) string {
 	if statusHash == (common.Hash{}) {
-		return "UNKNOWN"
+		return orderStatusUnknown
 	}
 
 	// Try to read constants from contract for comparison
 	filledHash := common.HexToHash("0x46494c4c45440000000000000000000000000000000000000000000000000000")
 	if statusHash == filledHash {
-		return "FILLED"
+		return orderStatusFilled
 	}
 	//	}
 	//}
@@ -527,7 +527,7 @@ func (h *HyperlaneEVM) waitForOrderStatus(ctx context.Context, args types.Parsed
 	// Final attempt to get the current status
 	finalStatus, err := h.GetOrderStatus(ctx, args)
 	if err != nil {
-		return "UNKNOWN", fmt.Errorf("final status check failed after %d attempts: %w", maxRetries, err)
+		return orderStatusUnknown, fmt.Errorf("final status check failed after %d attempts: %w", maxRetries, err)
 	}
 
 	return finalStatus, nil
