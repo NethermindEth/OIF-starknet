@@ -67,6 +67,7 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 		contractAddress:    addrFelt,
 		lastProcessedBlock: commonConfig.LastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		mu:                 sync.RWMutex{},
 		baseListener:       baseListener,
 	}, nil
 }
@@ -242,7 +243,7 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) types.ResolvedCrossChainOrd
 		OriginChainID:    nil,
 		OpenDeadline:     0,
 		FillDeadline:     0,
-		OrderID:          "",
+		OrderID:          [32]byte{},
 		MaxSpent:         nil,
 		MinReceived:      nil,
 		FillInstructions: nil,

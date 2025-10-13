@@ -92,6 +92,7 @@ func NewHyperlaneStarknet(rpcURL string, chainID uint64) *HyperlaneStarknet {
 		provider:   provider,
 		solverAddr: addrF,
 		chainID:    chainID,
+		mu:         sync.Mutex{},
 	}
 }
 

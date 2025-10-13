@@ -64,6 +64,7 @@ func NewEVMListener(listenerConfig *base.ListenerConfig, rpcURL string) (base.Li
 		contractAddress:    address,
 		lastProcessedBlock: commonConfig.LastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		mu:                 sync.RWMutex{},
 		baseListener:       baseListener,
 	}, nil
 }

@@ -58,6 +58,7 @@ func NewHyperlaneEVM(client *ethclient.Client, signer *bind.TransactOpts, chainI
 		client:  client,
 		signer:  signer,
 		chainID: chainID,
+		mu:      sync.Mutex{},
 	}
 }
 
