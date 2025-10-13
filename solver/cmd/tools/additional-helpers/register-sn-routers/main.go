@@ -171,11 +171,9 @@ func main() {
 	}
 	finalCalldata = append(finalCalldata, gasConfigsCalldata...) // append the array data
 
-	// domain: None - we pass 1 to indicate None variant
-	finalCalldata = append(finalCalldata, utils.Uint64ToFelt(1))
-
 	// gas: None - we pass 1 to indicate None variant
-	finalCalldata = append(finalCalldata, utils.Uint64ToFelt(1))
+	// domain: None - we pass 1 to indicate None variant
+	finalCalldata = append(finalCalldata, utils.Uint64ToFelt(1), utils.Uint64ToFelt(1))
 
 	gasCall := rpc.InvokeFunctionCall{
 		ContractAddress: hlAddrF,
