@@ -51,8 +51,8 @@ const (
 )
 
 // secureRandomInt generates a secure random integer in the range [0, max)
-func secureRandomInt(max int) int {
-	if max <= 0 {
+func secureRandomInt(maxValue int) int {
+	if maxValue <= 0 {
 		return 0
 	}
 
@@ -61,7 +61,7 @@ func secureRandomInt(max int) int {
 	_, err := rand.Read(b)
 	if err != nil {
 		// Fallback to time-based seed if crypto/rand fails
-		return int(time.Now().UnixNano()) % max
+		return int(time.Now().UnixNano()) % maxValue
 	}
 
 	// Convert bytes to int
@@ -74,7 +74,7 @@ func secureRandomInt(max int) int {
 		result = -result
 	}
 
-	return int(result % int64(max))
+	return int(result % int64(maxValue))
 }
 
 // OrderData represents the data for creating an order
@@ -654,10 +654,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	//fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
 	//fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
 	//fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
-	//fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
-	//if len(crossChainOrder.OrderData) > 64 {
-	//	fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
-	//}
 
 	// Use generated bindings for open()
 	contract, err := contracts.NewHyperlane7683(originNetwork.hyperlaneAddress, client)
