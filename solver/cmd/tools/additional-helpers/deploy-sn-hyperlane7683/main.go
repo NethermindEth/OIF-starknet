@@ -161,7 +161,7 @@ func main() {
 	// Note: .env file updates removed - addresses should be set manually after live deployment
 
 	// Save deployment info
-	saveDeploymentInfo(classHash, deployedAddress.String(), txHash.String(), salt.String(), networkName)
+	saveDeploymentInfo(classHash, deployedAddress.String(), txHash.String(), salt.String())
 }
 
 // getClassHash retrieves the class hash from declaration file or environment variable
@@ -196,7 +196,7 @@ func getClassHash() (string, error) {
 }
 
 // saveDeploymentInfo saves deployment information to a file
-func saveDeploymentInfo(classHash, deployedAddress, txHash, salt, networkName string) {
+func saveDeploymentInfo(classHash, deployedAddress, txHash, salt string) {
 	deploymentInfo := map[string]string{
 		"classHash":       classHash,
 		"deployedAddress": deployedAddress,

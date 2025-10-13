@@ -488,10 +488,7 @@ func getAliceDogCoinBalance(networkName string) (*big.Int, error) {
 	}
 
 	// Get Alice's address
-	aliceAddress, err := getAliceAddress(networkName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Alice address: %w", err)
-	}
+	aliceAddress := getAliceAddress(networkName)
 
 	// Get DogCoin token address
 	tokenAddress, err := getDogCoinAddress(networkName)
@@ -562,11 +559,11 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 }
 
 // getAliceAddress gets Alice's address for a specific network
-func getAliceAddress(networkName string) (string, error) {
+func getAliceAddress(networkName string) string {
 	if networkName == "Starknet" {
-		return envutil.GetStarknetAliceAddress(), nil
+		return envutil.GetStarknetAliceAddress()
 	} else {
-		return envutil.GetAlicePublicKey(), nil
+		return envutil.GetAlicePublicKey()
 	}
 }
 
@@ -862,10 +859,8 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	t.Logf("🔍 Debug: IS_DEVNET=%t, checking balances for:", isDevnet)
 	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
-		aliceAddr, err := getAliceAddress(networkName)
-		if err != nil {
-			t.Logf("   %s Alice: ERROR - %v", networkName, err)
-		} else {
+		aliceAddr := getAliceAddress(networkName)
+		if aliceAddr != "" {
 			t.Logf("   %s Alice: %s", networkName, aliceAddr)
 		}
 	}
@@ -1018,7 +1013,7 @@ type SolverBalances struct {
 }
 
 // getSolverBalances gets the solver's DogCoin balance for all networks
-func getSolverBalances() (*SolverBalances, error) {
+func getSolverBalances() *SolverBalances {
 	balances := &SolverBalances{
 		Balances: make(map[string]*big.Int),
 	}
@@ -1036,7 +1031,7 @@ func getSolverBalances() (*SolverBalances, error) {
 		balances.Balances[networkName] = solverBalance
 	}
 
-	return balances, nil
+	return balances
 }
 
 // getSolverDogCoinBalance gets the solver's DogCoin balance for a specific network
@@ -1192,10 +1187,8 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	t.Logf("🔍 Debug: IS_DEVNET=%t, checking balances for:", isDevnet)
 	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
-		aliceAddr, err := getAliceAddress(networkName)
-		if err != nil {
-			t.Logf("   %s Alice: ERROR - %v", networkName, err)
-		} else {
+		aliceAddr := getAliceAddress(networkName)
+		if aliceAddr != "" {
 			t.Logf("   %s Alice: %s", networkName, aliceAddr)
 		}
 	}
@@ -1213,8 +1206,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 
 	// Step 1.5: Get solver balances BEFORE any orders are created
 	t.Log("📊 Step 1.5: Getting solver balances BEFORE any orders are created...")
-	beforeSolverBalances, err := getSolverBalances()
-	require.NoError(t, err)
+	beforeSolverBalances := getSolverBalances()
 
 	// Log solver balances
 	t.Log("📋 Before order creation solver balances:")
@@ -1383,8 +1375,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	t.Log("📊 Step 6: Getting final balances AFTER all orders are processed...")
 	finalAliceBalances := getAllNetworkBalances()
 
-	finalSolverBalances, err := getSolverBalances()
-	require.NoError(t, err)
+	finalSolverBalances := getSolverBalances()
 
 	// Log final balances
 	t.Log("📋 Final Alice balances:")

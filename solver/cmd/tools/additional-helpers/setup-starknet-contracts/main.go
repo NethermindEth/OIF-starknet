@@ -190,7 +190,7 @@ func fundUsers(accnt *account.Account, dogCoin TokenInfo, aliceAddr, solverAddr 
 		fmt.Printf("   💸 Funding %s...\n", user.name)
 
 		// Check balance before minting
-		dogBalanceBefore, err := getTokenBalance(accnt, dogCoin.Address, user.address, "DogCoin")
+		dogBalanceBefore, err := getTokenBalance(accnt, dogCoin.Address, user.address)
 		if err != nil {
 			return fmt.Errorf("failed to get %s's DogCoin balance before minting: %w", user.name, err)
 		}
@@ -203,7 +203,7 @@ func fundUsers(accnt *account.Account, dogCoin TokenInfo, aliceAddr, solverAddr 
 		}
 
 		// Check balance after minting
-		dogBalanceAfter, err := getTokenBalance(accnt, dogCoin.Address, user.address, "DogCoin")
+		dogBalanceAfter, err := getTokenBalance(accnt, dogCoin.Address, user.address)
 		if err != nil {
 			return fmt.Errorf("failed to get %s's DogCoin balance after minting: %w", user.name, err)
 		}
@@ -294,7 +294,7 @@ func mintTokens(accnt *account.Account, tokenAddress, recipient, amount, tokenNa
 }
 
 // getTokenBalance gets the balance of a token for a specific address
-func getTokenBalance(accnt *account.Account, tokenAddress, userAddress, tokenName string) (*big.Int, error) {
+func getTokenBalance(accnt *account.Account, tokenAddress, userAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -387,7 +387,7 @@ func setAllowances(accnt *account.Account, dogCoin TokenInfo, hyperlaneAddress, 
 
 		// Set unlimited allowance for DogCoin
 		fmt.Printf("       🪙 Approving DogCoin unlimited allowance...\n")
-		if err := approveUnlimited(userAccnt, dogCoin.Address, userAddrFelt, hyperlaneAddrFelt, "DogCoin"); err != nil {
+		if err := approveUnlimited(userAccnt, dogCoin.Address, userAddrFelt, hyperlaneAddrFelt); err != nil {
 			return fmt.Errorf("failed to approve DogCoin for %s: %w", user.name, err)
 		}
 
@@ -399,7 +399,7 @@ func setAllowances(accnt *account.Account, dogCoin TokenInfo, hyperlaneAddress, 
 }
 
 // approveUnlimited sets unlimited allowance for a token
-func approveUnlimited(accnt *account.Account, tokenAddress string, ownerAddrFelt, spenderAddrFelt *felt.Felt, tokenName string) error {
+func approveUnlimited(accnt *account.Account, tokenAddress string, ownerAddrFelt, spenderAddrFelt *felt.Felt) error {
 	// Convert token address to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -463,7 +463,7 @@ func verifyBalancesAndAllowances(accnt *account.Account, dogCoin TokenInfo, hype
 		fmt.Printf("     🔍 Verifying %s...\n", user.name)
 
 		// Check DogCoin balance
-		dogBalance, err := getTokenBalance(accnt, dogCoin.Address, user.addr, "DogCoin")
+		dogBalance, err := getTokenBalance(accnt, dogCoin.Address, user.addr)
 		if err != nil {
 			return fmt.Errorf("failed to get %s's DogCoin balance: %w", user.name, err)
 		}
@@ -477,7 +477,7 @@ func verifyBalancesAndAllowances(accnt *account.Account, dogCoin TokenInfo, hype
 		// Check allowance if Hyperlane address is available and user is Alice
 		if hyperlaneAddress != "" && user.name == "Alice" {
 			// Check DogCoin allowance
-			dogAllowance, err := getTokenAllowance(accnt, dogCoin.Address, user.addr, hyperlaneAddress, "DogCoin")
+			dogAllowance, err := getTokenAllowance(accnt, dogCoin.Address, user.addr, hyperlaneAddress)
 			if err != nil {
 				return fmt.Errorf("failed to get %s's DogCoin allowance: %w", user.name, err)
 			}
@@ -495,7 +495,7 @@ func verifyBalancesAndAllowances(accnt *account.Account, dogCoin TokenInfo, hype
 }
 
 // getTokenAllowance gets the allowance of a token for a specific spender
-func getTokenAllowance(accnt *account.Account, tokenAddress, ownerAddress, spenderAddress, tokenName string) (*big.Int, error) {
+func getTokenAllowance(accnt *account.Account, tokenAddress, ownerAddress, spenderAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
