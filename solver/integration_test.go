@@ -584,25 +584,44 @@ func getDogCoinAddress(networkName string) (string, error) {
 func parseOrderCreationOutput(output string) (*OrderInfo, error) {
 	orderInfo := &OrderInfo{}
 
+	// Shared regex components to avoid repetition
+	const (
+		alphanumMatch = `[a-zA-Z0-9_]+`            // Alphanumeric with underscore pattern
+		numberMatch   = `\d+`                      // Number pattern
+		floatMatch    = `[\d.]+`                   // Float number pattern
+	)
+	
+	// Composed regex patterns
+	orderExecutionPattern := `Executing Order:\s*(\w+)\s*→\s*(\w+)`
+	orderIDOffPattern := `Order ID \(off\): (0x` + alphanumMatch + `)`
+	orderIDSimplePattern := `Order ID: (` + alphanumMatch + `)`
+	orderIDTxHashPattern := `Transaction sent:\s*(0x` + alphanumMatch + `)`
+	txHashPattern := `Transaction sent:\s*(0x` + alphanumMatch + `)`
+	amountInPattern := `AmountIn:\s*(` + numberMatch + `)`
+	amountOutPattern := `AmountOut:\s*(` + numberMatch + `)`
+	starknetInputAmountPattern := `Input Amount:\s*(` + numberMatch + `)`
+	starknetOutputAmountPattern := `Output Amount:\s*(` + numberMatch + `)`
+	balanceChangePattern := `User balance change:.*\(Δ:\s*(` + floatMatch + `)\s*tokens\)`
+
 	// Parse origin and destination chains from "Executing Order: X → Y" line
-	orderMatch := regexp.MustCompile(`Executing Order:\s*(\w+)\s*→\s*(\w+)`).FindStringSubmatch(output)
+	orderMatch := regexp.MustCompile(orderExecutionPattern).FindStringSubmatch(output)
 	if len(orderMatch) >= 3 {
 		orderInfo.OriginChain = orderMatch[1]
 		orderInfo.DestinationChain = orderMatch[2]
 	}
 
 	// Try to extract order ID from various formats
-	orderIDRegex := regexp.MustCompile(`Order ID \(off\): (0x[a-fA-F0-9]+)`)
+	orderIDRegex := regexp.MustCompile(orderIDOffPattern)
 	if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OrderID = matches[1]
 	} else {
 		// Try alternative format for Starknet orders
-		orderIDRegex = regexp.MustCompile(`Order ID: ([a-zA-Z0-9_]+)`)
+		orderIDRegex = regexp.MustCompile(orderIDSimplePattern)
 		if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 			orderInfo.OrderID = matches[1]
 		} else {
 			// Try to extract from transaction hash as fallback
-			orderIDRegex = regexp.MustCompile(`Transaction sent:\s*(0x[a-fA-F0-9]+)`)
+			orderIDRegex = regexp.MustCompile(orderIDTxHashPattern)
 			if matches := orderIDRegex.FindStringSubmatch(output); len(matches) > 1 {
 				orderInfo.OrderID = matches[1]
 			}
@@ -610,39 +629,36 @@ func parseOrderCreationOutput(output string) (*OrderInfo, error) {
 	}
 
 	// Extract transaction hash from "Transaction sent: 0x..." line
-	txHashRegex := regexp.MustCompile(`Transaction sent:\s*(0x[a-fA-F0-9]+)`)
+	txHashRegex := regexp.MustCompile(txHashPattern)
 	if matches := txHashRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.TransactionHash = matches[1]
 	}
 
 	// Try to extract amounts from ABI debug section (EVM orders)
-	inputAmountRegex := regexp.MustCompile(`AmountIn:\s*(\d+)`)
+	inputAmountRegex := regexp.MustCompile(amountInPattern)
 	if matches := inputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.InputAmount = matches[1]
 	}
 
-	outputAmountRegex := regexp.MustCompile(`AmountOut:\s*(\d+)`)
+	outputAmountRegex := regexp.MustCompile(amountOutPattern)
 	if matches := outputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OutputAmount = matches[1]
 	}
 
 	// Try to extract amounts from Starknet Order Summary section
-	// Pattern: "Input Amount: 1246000000000000000000"
-	starknetInputAmountRegex := regexp.MustCompile(`Input Amount:\s*(\d+)`)
+	starknetInputAmountRegex := regexp.MustCompile(starknetInputAmountPattern)
 	if matches := starknetInputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.InputAmount = matches[1]
 	}
 
-	// Pattern: "Output Amount: 1245999999999999999975"
-	starknetOutputAmountRegex := regexp.MustCompile(`Output Amount:\s*(\d+)`)
+	starknetOutputAmountRegex := regexp.MustCompile(starknetOutputAmountPattern)
 	if matches := starknetOutputAmountRegex.FindStringSubmatch(output); len(matches) > 1 {
 		orderInfo.OutputAmount = matches[1]
 	}
 
 	// Fallback: Try to extract amounts from Starknet balance change line (legacy parsing)
-	// Pattern: "💰 User balance change: X tokens → Y tokens (Δ: Z tokens)"
 	if orderInfo.InputAmount == "" {
-		starknetBalanceRegex := regexp.MustCompile(`User balance change:.*\(Δ:\s*([\d.]+)\s*tokens\)`)
+		starknetBalanceRegex := regexp.MustCompile(balanceChangePattern)
 		if matches := starknetBalanceRegex.FindStringSubmatch(output); len(matches) > 1 {
 			// Convert float string to integer (assuming 18 decimals)
 			deltaFloat, err := strconv.ParseFloat(matches[1], 64)
