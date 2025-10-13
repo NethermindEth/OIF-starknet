@@ -1264,7 +1264,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	}
 
 	// Execute all order creation commands
-	var orderInfos []*OrderInfo
+	orderInfos := make([]*OrderInfo, 0, len(orderCommands))
 	for i, orderCommand := range orderCommands {
 		t.Logf("📝 Creating order %d: %s", i+1, strings.Join(orderCommand, " "))
 
