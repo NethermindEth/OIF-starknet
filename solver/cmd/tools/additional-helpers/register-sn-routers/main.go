@@ -17,6 +17,12 @@ import (
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 )
 
+const (
+	// Gas values for different networks
+	gasEVM      = 64000
+	gasStarknet = 100000
+)
+
 // Registers EVM routers and sets destination gas configs on Starknet Hyperlane using owner account
 
 func main() {
@@ -123,8 +129,8 @@ func main() {
 	fmt.Printf("   ⚡ Setting destination gas configs (batch mode)...\n")
 
 	// Gas values for different networks (from real event analysis)
-	gasEVM := big.NewInt(64000)       // 64,000 wei for EVM networks
-	gasStarknet := big.NewInt(100000) // 100,000 wei for Starknet
+	gasEVM := big.NewInt(gasEVM)       // 64,000 wei for EVM networks
+	gasStarknet := big.NewInt(gasStarknet) // 100,000 wei for Starknet
 
 	// Build gas_configs array: Option<Array<GasRouterConfig>>
 	// Each GasRouterConfig contains: { destination: u32, gas: u256 }

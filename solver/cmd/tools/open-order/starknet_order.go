@@ -24,6 +24,11 @@ import (
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 )
 
+const (
+	// Data offset for Cairo bytes
+	dataOffset = 384
+)
+
 // getAliceAddressForNetwork gets Alice's address for a specific network using IS_DEVNET logic
 func getAliceAddressForNetwork(networkName string) (string, error) {
 	if strings.Contains(strings.ToLower(networkName), "starknet") {
@@ -197,8 +202,8 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 	}
 
 	// Random amounts
-	inputAmount := CreateTokenAmount(int64(secureRandomInt(9901)+100), 18) // 100-10000 tokens
-	delta := CreateTokenAmount(int64(secureRandomInt(10)+1), 18)           // 1-10 tokens
+	inputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount)+minTokenAmount), 18) // 100-10000 tokens
+	delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount)+minDeltaAmount), 18)           // 1-10 tokens
 	outputAmount := new(big.Int).Sub(inputAmount, delta)             // slightly less to ensure it's fillable
 
 	order := StarknetOrderConfig{
@@ -661,7 +666,7 @@ func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
 	fill32 := uint32(orderData.FillDeadline)
 	writeWord(&raw, u32Word(fill32))
 	// 7) data offset (32 * 12 = 384)
-	writeWord(&raw, u32Word(384))
+	writeWord(&raw, u32Word(dataOffset))
 
 	// Tail: data length (32 bytes) then data padded to 32
 	writeWord(&raw, make([]byte, 0)) // length = 0 -> becomes 32 zero bytes

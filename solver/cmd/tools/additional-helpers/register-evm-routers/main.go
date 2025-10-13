@@ -18,6 +18,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	// Wait time for transaction receipt
+	receiptWaitMs = 500
+)
+
 // Minimal tool to impersonate owner on each EVM fork and call enrollRemoteRouters and setDestinationGas
 
 func main() {
@@ -208,7 +213,7 @@ func sendImpersonatedTx(c *rpc.Client, from common.Address, to common.Address, d
 			}
 			return nil
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(receiptWaitMs * time.Millisecond)
 	}
 	return fmt.Errorf("timeout waiting receipt for %s", to.Hex())
 }
