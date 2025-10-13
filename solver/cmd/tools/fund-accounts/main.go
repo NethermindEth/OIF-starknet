@@ -87,7 +87,7 @@ func fundAllNetworks(amount *big.Int) {
 	networks := []string{"ethereum", "optimism", "arbitrum", "base"}
 
 	for _, network := range networks {
-		fmt.Printf("📡 Funding %s network...\n", strings.Title(network))
+		fmt.Printf("📡 Funding %s network...\n", strings.ToTitle(network))
 		fundNetwork(network, amount)
 		fmt.Println()
 	}

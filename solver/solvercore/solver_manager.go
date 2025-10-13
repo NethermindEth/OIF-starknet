@@ -290,7 +290,7 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 				source,
 				big.NewInt(networkConfig.SolverStartBlock), // pass original value (can be negative)
 				networkConfig.PollInterval,                 // poll interval from config
-				uint64(networkConfig.ConfirmationBlocks),   // confirmation blocks from config
+				networkConfig.ConfirmationBlocks,   // confirmation blocks from config
 				networkConfig.MaxBlockRange,                // max block range from config
 			)
 
@@ -310,7 +310,7 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 				source,
 				big.NewInt(networkConfig.SolverStartBlock), // pass original value (can be negative)
 				networkConfig.PollInterval,                 // poll interval from config
-				uint64(networkConfig.ConfirmationBlocks),   // confirmation blocks from config
+				networkConfig.ConfirmationBlocks,   // confirmation blocks from config
 				networkConfig.MaxBlockRange,                // max block range from config
 			)
 
