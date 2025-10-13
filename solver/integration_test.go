@@ -878,7 +878,7 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 2: Execute order creation command
 	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, orderCommand...)
+	cmd := exec.CommandContext(context.Background(), solverPath, orderCommand...)
 	cmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -957,15 +957,15 @@ func cleanSolverStateOnce(t *testing.T) {
 	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
 	// Also set LOCAL_ versions for forking mode
-	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
 
 	t.Log("✅ Solver state cleaned once and start blocks set to -1 (one block before current)")
 }
@@ -994,15 +994,15 @@ func cleanSolverState(t *testing.T) {
 	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
 	// Also set LOCAL_ versions for forking mode
-	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
 
 	t.Log("✅ Solver state cleaned and start blocks set to -1 (one block before current)")
 }
@@ -1217,7 +1217,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	// Step 2: Start solver as background process BEFORE opening any orders
 	t.Log("🤖 Step 2: Starting solver as background process...")
 
-	solverCmd := exec.Command(solverPath, "solver")
+	solverCmd := exec.CommandContext(context.Background(), solverPath, "solver")
 	solverCmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	solverCmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -1268,7 +1268,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	for i, orderCommand := range orderCommands {
 		t.Logf("📝 Creating order %d: %s", i+1, strings.Join(orderCommand, " "))
 
-		cmd := exec.Command(solverPath, orderCommand...)
+		cmd := exec.CommandContext(context.Background(), solverPath, orderCommand...)
 		cmd.Dir = "."
 		cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
