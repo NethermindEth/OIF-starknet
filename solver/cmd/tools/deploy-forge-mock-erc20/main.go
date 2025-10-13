@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -112,7 +113,8 @@ func deployWithForge(chainID string) (string, error) {
 	}
 
 	// Run forge script with broadcast and verify
-	cmd := exec.Command("forge", "script",
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "forge", "script",
 		"script/DeployMockERC20.s.sol:DeployMockERC20",
 		"--rpc-url", rpcURL,
 		"--chain", chainID,

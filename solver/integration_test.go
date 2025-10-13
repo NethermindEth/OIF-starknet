@@ -245,7 +245,7 @@ func TestOrderCreationCommandsIntegration(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -285,7 +285,7 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 
 	// Step 2: Execute order creation command
 	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, command...)
+	cmd := exec.CommandContext(context.Background(), solverPath, command...)
 	cmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -779,7 +779,7 @@ func TestOrderCreationOnly(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -825,7 +825,7 @@ func TestSolverIntegration(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
