@@ -365,7 +365,7 @@ func openRandomToEvm(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
 func openRandomToStarknet(networks []NetworkConfig) {
@@ -403,7 +403,7 @@ func openRandomToStarknet(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
 func openDefaultEvmToEvm(networks []NetworkConfig) {
@@ -421,7 +421,7 @@ func openDefaultEvmToEvm(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
 func openDefaultEvmToStarknet(networks []NetworkConfig) {
@@ -439,10 +439,10 @@ func openDefaultEvmToStarknet(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
-func executeOrder(order OrderConfig, networks []NetworkConfig) {
+func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	fmt.Printf("\n📋 Executing Order: %s → %s\n", order.OriginChain, order.DestinationChain)
 
 	// Find origin network
@@ -617,7 +617,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	crossChainOrder := OnchainCrossChainOrder{
 		FillDeadline:  order.FillDeadline,
 		OrderDataType: getOrderDataTypeHash(),
-		OrderData:     encodeOrderData(orderData, senderNonce, networks),
+		OrderData:     encodeOrderData(&orderData, senderNonce, networks),
 	}
 
 	// Debug: Log the encoded data
@@ -675,7 +675,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
+func buildOrderData(order *OrderConfig, originNetwork *NetworkConfig, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
 	// Input token from origin network, output token from destination network
 	// inputTokenAddr := originNetwork.dogCoinAddress
 	// outputTokenAddr := destinationNetwork.dogCoinAddress
@@ -868,7 +868,7 @@ func hexToBytes32(hexStr string) [32]byte {
 	return out
 }
 
-func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []NetworkConfig) []byte {
+func encodeOrderData(orderData *OrderData, senderNonce *big.Int, networks []NetworkConfig) []byte {
 	// Convert OrderData to ABIOrderData for encoding
 	abiOrderData := convertToABIOrderData(orderData, senderNonce, networks)
 
@@ -903,7 +903,7 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 }
 
 // convertToABIOrderData converts OrderData to ABIOrderData for ABI encoding
-func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks []NetworkConfig) ABIOrderData {
+func convertToABIOrderData(orderData *OrderData, senderNonce *big.Int, networks []NetworkConfig) ABIOrderData {
 	var senderBytes [32]byte
 	var recipientBytes [32]byte
 	var inputTokenBytes [32]byte

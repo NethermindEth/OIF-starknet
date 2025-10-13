@@ -21,12 +21,12 @@ func TestChainHandlerInterface(t *testing.T) {
 			SenderAddress: "0x1234567890123456789012345678901234567890",
 		}
 
-		action, err := handler.Fill(context.Background(), args)
+		action, err := handler.Fill(context.Background(), &args)
 		require.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
 
 		// Test Settle method
-		err = handler.Settle(context.Background(), args)
+		err = handler.Settle(context.Background(), &args)
 		require.NoError(t, err)
 	})
 
@@ -45,7 +45,7 @@ func TestChainHandlerInterface(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				handler := &mockChainHandlerWithAction{action: tc.action}
 
-				action, err := handler.Fill(context.Background(), types.ParsedArgs{})
+				action, err := handler.Fill(context.Background(), &types.ParsedArgs{})
 				require.NoError(t, err)
 				assert.Equal(t, tc.action, action)
 			})
@@ -86,7 +86,7 @@ func TestChainHandlerErrorHandling(t *testing.T) {
 	t.Run("handler_with_error", func(t *testing.T) {
 		handler := &mockChainHandlerWithError{shouldError: true}
 
-		action, err := handler.Fill(context.Background(), types.ParsedArgs{})
+		action, err := handler.Fill(context.Background(), &types.ParsedArgs{})
 		assert.Error(t, err)
 		assert.Equal(t, OrderActionError, action)
 	})
@@ -94,7 +94,7 @@ func TestChainHandlerErrorHandling(t *testing.T) {
 	t.Run("handler_without_error", func(t *testing.T) {
 		handler := &mockChainHandlerWithError{shouldError: false}
 
-		action, err := handler.Fill(context.Background(), types.ParsedArgs{})
+		action, err := handler.Fill(context.Background(), &types.ParsedArgs{})
 		assert.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
 	})
@@ -108,7 +108,7 @@ func TestChainHandlerContextHandling(t *testing.T) {
 
 		handler := &mockChainHandler{}
 
-		action, err := handler.Fill(ctx, types.ParsedArgs{})
+		action, err := handler.Fill(ctx, &types.ParsedArgs{})
 		// The mock handler doesn't check context, but real handlers should
 		assert.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
@@ -120,7 +120,7 @@ func TestChainHandlerContextHandling(t *testing.T) {
 
 		handler := &mockChainHandler{}
 
-		action, err := handler.Fill(ctx, types.ParsedArgs{})
+		action, err := handler.Fill(ctx, &types.ParsedArgs{})
 		// The mock handler doesn't check context, but real handlers should
 		assert.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
@@ -132,7 +132,7 @@ func TestChainHandlerParsedArgs(t *testing.T) {
 	t.Run("empty_parsed_args", func(t *testing.T) {
 		handler := &mockChainHandler{}
 
-		action, err := handler.Fill(context.Background(), types.ParsedArgs{})
+		action, err := handler.Fill(context.Background(), &types.ParsedArgs{})
 		require.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
 	})
@@ -144,7 +144,7 @@ func TestChainHandlerParsedArgs(t *testing.T) {
 			OrderID: "test-order-456",
 		}
 
-		action, err := handler.Fill(context.Background(), args)
+		action, err := handler.Fill(context.Background(), &args)
 		require.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
 	})
@@ -156,7 +156,7 @@ func TestChainHandlerParsedArgs(t *testing.T) {
 			SenderAddress: "0x1234567890123456789012345678901234567890",
 		}
 
-		action, err := handler.Fill(context.Background(), args)
+		action, err := handler.Fill(context.Background(), &args)
 		require.NoError(t, err)
 		assert.Equal(t, OrderActionComplete, action)
 	})
@@ -167,11 +167,11 @@ func TestChainHandlerParsedArgs(t *testing.T) {
 // mockChainHandler implements ChainHandler for basic testing
 type mockChainHandler struct{}
 
-func (m *mockChainHandler) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (m *mockChainHandler) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	return OrderActionComplete, nil
 }
 
-func (m *mockChainHandler) Settle(ctx context.Context, args types.ParsedArgs) error {
+func (m *mockChainHandler) Settle(ctx context.Context, args *types.ParsedArgs) error {
 	return nil
 }
 
@@ -180,11 +180,11 @@ type mockChainHandlerWithAction struct {
 	action OrderAction
 }
 
-func (m *mockChainHandlerWithAction) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (m *mockChainHandlerWithAction) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	return m.action, nil
 }
 
-func (m *mockChainHandlerWithAction) Settle(ctx context.Context, args types.ParsedArgs) error {
+func (m *mockChainHandlerWithAction) Settle(ctx context.Context, args *types.ParsedArgs) error {
 	return nil
 }
 
@@ -193,14 +193,14 @@ type mockChainHandlerWithError struct {
 	shouldError bool
 }
 
-func (m *mockChainHandlerWithError) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (m *mockChainHandlerWithError) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	if m.shouldError {
 		return OrderActionError, assert.AnError
 	}
 	return OrderActionComplete, nil
 }
 
-func (m *mockChainHandlerWithError) Settle(ctx context.Context, args types.ParsedArgs) error {
+func (m *mockChainHandlerWithError) Settle(ctx context.Context, args *types.ParsedArgs) error {
 	if m.shouldError {
 		return assert.AnError
 	}

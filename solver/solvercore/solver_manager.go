@@ -264,7 +264,7 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 
 	// Event handler that processes intents
 	eventHandler := func(args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
-		return hyperlane7683Solver.ProcessIntent(ctx, args)
+		return hyperlane7683Solver.ProcessIntent(ctx, &args)
 	}
 
 	// Start listeners for each intent source
@@ -282,7 +282,7 @@ func (sm *SolverManager) initializeHyperlane7683(ctx context.Context) error {
 
 		// Create appropriate listener based on chain type
 		if source == "Starknet" {
-			hyperlaneAddr, err := getStarknetHyperlaneAddress(networkConfig)
+			hyperlaneAddr, err := getStarknetHyperlaneAddress(&networkConfig)
 			if err != nil {
 				return fmt.Errorf("failed to get Starknet Hyperlane address: %w", err)
 			}
@@ -402,7 +402,7 @@ func (sm *SolverManager) GetSolverStatus() map[string]bool {
 
 
 // getStarknetHyperlaneAddress gets the Starknet Hyperlane address from environment
-func getStarknetHyperlaneAddress(networkConfig config.NetworkConfig) (string, error) {
+func getStarknetHyperlaneAddress(_ *config.NetworkConfig) (string, error) {
 	envAddr := envutil.GetEnvWithDefault("STARKNET_HYPERLANE_ADDRESS", "")
 	if envAddr != "" {
 		fmt.Printf("   🔄 Using Starknet Hyperlane address from .env: %s\n", envAddr)

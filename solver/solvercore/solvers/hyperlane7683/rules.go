@@ -37,7 +37,7 @@ type RuleResult struct {
 // This interface is designed for plugin architecture - anyone can implement custom rules
 type Rule interface {
 	Name() string
-	Evaluate(ctx context.Context, args types.ParsedArgs) RuleResult
+	Evaluate(ctx context.Context, args *types.ParsedArgs) RuleResult
 }
 
 // RulesEngine coordinates rule evaluation
@@ -61,7 +61,7 @@ func (re *RulesEngine) AddRule(rule Rule) {
 }
 
 // EvaluateAll runs all rules and returns the first failure, or success if all pass
-func (re *RulesEngine) EvaluateAll(ctx context.Context, args types.ParsedArgs) RuleResult {
+func (re *RulesEngine) EvaluateAll(ctx context.Context, args *types.ParsedArgs) RuleResult {
 	// Get chain IDs for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
 	destChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
@@ -84,7 +84,7 @@ func (br *BalanceRule) Name() string {
 	return "BalanceCheck"
 }
 
-func (br *BalanceRule) Evaluate(ctx context.Context, args types.ParsedArgs) RuleResult {
+func (br *BalanceRule) Evaluate(ctx context.Context, args *types.ParsedArgs) RuleResult {
 	if len(args.ResolvedOrder.MaxSpent) == 0 {
 		return RuleResult{Passed: true, Reason: "No tokens to spend"}
 	}
@@ -101,7 +101,7 @@ func (br *BalanceRule) Evaluate(ctx context.Context, args types.ParsedArgs) Rule
 	}
 }
 
-func (br *BalanceRule) checkStarknetBalance(ctx context.Context, args types.ParsedArgs) RuleResult {
+func (br *BalanceRule) checkStarknetBalance(_ context.Context, args *types.ParsedArgs) RuleResult {
 	// Get solver's Starknet address from environment (conditional based on IS_DEVNET)
 	solverAddrHex := envutil.GetStarknetSolverAddress()
 	if solverAddrHex == "" {
@@ -141,7 +141,7 @@ func (br *BalanceRule) checkStarknetBalance(ctx context.Context, args types.Pars
 	return RuleResult{Passed: true, Reason: "Starknet balance check passed"}
 }
 
-func (br *BalanceRule) checkEVMBalance(ctx context.Context, args types.ParsedArgs) RuleResult {
+func (br *BalanceRule) checkEVMBalance(_ context.Context, args *types.ParsedArgs) RuleResult {
 	// Get solver's EVM address from environment (conditional based on IS_DEVNET)
 	solverAddrHex := envutil.GetSolverPublicKey()
 	if solverAddrHex == "" {
@@ -206,7 +206,7 @@ func (pr *ProfitabilityRule) Name() string {
 	return "ProfitabilityCheck"
 }
 
-func (pr *ProfitabilityRule) Evaluate(ctx context.Context, args types.ParsedArgs) RuleResult {
+func (pr *ProfitabilityRule) Evaluate(ctx context.Context, args *types.ParsedArgs) RuleResult {
 	// Calculate expected profit from the order
 	// This involves comparing MaxSpent vs MinReceived
 
