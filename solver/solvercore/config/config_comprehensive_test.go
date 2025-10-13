@@ -149,8 +149,7 @@ SOLVER_NEWSOLVER_ENABLED=true`
 		require.NoError(t, err)
 		defer os.Chdir(oldDir)
 
-		err = os.Chdir(tempDir)
-		require.NoError(t, err)
+		t.Chdir(tempDir)
 
 		// Load config
 		config, err := LoadConfig()

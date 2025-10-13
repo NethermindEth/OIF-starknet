@@ -954,9 +954,9 @@ func cleanSolverStateOnce(t *testing.T) {
 
 	// Set all solver start blocks to -1 (one block before current) for integration tests
 	// This prevents the solver from processing historical orders while still detecting new orders
-	os.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
 	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
 	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
@@ -991,9 +991,9 @@ func cleanSolverState(t *testing.T) {
 
 	// Set all solver start blocks to -1 (one block before current) for integration tests
 	// This prevents the solver from processing historical orders while still detecting new orders
-	os.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
 	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
 	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
