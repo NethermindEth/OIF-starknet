@@ -375,7 +375,7 @@ func (h *HyperlaneStarknet) interpretStarknetStatus(status string) string {
 }
 
 // quoteGasPayment calls the Starknet contract's quote_gas_payment function
-func (f *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain uint32, hyperlaneAddress *felt.Felt) (*big.Int, error) {
+func (h *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain uint32, hyperlaneAddress *felt.Felt) (*big.Int, error) {
 	// Convert origin domain to felt
 	domainFelt := utils.BigIntToFelt(big.NewInt(int64(originDomain)))
 
@@ -386,7 +386,7 @@ func (f *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain ui
 		Calldata:           []*felt.Felt{domainFelt},
 	}
 
-	resp, err := f.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
+	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return nil, fmt.Errorf("starknet quote_gas_payment call failed: %w", err)
 	}
