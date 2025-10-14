@@ -1,5 +1,5 @@
 
-.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks kill-networks
+.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks kill-networks open-random-evm-order-local open-random-evm-order-live open-random-evm-sn-order-local open-random-evm-sn-order-live open-random-sn-order-local open-random-sn-order-live
 
 # Default target
 help:
@@ -36,6 +36,14 @@ help:
 	@echo "  register-starknet-on-evm - Register Starknet domain on EVM contracts (uses current IS_DEVNET setting)"
 	@echo "  register-starknet-on-evm-local - Register Starknet domain on EVM contracts (local devnet)"
 	@echo "  register-starknet-on-evm-live - Register Starknet domain on EVM contracts (live networks)"
+	@echo ""
+	@echo "🎯 Order Management:"
+	@echo "  open-random-evm-order-local - Open random EVM order with local devnet (IS_DEVNET=true)"
+	@echo "  open-random-evm-order-live - Open random EVM order with live networks (IS_DEVNET=false)"
+	@echo "  open-random-evm-sn-order-local - Open random EVM-to-Starknet order with local devnet (IS_DEVNET=true)"
+	@echo "  open-random-evm-sn-order-live - Open random EVM-to-Starknet order with live networks (IS_DEVNET=false)"
+	@echo "  open-random-sn-order-local - Open random Starknet order with local devnet (IS_DEVNET=true)"
+	@echo "  open-random-sn-order-live - Open random Starknet order with live networks (IS_DEVNET=false)"
 	@echo ""
 	@echo "📊 Coverage Commands:"
 	@echo "  test-coverage    - Show coverage for maintainable code"
@@ -319,6 +327,42 @@ open-random-evm-sn-order: build
 
 open-random-sn-order: build
 	./bin/solver tools open-order starknet
+
+# Open random EVM order with local devnet (sets IS_DEVNET=true)
+open-random-evm-order-local: build
+	@echo "🎯 Opening random EVM order with local devnet (IS_DEVNET=true)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	IS_DEVNET=true ./bin/solver tools open-order evm
+
+# Open random EVM order with live networks (sets IS_DEVNET=false)
+open-random-evm-order-live: build
+	@echo "🎯 Opening random EVM order with live networks (IS_DEVNET=false)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	IS_DEVNET=false ./bin/solver tools open-order evm
+
+# Open random EVM-to-Starknet order with local devnet (sets IS_DEVNET=true)
+open-random-evm-sn-order-local: build
+	@echo "🎯 Opening random EVM-to-Starknet order with local devnet (IS_DEVNET=true)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	IS_DEVNET=true ./bin/solver tools open-order evm random-to-sn
+
+# Open random EVM-to-Starknet order with live networks (sets IS_DEVNET=false)
+open-random-evm-sn-order-live: build
+	@echo "🎯 Opening random EVM-to-Starknet order with live networks (IS_DEVNET=false)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	IS_DEVNET=false ./bin/solver tools open-order evm random-to-sn
+
+# Open random Starknet order with local devnet (sets IS_DEVNET=true)
+open-random-sn-order-local: build
+	@echo "🎯 Opening random Starknet order with local devnet (IS_DEVNET=true)..."
+	@echo "Make sure networks are running in another terminal with: make start-networks"
+	IS_DEVNET=true ./bin/solver tools open-order starknet
+
+# Open random Starknet order with live networks (sets IS_DEVNET=false)
+open-random-sn-order-live: build
+	@echo "🎯 Opening random Starknet order with live networks (IS_DEVNET=false)..."
+	@echo "Make sure you have live network access and proper environment variables set"
+	IS_DEVNET=false ./bin/solver tools open-order starknet
 
 ### Testing Commands ###
 
