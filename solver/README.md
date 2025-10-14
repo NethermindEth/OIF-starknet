@@ -8,66 +8,29 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 ## 🚀 Current Status
 
-**🎉 (Local Sepolia) solves all 3 order types on local forks**: Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain
+**🎉 (Local Sepolia Forks) solves all 3 order types**: Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain.
 
-**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: Only Opens & Fills Starknet->EVM orders. The Settle call is awaiting Hyperlane to register the Starknet domain on each EVM contract.
+**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: For Starknet-EVM orders, only Opens & Fills can be called. The Settle call needs Hyperlane to register the Starknet domain on each EVM contract.
 
-## Prerequisites
+## Order Lifecycle
 
-### Required Dependencies
+1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
+   - Alice calls `OriginChainHyperlane7683::open(...)`
+2. **Fill on destination**: Solver sends output tokens to Alice's destination chain wallet
+   - Solver calls `DestinationChainHyperlane7683::fill(...)`
+3. **Settle on destination**: Solver sends this followup txn to prevent double-filling, triggers settlement dispatch
+   - Solver calls `DestinationChainHyperlane7683::settle(...)`
+4. **Hyperlane dispatch**: Releases locked input tokens to solver (handled by Hyperlane protocol)
+   - Hyperlane protocol detects the settlement and then routes the settlement throught the `OriginChainHyperlane7683` contract
 
-#### 1. Go (Version 1.25.1+)
+**Note:** Step 4 is out of scope for this repo (as well as the original BootNodeDev implementation)
 
-```bash
-# Install Go 1.25.1 or later
-# Visit https://golang.org/dl/ or use your package manager
-go version  # Should show 1.25.1 or later
-```
-
-#### 2. Foundry (Includes Anvil)
-
-Foundry is a complete toolkit that includes `forge`, `anvil`, `cast`, and `chisel`. When you install Foundry, you get all these tools including Anvil.
-
-```bash
-# Install Foundry (includes Anvil)
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-
-# Verify installation
-forge --version  # Should show 1.3.5-stable or later
-anvil --version  # Should show 1.3.5-stable or later
-```
-
-#### 3. Dojo/Katana (Version 1.6.2/1.6.3)
-
-Due to contract dependencies requiring spec v0_8 of the Starknet RPC, version 1.6.2 is required for dojo (this comes with katana version 1.6.3).
-
-**Note**: We recommend using [asdf](https://asdf-vm.com/) for version management for Starknet tooling to ensure exact versions.
-
-```bash
-# Install asdf (see https://asdf-vm.com/guide/getting-started.html for other installation methods)
-brew install asdf
-
-# Install dojo/katana
-asdf plugin add dojo
-asdf install dojo 1.6.2
-
-# Verify installation
-katana --version  # Should show 1.6.3
-```
-
-**Important Notes:**
-
-- **Foundry**: Use stable version 1.3.5+, not nightly (nightly can have breaking changes). This repo is tested with 1.3.5.
-- **Dojo**: Must be exactly 1.6.2 (includes Katana 1.6.3) due to Starknet RPC spec requirements
-- **Go**: Must be 1.25.1 or later for module compatibility. This repo is tested with 1.25.1.
-
-### Setup
+## Initial Setup
 
 1. **Clone and navigate to the solver directory:**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/NethermindEth/oif-starknet.git
    cd oif-starknet/solver
    ```
 
@@ -77,30 +40,44 @@ katana --version  # Should show 1.6.3
    go mod tidy
    ```
 
-3. **Configure environment:**
+## Required Dependencies
+
+- [[Golang 1.25.1+]](https://go.dev/) - Repo is tested with 1.25.1
 
    ```bash
-   cp example.env .env
-   # Edit .env with your configuration (see Configuration section below)
+   # Verify installation
+   go version  # Should show 1.25.1 or later
    ```
 
-4. **Build the solver with clean state:**
+- [[Foundry 1.4.0+]](https://getfoundry.sh/) - Repo is tested with 1.4.0
+
    ```bash
-   make rebuild
+   # Verify installation
+   anvil --version  # Should show 1.4.0 or later
    ```
+
+- [[Dojo 1.7.1]](https://book.dojoengine.org/installation) - Repo is tested with 1.7.1
+   - Comes with Katana v1.7.0
+   - [asdf](https://asdf-vm.com/) reccomended
+
+   ```bash
+   # Verify installation
+   katana --version  # Should show 1.7.0 or later
+   ```
+
+- [Alechemy API key](https://book.dojoengine.org/installation)
+   - App configured for Sepolia: Ethereum, Arbitrum, Base, Optimism & Starknet
+   - Used in [`.env`](example.env)
 
 ## Configuration
 
-The solver is configured via environment variables. Copy `example.env` to `.env` and edit as needed:
-
-- **For local testing**: The example.env is pre-configured for local development
-- **For live Sepolia**: Fill in the non-local variables (RPC URLs, API keys, PKs, etc.)
+The solver is configured via environment variables. First, copy `example.env` to `.env` and fill in your Alchemy API key/URLs. The LOCAL addresses are already configured to anvil/katana defaults, but you must fill out the other vars to use/test the solver on live Sepolia networks.
 
 ```bash
 cp example.env .env
 ```
 
-### Running Locally
+### Running the Solver Locally
 
 For local runs, you'll need 3 terminals. All commands should be run from the `solver/` directory.
 
@@ -108,39 +85,57 @@ For local runs, you'll need 3 terminals. All commands should be run from the `so
 
 ```bash
 cd solver
-make start-networks             # Start local forked networks (EVM + Starknet)
-# This runs continuously - keep this terminal open
+make start-networks                   # Start local forked networks (EVMs + Starknet)
+# This runs continuously...
 ```
 
 **Terminal 2: Setup and run solver**
 
 ```bash
 cd solver
-make register-starknet-on-evm   # Register Starknet domain on EVM contracts
-make fund-accounts              # Fund test accounts with tokens
-make run-local                  # Start the solver
+make rebuild                          # Rebuild the solver and ensure a clean starting state (do not do this to let the solver backfill from where it left off if stopped and restarted)
+make register-starknet-on-evm-local   # Register Starknet domain on EVM contracts
+make fund-accounts-local              # Fund accounts with test ERC-20 tokens
+make run-local                        # Start the solver
+# This runs continuously...
 ```
 
 **Terminal 3: Create test orders**
 
 ```bash
 cd solver
-make open-random-evm-order      # EVM → EVM order
-make open-random-evm-sn-order   # EVM → Starknet order
-make open-random-sn-order       # Starknet → EVM order
+# Can do these back to back or one at a time and watch the logs in the other 2 terminals
+make open-random-evm-order-local      # EVM → EVM order
+make open-random-evm-sn-order-local   # EVM → Starknet order
+make open-random-sn-order-local       # Starknet → EVM order
+
+# First you'll see the order being created in the network logs. 
+# Shortly after this you'll see the solver detect the order and begin completing it.
 ```
 
-### Live Network Testing
+## Running the Solver Live
 
-For live Sepolia testing, ensure you have:
+For live Sepolia testing, ensure you have funded accounts with testnet ETH. For live runs, you'll need 2 terminals.
 
-1. Valid RPC endpoints (Alchemy recommended)
-2. Funded accounts with testnet ETH
-3. Set `IS_DEVNET=false` in your `.env` file
+**Terminal 1: Setup and run solver**
 
 ```bash
-# Single terminal setup for live networks
-make run-live                   # Run solver on live networks
+cd solver
+make fund-accounts-live               # Fund your (deployer & alice) accounts with test ERC-20 tokens
+make run-live                         # Start the solver
+# This runs continuously...
+```
+
+**Terminal 2: Create test orders**
+
+```bash
+cd solver
+# Can do these back to back or one at a time and watch the logs in the other terminal
+make open-random-evm-order-live       # EVM → EVM order
+make open-random-evm-sn-order-live    # EVM → Starknet order
+make open-random-sn-order-live        # Starknet → EVM order
+
+# You'll see the solver detect the order and begin completing it shortly after creation.
 ```
 
 ## Testing
@@ -159,8 +154,8 @@ make start-networks
 
 # Terminal 2: Run tests
 make test-rpc-local            # RPC connectivity tests
-make test-integration-local    # Basic integration tests
-make test-solver-local         # Full solver integration tests
+make test-integration-local    # Basic integration tests (opening orders)
+make test-solver-local         # Full solver integration tests (opening orders and completing them)
 ```
 
 ### Live Network Tests
@@ -170,13 +165,6 @@ make test-rpc-live             # RPC connectivity tests
 make test-integration-live     # Basic integration tests
 make test-solver-live          # Full solver integration tests
 ```
-
-## Order Lifecycle
-
-1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
-2. **Fill on destination**: Solver sends output tokens to Alice's destination chain wallet
-3. **Settle on destination**: Prevents double-filling, triggers dispatch
-4. **Hyperlane dispatch**: Releases locked input tokens to solver (handled by Hyperlane protocol)
 
 ## Architecture
 
@@ -261,15 +249,6 @@ ParsedArgs → Starknet Fill Transaction (hyperlane_starknet.go)
 - All events flow through a unified handler for consistent processing
 - Context-based cancellation enables graceful shutdown across all networks
 
-## Configuration
-
-The solver uses environment variables to manage:
-
-- RPC endpoints for different chains
-- Private keys for transaction signing
-- Contract addresses
-- Operational parameters (polling intervals, gas limits, starting block numbers, etc.)
-
 ## Extending
 
 To add support for a new blockchain (e.g., Solana):
@@ -278,71 +257,6 @@ To add support for a new blockchain (e.g., Solana):
 2. **Create operations**: `hyperlane_solana.go` with Solana-specific fill logic
 3. **Update routing**: Add Solana case in `solver.go` destination routing
 4. **Add config**: Network configuration in `solvercore/config/networks.go`
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Go Version Mismatch
-
-```bash
-# If you get Go version errors, ensure you have Go 1.25.1+
-go version
-# If needed, update Go or use asdf for version management
-```
-
-#### 2. Foundry/Anvil Not Found
-
-```bash
-# Ensure Foundry is properly installed and in PATH
-foundryup
-source ~/.bashrc  # or ~/.zshrc
-anvil --version
-```
-
-#### 2a. Switching from Foundry Nightly to Stable
-
-```bash
-# If you're on nightly and want to switch to stable
-foundryup  # This will install the latest stable (1.3.5+)
-# Or specify exact version: foundryup --version 1.3.5
-# Or use asdf for better version management (see Version Management section)
-```
-
-#### 3. Katana Not Found
-
-```bash
-# Ensure Katana 1.6.3 is installed
-katana --version
-# If missing, reinstall with the exact version
-curl -L https://github.com/dojoengine/dojo/releases/download/v1.6.2/katana-installer.sh | bash
-```
-
-#### 4. Network Connection Issues
-
-```bash
-# For local testing, ensure all networks are running
-make kill-all  # Clean up any stuck processes
-make start-networks  # Restart networks
-
-# For live testing, verify RPC endpoints in .env
-# Check ALCHEMY_API_KEY is set correctly
-```
-
-#### 5. Solver State Issues
-
-```bash
-# Clean solver state if experiencing issues
-make clean-solver
-# This resets the solver to start from configured blocks
-```
-
-### Getting Help
-
-- Check the logs for specific error messages
-- Ensure all dependencies are at the correct versions
-- Verify your `.env` configuration matches your setup (local vs live)
-- For live networks, ensure you have sufficient testnet ETH
 
 ## License
 
