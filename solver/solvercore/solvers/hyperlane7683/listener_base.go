@@ -37,17 +37,23 @@ func NewBaseListener(config base.ListenerConfig, blockProvider BlockNumberProvid
 // - Zero: start at current block (live)
 // - Negative number: start N blocks before current block
 func ResolveSolverStartBlock(ctx context.Context, solverStartBlock int64, blockProvider BlockNumberProvider) (uint64, error) {
-	if solverStartBlock >= 0 {
-		// Positive number or zero - use as-is
+	if solverStartBlock > 0 {
+		// Positive number - use as-is
 		return uint64(solverStartBlock), nil
 	}
 
-	// Negative number - start N blocks before current block
+	// Zero or negative number - need current block
 	currentBlock, err := blockProvider.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get current block number: %v", err)
 	}
 
+	if solverStartBlock == 0 {
+		// Zero - start at current block (live)
+		return currentBlock, nil
+	}
+
+	// Negative number - start N blocks before current block
 	// Calculate start block: current - abs(solverStartBlock)
 	startBlock := currentBlock - uint64(-solverStartBlock)
 
@@ -126,4 +132,126 @@ func (bl *BaseListener) SetLastProcessedBlock(block uint64) {
 // GetConfig returns the listener configuration
 func (bl *BaseListener) GetConfig() base.ListenerConfig {
 	return bl.config
+}
+
+// CatchUpHistoricalBlocks processes historical blocks using the common logic
+func (bl *BaseListener) CatchUpHistoricalBlocks(
+	ctx context.Context,
+	handler base.EventHandler,
+	processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error),
+) error {
+	p := logutil.Prefix(bl.config.ChainName)
+	fmt.Printf("%s🔄 Catching up on historical blocks...\n", p)
+
+	currentBlock, err := bl.blockProvider.BlockNumber(ctx)
+	if err != nil {
+		return fmt.Errorf("%sfailed to get current block number: %v", p, err)
+	}
+
+	// Apply confirmations during backfill as well
+	safeBlock := currentBlock
+	if bl.config.ConfirmationBlocks > 0 && currentBlock > bl.config.ConfirmationBlocks {
+		safeBlock = currentBlock - bl.config.ConfirmationBlocks
+	}
+
+	// Start from the last processed block + 1 (which should be the solver start block)
+	fromBlock := bl.lastProcessedBlock + 1
+	toBlock := safeBlock
+	if fromBlock >= toBlock {
+		fmt.Printf("%s✅ Already up to date, no historical blocks to process\n", p)
+		return nil
+	}
+
+	chunkSize := bl.config.MaxBlockRange
+	for start := fromBlock; start < toBlock; start += chunkSize {
+		end := start + chunkSize
+		if end > toBlock {
+			end = toBlock
+		}
+
+		newLast, err := processBlockRange(ctx, start, end, handler)
+		if err != nil {
+			return fmt.Errorf("%sfailed to process historical blocks %d-%d: %v", p, start, end, err)
+		}
+
+		bl.lastProcessedBlock = newLast
+		if err := config.UpdateLastIndexedBlock(bl.config.ChainName, newLast); err != nil {
+			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
+		}
+	}
+
+	fmt.Printf("%s✅ Historical block processing complete\n", p)
+	return nil
+}
+
+// CommonListenerConfig holds common configuration for both EVM and Starknet listeners
+type CommonListenerConfig struct {
+	ListenerConfig *base.ListenerConfig
+	LastProcessedBlock uint64
+}
+
+// ResolveCommonListenerConfig resolves common listener configuration
+func ResolveCommonListenerConfig(
+	ctx context.Context,
+	listenerConfig *base.ListenerConfig,
+	blockProvider BlockNumberProvider,
+) (*CommonListenerConfig, error) {
+	configStartBlock := listenerConfig.InitialBlock.Int64()
+	var resolvedStartBlock uint64
+
+	if configStartBlock > 0 {
+		// Positive number - use as-is
+		resolvedStartBlock = uint64(configStartBlock)
+	} else {
+		// Zero or negative number - need current block
+		currentBlock, err := blockProvider.BlockNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current block number: %v", err)
+		}
+
+		if configStartBlock == 0 {
+			// Zero - start at current block (live)
+			resolvedStartBlock = currentBlock
+			fmt.Printf("%s📚 Start block was 0, using current block %d\n",
+				logutil.Prefix(listenerConfig.ChainName), currentBlock)
+		} else {
+			// Negative number - start N blocks before current block
+			// Calculate start block: current - abs(configStartBlock)
+			resolvedStartBlock = currentBlock - uint64(-configStartBlock)
+
+			// Ensure we don't go below block 0
+			if resolvedStartBlock > currentBlock {
+				resolvedStartBlock = 0
+			}
+
+			fmt.Printf("%s📚 Start block was %d, using current block %d - %d = %d\n",
+				logutil.Prefix(listenerConfig.ChainName), configStartBlock, currentBlock, -configStartBlock, resolvedStartBlock)
+		}
+	}
+
+	state, err := config.GetSolverState()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get solver state: %w", err)
+	}
+
+	var lastProcessedBlock uint64
+	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
+		deploymentStateBlock := networkState.LastIndexedBlock
+		if deploymentStateBlock > resolvedStartBlock {
+			lastProcessedBlock = deploymentStateBlock
+			fmt.Printf("%s📚 Using deployment state block %d (higher than config start block %d)\n",
+				logutil.Prefix(listenerConfig.ChainName), deploymentStateBlock, resolvedStartBlock)
+		} else {
+			lastProcessedBlock = resolvedStartBlock
+			fmt.Printf("%s📚 Using config start block %d (deployment state block %d is lower)\n",
+				logutil.Prefix(listenerConfig.ChainName), resolvedStartBlock, deploymentStateBlock)
+		}
+	} else {
+		return nil, fmt.Errorf("network %s not found in solver state", listenerConfig.ChainName)
+	}
+
+	return &CommonListenerConfig{
+		ListenerConfig:     listenerConfig,
+		LastProcessedBlock: lastProcessedBlock,
+	}, nil
 }

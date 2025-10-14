@@ -1,1 +1,7 @@
 dojo 1.6.2
+scarb 2.10.1
+
+forge 1.3.5-stable
+cast 1.3.5-stable
+anvil 1.3.5-stable
+chisel 1.3.5-stable
