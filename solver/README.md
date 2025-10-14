@@ -25,7 +25,7 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 **🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: For Starknet-EVM orders, only Opens & Fills can be called. The Settle call needs Hyperlane to register the Starknet domain on each EVM contract.
 
-## Initial Setup
+## Setup
 
 1. **Clone and navigate to the solver directory:**
 
@@ -41,6 +41,8 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
    ```
 
 ## Required Dependencies
+
+Verify versioning from inside the `solver/` directory.
 
 - [Golang 1.25.1+](https://go.dev/) - Repo is tested with 1.25.1
 
