@@ -9,8 +9,8 @@ This project extends the Open Intent Framework to support cross-chain order fill
 ## Project Structure
 
 - `solidity/`: Copy of [Open Intent Framework](https://github.com/BootNodeDev/intents-framework/tree/main) Solidity contracts
-- `cairo/`: Starknet translation of Solidity contracts  
-- `go/`: Hyperlane intent solver implementation - [See detailed README](go/README.md)
+- `cairo/`: Starknet translation of Solidity contracts
+- `solver/`: Hyperlane intent solver implementation - [See detailed README](solver/README.md)
 
 ## Documentation
 

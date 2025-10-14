@@ -503,7 +503,7 @@ func TestBigIntUtilityFunctions(t *testing.T) {
 
 		assert.Equal(t, -1, small.Cmp(large))
 		assert.Equal(t, 1, large.Cmp(small))
-		assert.Equal(t, 0, small.Cmp(small))
+		assert.Equal(t, 0, small.Cmp(new(big.Int).Set(small)))
 	})
 
 	t.Run("big.Int bit operations", func(t *testing.T) {

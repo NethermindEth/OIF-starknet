@@ -26,9 +26,10 @@ type BaseListener struct {
 // NewBaseListener creates a new base listener with common functionality
 func NewBaseListener(config base.ListenerConfig, blockProvider BlockNumberProvider, networkType string) *BaseListener {
 	return &BaseListener{
-		config:        config,
-		blockProvider: blockProvider,
-		networkType:   networkType,
+		config:             config,
+		lastProcessedBlock: 0,
+		blockProvider:      blockProvider,
+		networkType:        networkType,
 	}
 }
 

@@ -27,15 +27,15 @@ const (
 type ChainHandler interface {
 	// Fill executes a fill operation on the chain
 	// Returns OrderAction indicating next step (settle, complete, or error)
-	Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error)
+	Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error)
 
 	// Settle executes settlement on the chain after successful fill
 	// Should handle gas payments, status checks, and final settlement
-	Settle(ctx context.Context, args types.ParsedArgs) error
+	Settle(ctx context.Context, args *types.ParsedArgs) error
 
 	// GetOrderStatus returns the current status of an order on the chain
 	// Common statuses: "UNKNOWN", "FILLED", "SETTLED"
-	GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error)
+	GetOrderStatus(ctx context.Context, args *types.ParsedArgs) (string, error)
 }
 
 // ChainHandlerFactory creates chain handlers for specific networks

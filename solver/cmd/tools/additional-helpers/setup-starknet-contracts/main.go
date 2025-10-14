@@ -41,7 +41,7 @@ const (
 )
 
 // loadCentralAddresses loads Hyperlane, DogCoin from .env variables
-func loadCentralAddresses(networkName string) (hyperlane string, dog string, err error) {
+func loadCentralAddresses(_ string) (hyperlane, dog string, err error) {
 	// Get addresses from environment variables
 	hyperlane = os.Getenv("STARKNET_HYPERLANE_ADDRESS")
 	dog = os.Getenv("STARKNET_DOG_COIN_ADDRESS")

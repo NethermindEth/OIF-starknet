@@ -8,7 +8,7 @@ import (
 )
 
 // Rule represents a rule that can be evaluated during intent processing
-type Rule func(args types.ParsedArgs, context *SolverContext) error
+type Rule func(args *types.ParsedArgs, context *SolverContext) error
 
 // SolverContext contains context information for rule evaluation
 type SolverContext struct {
@@ -21,16 +21,16 @@ type SolverContext struct {
 type Solver interface {
 	// ProcessIntent processes an intent through the complete lifecycle
 	// Returns (success, error) where success=true means the order was fully settled
-	ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error)
+	ProcessIntent(ctx context.Context, args *types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error)
 
 	// PrepareIntent evaluates rules and determines if intent should be filled
-	PrepareIntent(ctx context.Context, args types.ParsedArgs) (*types.Result[types.IntentData], error)
+	PrepareIntent(ctx context.Context, args *types.ParsedArgs) (*types.Result[types.IntentData], error)
 
 	// Fill executes the actual intent filling
-	Fill(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error
+	Fill(ctx context.Context, args *types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error
 
 	// SettleOrder handles post-fill settlement
-	SettleOrder(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string) error
+	SettleOrder(ctx context.Context, args *types.ParsedArgs, data types.IntentData, originChainName string) error
 
 	// AddRule adds a custom rule to the solver
 	AddRule(rule Rule)
@@ -66,7 +66,7 @@ func (f *solverImpl) GetRules() []Rule {
 }
 
 // ProcessIntent implements the complete intent processing lifecycle
-func (f *solverImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
+func (f *solverImpl) ProcessIntent(ctx context.Context, args *types.ParsedArgs, originChainName string, blockNumber uint64) (bool, error) {
 	// Step 1: Prepare intent (evaluate rules)
 	intent, err := f.PrepareIntent(ctx, args)
 	if err != nil {
@@ -91,7 +91,7 @@ func (f *solverImpl) ProcessIntent(ctx context.Context, args types.ParsedArgs, o
 }
 
 // PrepareIntent evaluates rules to determine if intent should be filled
-func (f *solverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (*types.Result[types.IntentData], error) {
+func (f *solverImpl) PrepareIntent(ctx context.Context, args *types.ParsedArgs) (*types.Result[types.IntentData], error) {
 	// Check allow/block lists first
 	if !f.isAllowedIntent(args) {
 		result := types.NewErrorResult[types.IntentData](fmt.Errorf("intent blocked by allow/block lists"))
@@ -123,19 +123,19 @@ func (f *solverImpl) PrepareIntent(ctx context.Context, args types.ParsedArgs) (
 }
 
 // Fill executes the actual intent filling (to be implemented by concrete solvers)
-func (f *solverImpl) Fill(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error {
+func (f *solverImpl) Fill(ctx context.Context, args *types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error {
 	// This is a placeholder - concrete implementations should override this
 	return nil
 }
 
 // SettleOrder handles post-fill settlement (to be implemented by concrete solvers)
-func (f *solverImpl) SettleOrder(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string) error {
+func (f *solverImpl) SettleOrder(ctx context.Context, args *types.ParsedArgs, data types.IntentData, originChainName string) error {
 	// This is a placeholder - concrete implementations should override this
 	return nil
 }
 
 // isAllowedIntent checks if an intent is allowed based on allow/block lists
-func (f *solverImpl) isAllowedIntent(args types.ParsedArgs) bool {
+func (f *solverImpl) isAllowedIntent(args *types.ParsedArgs) bool {
 	// Check block list first
 	for _, blockItem := range f.allowBlockLists.BlockList {
 		if f.matchesAllowBlockItem(blockItem, args) {
@@ -159,7 +159,7 @@ func (f *solverImpl) isAllowedIntent(args types.ParsedArgs) bool {
 }
 
 // matchesAllowBlockItem checks if args match an allow/block list item
-func (f *solverImpl) matchesAllowBlockItem(item types.AllowBlockListItem, args types.ParsedArgs) bool {
+func (f *solverImpl) matchesAllowBlockItem(item types.AllowBlockListItem, args *types.ParsedArgs) bool {
 	// Check sender address
 	if item.SenderAddress != "*" && item.SenderAddress != args.SenderAddress {
 		return false

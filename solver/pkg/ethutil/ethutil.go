@@ -109,7 +109,20 @@ func ERC20Balance(client *ethclient.Client, tokenAddress, ownerAddress common.Ad
 		return nil, fmt.Errorf("failed to pack balanceOf call: %w", err)
 	}
 
-	msg := ethereum.CallMsg{To: &tokenAddress, Data: data}
+	msg := ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &tokenAddress,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            data,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}
 	result, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call balanceOf: %w", err)
@@ -140,7 +153,20 @@ func ERC20Allowance(client *ethclient.Client, tokenAddress, ownerAddress, spende
 		return nil, fmt.Errorf("failed to pack allowance call: %w", err)
 	}
 
-	msg := ethereum.CallMsg{To: &tokenAddress, Data: data}
+	msg := ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &tokenAddress,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            data,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}
 	result, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call allowance: %w", err)

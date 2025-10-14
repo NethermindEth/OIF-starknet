@@ -51,8 +51,8 @@ const (
 )
 
 // secureRandomInt generates a secure random integer in the range [0, max)
-func secureRandomInt(max int) int {
-	if max <= 0 {
+func secureRandomInt(maxValue int) int {
+	if maxValue <= 0 {
 		return 0
 	}
 
@@ -61,7 +61,7 @@ func secureRandomInt(max int) int {
 	_, err := rand.Read(b)
 	if err != nil {
 		// Fallback to time-based seed if crypto/rand fails
-		return int(time.Now().UnixNano()) % max
+		return int(time.Now().UnixNano()) % maxValue
 	}
 
 	// Convert bytes to int
@@ -74,7 +74,7 @@ func secureRandomInt(max int) int {
 		result = -result
 	}
 
-	return int(result % int64(max))
+	return int(result % int64(maxValue))
 }
 
 // OrderData represents the data for creating an order
@@ -269,11 +269,6 @@ func loadNetworks() []NetworkConfig {
 		}
 
 		dogCoinAddr := os.Getenv(envVarName)
-		// if dogCoinAddr != "" {
-		//	fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogCoinAddr)
-		//} else {
-		//	fmt.Printf("   ⚠️  No DogCoin address found for %s (env var: %s)\n", networkName, envVarName)
-		//}
 
 		networks = append(networks, NetworkConfig{
 			name:             networkConfig.Name,
@@ -370,7 +365,7 @@ func openRandomToEvm(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
 func openRandomToStarknet(networks []NetworkConfig) {
@@ -408,7 +403,7 @@ func openRandomToStarknet(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
 func openDefaultEvmToEvm(networks []NetworkConfig) {
@@ -426,7 +421,7 @@ func openDefaultEvmToEvm(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
 func openDefaultEvmToStarknet(networks []NetworkConfig) {
@@ -444,10 +439,10 @@ func openDefaultEvmToStarknet(networks []NetworkConfig) {
 		FillDeadline:     uint32(time.Now().Add(orderDeadlineHours * time.Hour).Unix()),
 	}
 
-	executeOrder(order, networks)
+	executeOrder(&order, networks)
 }
 
-func executeOrder(order OrderConfig, networks []NetworkConfig) {
+func executeOrder(order *OrderConfig, networks []NetworkConfig) {
 	fmt.Printf("\n📋 Executing Order: %s → %s\n", order.OriginChain, order.DestinationChain)
 
 	// Find origin network
@@ -462,13 +457,6 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	if originNetwork == nil {
 		log.Fatalf("Origin network not found: %s", order.OriginChain)
 	}
-
-	// Connect to origin network
-	client, err := ethclient.Dial(originNetwork.url)
-	if err != nil {
-		log.Fatalf("Failed to connect to %s: %v", order.OriginChain, err)
-	}
-	defer client.Close()
 
 	// Get user private key using conditional environment variable logic
 	var userKey string
@@ -494,9 +482,16 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		log.Fatalf("Failed to create auth: %v", err)
 	}
 
+	// Connect to origin network
+	client, err := ethclient.Dial(originNetwork.url)
+	if err != nil {
+		log.Fatalf("Failed to connect to %s: %v", order.OriginChain, err)
+	}
+
 	// Get current gas price
 	gasPrice, err := ethutil.SuggestGas(client)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get gas price: %v", err)
 	}
 	auth.GasPrice = gasPrice
@@ -532,6 +527,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// Read localDomain from the origin Hyperlane contract to guarantee it matches on-chain
 	localDomain, err := getLocalDomain(client, originNetwork.hyperlaneAddress)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to read localDomain from origin contract: %v", err)
 	}
 
@@ -564,6 +560,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   💡 Please mint tokens manually using the MockERC20 contract's mint() function\n")
 		fmt.Printf("   📝 Contract address: %s\n", inputToken.Hex())
 		fmt.Printf("   🔧 Call: mint(\"%s\", \"%s\")\n", owner.Hex(), requiredAmount.String())
+		client.Close()
 		log.Fatalf("Insufficient token balance for order creation")
 	} else {
 		fmt.Printf("   ✅ Alice has sufficient tokens (%s)\n", ethutil.FormatTokenAmount(initialUserBalance, 18))
@@ -585,6 +582,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		// Approve the Hyperlane contract to spend the required amount
 		approveTx, err := ethutil.ERC20Approve(client, auth, inputToken, spender, requiredAmount)
 		if err != nil {
+			client.Close()
 			log.Fatalf("Failed to approve tokens: %v", err)
 		}
 
@@ -594,10 +592,12 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   ⏳ Waiting for approval confirmation...\n")
 		receipt, err := ethutil.WaitForTransaction(client, approveTx)
 		if err != nil {
+			client.Close()
 			log.Fatalf("Failed to wait for approval transaction: %v", err)
 		}
 
 		if receipt.Status != 1 {
+			client.Close()
 			log.Fatalf("Approval transaction failed")
 		}
 
@@ -606,70 +606,44 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 		fmt.Printf("   ✅ Sufficient allowance already exists\n")
 	}
 
-	//// Store initial balances for comparison
-	// initialBalances := struct {
-	//	userBalance      *big.Int
-	//	hyperlaneBalance *big.Int
-	//}{
-	//	userBalance:      initialUserBalance,
-	//	hyperlaneBalance: initialHyperlaneBalance,
-	//}
-
 	// Pick a fresh senderNonce recognized by the contract to avoid InvalidNonce
 	senderNonce, err := pickValidSenderNonce(client, originNetwork.hyperlaneAddress, auth.From)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to pick a valid sender nonce: %v", err)
 	}
 
 	// Build the order data
 	orderData := buildOrderData(order, originNetwork, destinationNetwork, localDomain, senderNonce)
 
-	//// Debug: Log the order data before encoding
-	// fmt.Printf("🔍 Order Data Debug (Pre-Encoding):\n")
-	//fmt.Printf("   • User: %s\n", orderData.User)
-	//fmt.Printf("   • OriginChainID: %s\n", orderData.OriginChainID.String())
-	//fmt.Printf("   • DestinationChainID: %s\n", orderData.DestinationChainID.String())
-	//fmt.Printf("   • OpenDeadline: %s\n", orderData.OpenDeadline.String())
-	//fmt.Printf("   • FillDeadline: %s\n", orderData.FillDeadline.String())
-	//fmt.Printf("   • MaxSpent (%d items):\n", len(orderData.MaxSpent))
-	//for i, maxSpent := range orderData.MaxSpent {
-	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
-	//		i, maxSpent.Token, maxSpent.Amount.String(), maxSpent.ChainID.String())
-	//}
-	//fmt.Printf("   • MinReceived (%d items):\n", len(orderData.MinReceived))
-	//for i, minReceived := range orderData.MinReceived {
-	//	fmt.Printf("     [%d] Token: %s, Amount: %s, ChainID: %s\n",
-	//		i, minReceived.Token, minReceived.Amount.String(), minReceived.ChainID.String())
-	//}
 
 	// Build the OnchainCrossChainOrder
 	crossChainOrder := OnchainCrossChainOrder{
 		FillDeadline:  order.FillDeadline,
 		OrderDataType: getOrderDataTypeHash(),
-		OrderData:     encodeOrderData(orderData, senderNonce, networks),
+		OrderData:     encodeOrderData(&orderData, senderNonce, networks),
 	}
 
 	// Debug: Log the encoded data
 	// fmt.Printf("🔍 Encoded Order Data Debug:\n")
-	//fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
-	//fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
-	//fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
-	//fmt.Printf("   • OrderData (first 64 bytes): %x\n", crossChainOrder.OrderData[:min(64, len(crossChainOrder.OrderData))])
-	//if len(crossChainOrder.OrderData) > 64 {
-	//	fmt.Printf("   • OrderData (last 64 bytes): %x\n", crossChainOrder.OrderData[max(0, len(crossChainOrder.OrderData)-64):])
-	//}
+	// fmt.Printf("   • FillDeadline: %d\n", crossChainOrder.FillDeadline)
+	// fmt.Printf("   • OrderDataType: %x\n", crossChainOrder.OrderDataType)
+	// fmt.Printf("   • OrderData length: %d bytes\n", len(crossChainOrder.OrderData))
 
 	// Use generated bindings for open()
 	contract, err := contracts.NewHyperlane7683(originNetwork.hyperlaneAddress, client)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to bind Hyperlane7683: %v", err)
 	}
+
 	tx, err := contract.Open(auth, contracts.OnchainCrossChainOrder{
 		FillDeadline:  crossChainOrder.FillDeadline,
 		OrderDataType: crossChainOrder.OrderDataType,
 		OrderData:     crossChainOrder.OrderData,
 	})
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to send open transaction: %v", err)
 	}
 
@@ -679,23 +653,15 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	// Wait for transaction confirmation
 	receipt, err := ethutil.WaitForTransaction(client, tx)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to wait for transaction confirmation: %v", err)
 	}
+
+	defer client.Close()
 
 	if receipt.Status == 1 {
 		fmt.Printf("✅ Order opened successfully!\n")
 		fmt.Printf("📊 Gas used: %d\n", receipt.GasUsed)
-
-		//// Verify that balances actually changed as expected
-		// fmt.Printf("   🔍 Verifying input tokens were transferred...\n")
-		//// For balance verification, use the actual input amount the user paid
-		//// This is what the user actually gave up to open the order (not MaxSpent which is output amount)
-		//expectedTransferAmount := order.InputAmount
-		//if err := verifyBalanceChanges(client, inputToken, owner, spender, initialBalances, expectedTransferAmount); err != nil {
-		//	fmt.Printf("⚠️  Balance verification failed: %v\n", err)
-		//} else {
-		//	fmt.Printf("👍 Balance changes verified (accounting for profit margin)\n")
-		//}
 	} else {
 		fmt.Printf("❌ Order opening failed\n")
 		fmt.Printf("🔍 Transaction hash: %s\n", tx.Hash().Hex())
@@ -719,7 +685,7 @@ func executeOrder(order OrderConfig, networks []NetworkConfig) {
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destinationNetwork *NetworkConfig, originDomain uint32, senderNonce *big.Int) OrderData {
+func buildOrderData(order *OrderConfig, originNetwork, destinationNetwork *NetworkConfig, originDomain uint32, _ *big.Int) OrderData {
 	// Input token from origin network, output token from destination network
 	// inputTokenAddr := originNetwork.dogCoinAddress
 	// outputTokenAddr := destinationNetwork.dogCoinAddress
@@ -757,38 +723,20 @@ func buildOrderData(order OrderConfig, originNetwork *NetworkConfig, destination
 	// - MinReceived: What the solver will receive (origin chain tokens)
 	var maxSpent, minReceived []TokenAmount
 
-	if destinationNetwork.name == starknetNetworkName {
-		// EVM → Starknet order: solver provides Starknet tokens, receives EVM tokens
-		maxSpent = []TokenAmount{
-			{
-				Token:   destinationNetwork.dogCoinAddress.Hex(), // Starknet token
-				Amount:  uint256.MustFromBig(order.OutputAmount), // Amount solver needs to provide
-				ChainID: big.NewInt(int64(destinationChainID)),   // Starknet chain ID
-			},
-		}
-		minReceived = []TokenAmount{
-			{
-				Token:   inputTokenAddr.Hex(),                   // Origin chain token (EVM)
-				Amount:  uint256.MustFromBig(order.InputAmount), // Amount solver will receive
-				ChainID: big.NewInt(int64(originDomain)),        // Origin chain ID
-			},
-		}
-	} else {
-		// EVM → EVM order: solver provides destination EVM tokens, receives origin EVM tokens
-		maxSpent = []TokenAmount{
-			{
-				Token:   destinationNetwork.dogCoinAddress.Hex(), // Destination chain token
-				Amount:  uint256.MustFromBig(order.OutputAmount), // Amount solver needs to provide
-				ChainID: big.NewInt(int64(destinationChainID)),   // Destination chain ID
-			},
-		}
-		minReceived = []TokenAmount{
-			{
-				Token:   inputTokenAddr.Hex(),                   // Origin chain token
-				Amount:  uint256.MustFromBig(order.InputAmount), // Amount solver will receive
-				ChainID: big.NewInt(int64(originDomain)),        // Origin chain ID
-			},
-		}
+	// Set up token amounts (same for both EVM→Starknet and EVM→EVM orders)
+	maxSpent = []TokenAmount{
+		{
+			Token:   destinationNetwork.dogCoinAddress.Hex(), // Destination chain token
+			Amount:  uint256.MustFromBig(order.OutputAmount), // Amount solver needs to provide
+			ChainID: big.NewInt(int64(destinationChainID)),   // Destination chain ID
+		},
+	}
+	minReceived = []TokenAmount{
+		{
+			Token:   inputTokenAddr.Hex(),                   // Origin chain token
+			Amount:  uint256.MustFromBig(order.InputAmount), // Amount solver will receive
+			ChainID: big.NewInt(int64(originDomain)),        // Origin chain ID
+		},
 	}
 
 	return OrderData{
@@ -816,7 +764,20 @@ func getLocalDomain(client *ethclient.Client, contractAddress common.Address) (u
 		return 0, err
 	}
 
-	msg := ethereum.CallMsg{To: &contractAddress, Data: data}
+	msg := ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &contractAddress,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            data,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}
 	result, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		return 0, err
@@ -844,7 +805,20 @@ func isValidNonce(client *ethclient.Client, contractAddress, from common.Address
 		return false, err
 	}
 
-	msg := ethereum.CallMsg{To: &contractAddress, Data: data}
+	msg := ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &contractAddress,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            data,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}
 	result, err := client.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		return false, err
@@ -904,45 +878,31 @@ func hexToBytes32(hexStr string) [32]byte {
 	return out
 }
 
-func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []NetworkConfig) []byte {
+func encodeOrderData(orderData *OrderData, senderNonce *big.Int, networks []NetworkConfig) []byte {
 	// Convert OrderData to ABIOrderData for encoding
 	abiOrderData := convertToABIOrderData(orderData, senderNonce, networks)
 
-	//// Debug: Log the ABI order data
-	// fmt.Printf("🔍 ABI Order Data Debug:\n")
-	//fmt.Printf("   • Sender: %x\n", abiOrderData.Sender)
-	//fmt.Printf("   • Recipient: %x\n", abiOrderData.Recipient)
-	//fmt.Printf("   • InputToken: %x\n", abiOrderData.InputToken)
-	//fmt.Printf("   • OutputToken: %x\n", abiOrderData.OutputToken)
-	//fmt.Printf("   • AmountIn: %s\n", abiOrderData.AmountIn.String())
-	//fmt.Printf("   • AmountOut: %s\n", abiOrderData.AmountOut.String())
-	//fmt.Printf("   • SenderNonce: %s\n", abiOrderData.SenderNonce.String())
-	//fmt.Printf("   • OriginDomain: %d\n", abiOrderData.OriginDomain)
-	//fmt.Printf("   • DestinationDomain: %d\n", abiOrderData.DestinationDomain)
-	//fmt.Printf("   • DestinationSettler: %x\n", abiOrderData.DestinationSettler)
-	//fmt.Printf("   • FillDeadline: %d\n", abiOrderData.FillDeadline)
-	//fmt.Printf("   • Data length: %d bytes\n", len(abiOrderData.Data))
 
 	// Pack as a tuple to match Solidity's abi.encode(order)
 	tupleT, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{Name: "sender", Type: "bytes32"},
-		{Name: "recipient", Type: "bytes32"},
-		{Name: "inputToken", Type: "bytes32"},
-		{Name: "outputToken", Type: "bytes32"},
-		{Name: "amountIn", Type: "uint256"},
-		{Name: "amountOut", Type: "uint256"},
-		{Name: "senderNonce", Type: "uint256"},
-		{Name: "originDomain", Type: "uint32"},
-		{Name: "destinationDomain", Type: "uint32"},
-		{Name: "destinationSettler", Type: "bytes32"},
-		{Name: "fillDeadline", Type: "uint32"},
-		{Name: "data", Type: "bytes"},
+		{Name: "sender", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "recipient", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "inputToken", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "outputToken", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "amountIn", Type: "uint256", InternalType: "", Components: nil, Indexed: false},
+		{Name: "amountOut", Type: "uint256", InternalType: "", Components: nil, Indexed: false},
+		{Name: "senderNonce", Type: "uint256", InternalType: "", Components: nil, Indexed: false},
+		{Name: "originDomain", Type: "uint32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "destinationDomain", Type: "uint32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "destinationSettler", Type: "bytes32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "fillDeadline", Type: "uint32", InternalType: "", Components: nil, Indexed: false},
+		{Name: "data", Type: "bytes", InternalType: "", Components: nil, Indexed: false},
 	})
 	if err != nil {
 		log.Fatalf("Failed to define OrderData tuple type: %v", err)
 	}
 
-	args := abi.Arguments{{Type: tupleT}}
+	args := abi.Arguments{{Type: tupleT, Name: "", Indexed: false}}
 
 	encoded, err := args.Pack(abiOrderData)
 	if err != nil {
@@ -953,7 +913,7 @@ func encodeOrderData(orderData OrderData, senderNonce *big.Int, networks []Netwo
 }
 
 // convertToABIOrderData converts OrderData to ABIOrderData for ABI encoding
-func convertToABIOrderData(orderData OrderData, senderNonce *big.Int, networks []NetworkConfig) ABIOrderData {
+func convertToABIOrderData(orderData *OrderData, senderNonce *big.Int, networks []NetworkConfig) ABIOrderData {
 	var senderBytes [32]byte
 	var recipientBytes [32]byte
 	var inputTokenBytes [32]byte

@@ -251,7 +251,7 @@ func TestGetStarknetHyperlaneAddress(t *testing.T) {
 	}()
 
 	networkConfig := config.NetworkConfig{}
-	addr, err := getStarknetHyperlaneAddress(networkConfig)
+	addr, err := getStarknetHyperlaneAddress(&networkConfig)
 	assert.NoError(t, err)
 	assert.Equal(t, "0x1234567890abcdef", addr)
 }
@@ -262,7 +262,7 @@ func TestGetStarknetHyperlaneAddressMissing(t *testing.T) {
 	os.Unsetenv("STARKNET_HYPERLANE_ADDRESS")
 
 	networkConfig := config.NetworkConfig{}
-	addr, err := getStarknetHyperlaneAddress(networkConfig)
+	addr, err := getStarknetHyperlaneAddress(&networkConfig)
 	assert.Error(t, err)
 	assert.Equal(t, "", addr)
 	assert.Contains(t, err.Error(), "no STARKNET_HYPERLANE_ADDRESS set in .env")
@@ -273,8 +273,10 @@ func TestShutdown(t *testing.T) {
 
 	// Add some mock shutdown functions
 	shutdownCount := 0
-	sm.activeShutdowns = append(sm.activeShutdowns, func() { shutdownCount++ })
-	sm.activeShutdowns = append(sm.activeShutdowns, func() { shutdownCount++ })
+	sm.activeShutdowns = append(sm.activeShutdowns, 
+		func() { shutdownCount++ },
+		func() { shutdownCount++ },
+	)
 
 	sm.Shutdown()
 
