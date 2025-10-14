@@ -217,7 +217,7 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
 	}
 
-	executeStarknetOrder(order, networks)
+	executeStarknetOrder(&order, networks)
 }
 
 func openDefaultStarknetToEvm(networks []StarknetNetworkConfig) {
@@ -245,10 +245,10 @@ func openDefaultStarknetToEvm(networks []StarknetNetworkConfig) {
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
 	}
 
-	executeStarknetOrder(order, networks)
+	executeStarknetOrder(&order, networks)
 }
 
-func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkConfig) {
+func executeStarknetOrder(order *StarknetOrderConfig, networks []StarknetNetworkConfig) {
 	fmt.Printf("\n📋 Executing Order: %s → %s\n", order.OriginChain, order.DestinationChain)
 
 	// Find origin network (should be Starknet)
@@ -419,7 +419,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 		FillDeadline:      order.FillDeadline,
 		OrderDataTypeLow:  lowHash,
 		OrderDataTypeHigh: highHash,
-		OrderData:         encodeStarknetOrderData(orderData),
+		OrderData:         encodeStarknetOrderData(&orderData),
 	}
 
 	// Use generated bindings for open()
@@ -476,7 +476,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
+func buildStarknetOrderData(order *StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
 	// Get the actual user address for the specified user
 	var userAddr string
 	for _, user := range starknetTestUsers {
@@ -503,7 +503,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	evmAddr := common.HexToAddress(evmUserAddr)
 	paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 	recipientFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-	// fmt.Printf("   🔍 EVM recipient address for %s: %s (padded to 32 bytes: %s)\n", order.User, evmUserAddr, hex.EncodeToString(paddedAddr))
 
 	// Output token should be from the destination network, not origin
 	var outputTokenFelt *felt.Felt
@@ -519,7 +518,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 				evmAddr := common.HexToAddress(dogCoinAddr)
 				paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 				outputTokenFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-				// fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 			} else {
 				// Last resort - use origin network (this is wrong but prevents crash)
 				outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
@@ -555,7 +553,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 		evmAddr := common.HexToAddress(destSettlerHex)
 		paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 		destSettlerFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-		// fmt.Printf("   🔍 EVM destination settler address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 	}
 
 	return StarknetOrderData{
@@ -589,7 +586,7 @@ func getOrderDataTypeHashU256() (low, high *felt.Felt) {
 	return utils.BigIntToFelt(lowBI), utils.BigIntToFelt(highBI)
 }
 
-func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
+func encodeStarknetOrderData(orderData *StarknetOrderData) []*felt.Felt {
 	leftPad := func(src []byte, size int) []byte {
 		if len(src) >= size {
 			return src[len(src)-size:]
@@ -691,13 +688,6 @@ func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
 	)
 	bytesStruct = append(bytesStruct, words...)
 
-	//	// Log the first few words to see the structure
-	//	for i := 0; i < len(words) && i < 5; i++ {
-	//		fmt.Printf("     • word[%d]: %s\n", i, words[i].String())
-	//	}
-	//	if len(words) > 5 {
-	//		fmt.Printf("     • ... and %d more words\n", len(words)-5)
-	//	}
 
 	return bytesStruct
 }

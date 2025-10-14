@@ -191,7 +191,7 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 			}
 
 			// Handle the event
-			_, err = l.handleParsedOpenEvent(*event, handler)
+			_, err = l.handleParsedOpenEvent(event, handler)
 			if err != nil {
 				fmt.Printf("❌ Failed to handle Open event: %v\n", err)
 				continue
@@ -211,7 +211,7 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 }
 
 // handleParsedOpenEvent converts a typed binding event into our internal ParsedArgs and dispatches the handler
-func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, handler base.EventHandler) (bool, error) {
+func (l *evmListener) handleParsedOpenEvent(ev *contracts.Hyperlane7683Open, handler base.EventHandler) (bool, error) {
 	p := logutil.Prefix(l.config.ChainName)
 
 	// Parse to ResolvedCrossChainOrder

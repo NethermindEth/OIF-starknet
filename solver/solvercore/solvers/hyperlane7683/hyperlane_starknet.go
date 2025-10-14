@@ -97,7 +97,7 @@ func NewHyperlaneStarknet(rpcURL string, chainID uint64) *HyperlaneStarknet {
 }
 
 // Fill executes a fill operation on Starknet
-func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (h *HyperlaneStarknet) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -182,7 +182,7 @@ func (h *HyperlaneStarknet) Fill(ctx context.Context, args types.ParsedArgs) (Or
 }
 
 // Settle executes settlement on Starknet
-func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) error {
+func (h *HyperlaneStarknet) Settle(ctx context.Context, args *types.ParsedArgs) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -267,7 +267,7 @@ func (h *HyperlaneStarknet) Settle(ctx context.Context, args types.ParsedArgs) e
 }
 
 // GetOrderStatus returns the current status of an order
-func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
+func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args *types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
 		return orderStatusUnknown, fmt.Errorf("no fill instructions found")
 	}
@@ -301,7 +301,7 @@ func (h *HyperlaneStarknet) GetOrderStatus(ctx context.Context, args types.Parse
 }
 
 // getOriginDomain returns the hyperlane domain of the order's origin chain
-func (h *HyperlaneStarknet) getOriginDomain(args types.ParsedArgs) (uint32, error) {
+func (h *HyperlaneStarknet) getOriginDomain(args *types.ParsedArgs) (uint32, error) {
 	if args.ResolvedOrder.OriginChainID == nil {
 		return 0, fmt.Errorf("no origin chain ID in resolved order")
 	}
@@ -319,7 +319,7 @@ func (h *HyperlaneStarknet) getOriginDomain(args types.ParsedArgs) (uint32, erro
 }
 
 // setupApprovals ensures each MaxSpent token allowances are set
-func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.ParsedArgs, destinationSettler *felt.Felt) error {
+func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args *types.ParsedArgs, destinationSettler *felt.Felt) error {
 	if len(args.ResolvedOrder.MaxSpent) == 0 {
 		return nil
 	}
@@ -332,7 +332,6 @@ func (h *HyperlaneStarknet) setupApprovals(ctx context.Context, args types.Parse
 
 	// Get origin chain ID for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
-	// logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
@@ -376,7 +375,7 @@ func (h *HyperlaneStarknet) interpretStarknetStatus(status string) string {
 }
 
 // quoteGasPayment calls the Starknet contract's quote_gas_payment function
-func (f *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain uint32, hyperlaneAddress *felt.Felt) (*big.Int, error) {
+func (h *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain uint32, hyperlaneAddress *felt.Felt) (*big.Int, error) {
 	// Convert origin domain to felt
 	domainFelt := utils.BigIntToFelt(big.NewInt(int64(originDomain)))
 
@@ -387,7 +386,7 @@ func (f *HyperlaneStarknet) quoteGasPayment(ctx context.Context, originDomain ui
 		Calldata:           []*felt.Felt{domainFelt},
 	}
 
-	resp, err := f.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
+	resp, err := h.provider.Call(ctx, call, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return nil, fmt.Errorf("starknet quote_gas_payment call failed: %w", err)
 	}
@@ -528,7 +527,13 @@ func (h *HyperlaneStarknet) ensureTokenApproval(ctx context.Context, tokenHex st
 }
 
 // waitForOrderStatus waits for the order status to become the expected value with retry logic
-func (h *HyperlaneStarknet) waitForOrderStatus(ctx context.Context, args types.ParsedArgs, expectedStatus string, maxRetries int, initialDelay time.Duration) (string, error) {
+func (h *HyperlaneStarknet) waitForOrderStatus(
+	ctx context.Context,
+	args *types.ParsedArgs,
+	expectedStatus string,
+	maxRetries int,
+	initialDelay time.Duration,
+) (string, error) {
 	delay := initialDelay
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {

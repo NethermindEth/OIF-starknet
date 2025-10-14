@@ -22,7 +22,7 @@ func TestStarknetUtilComprehensive(t *testing.T) {
 		// Test Felt comparison
 		assert.True(t, felt1.Cmp(felt2) < 0)
 		assert.True(t, felt2.Cmp(felt1) > 0)
-		assert.Equal(t, 0, felt1.Cmp(felt1))
+		assert.Equal(t, 0, felt1.Cmp(new(felt.Felt).Set(felt1)))
 	})
 
 	t.Run("felt_string_operations", func(t *testing.T) {

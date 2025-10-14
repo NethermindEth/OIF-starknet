@@ -175,7 +175,7 @@ func TestLogOrderProcessing(t *testing.T) {
 		}
 
 		output := captureOutput(func() {
-			LogOrderProcessing(args, "Processing Order")
+			LogOrderProcessing(&args, "Processing Order")
 		})
 
 		assert.Contains(t, output, "→")
@@ -189,7 +189,7 @@ func TestLogOrderProcessing(t *testing.T) {
 		}
 
 		output := captureOutput(func() {
-			LogOrderProcessing(args, "Processing Order")
+			LogOrderProcessing(&args, "Processing Order")
 		})
 
 		assert.Contains(t, output, "🔄")
@@ -321,7 +321,7 @@ func TestLogOperationComplete(t *testing.T) {
 		}
 
 		output := captureOutput(func() {
-			LogOperationComplete(args, "Fill", true)
+			LogOperationComplete(&args, "Fill", true)
 		})
 
 		assert.Contains(t, output, "→")
@@ -341,7 +341,7 @@ func TestLogOperationComplete(t *testing.T) {
 		}
 
 		output := captureOutput(func() {
-			LogOperationComplete(args, "Fill", false)
+			LogOperationComplete(&args, "Fill", false)
 		})
 
 		assert.Contains(t, output, "→")
@@ -355,7 +355,7 @@ func TestLogOperationComplete(t *testing.T) {
 		}
 
 		output := captureOutput(func() {
-			LogOperationComplete(args, "Fill", true)
+			LogOperationComplete(&args, "Fill", true)
 		})
 
 		assert.Contains(t, output, "✅")
