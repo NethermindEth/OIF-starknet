@@ -1,12 +1,14 @@
 # Hyperlane7683 Solver - Go Implementation
 
-This (Golang) solver is an extension to BootNodeDev's Hyperlane7683 (Typescript) solver adding support for Starknet. This codebase should be used as a reference for protocols to implement or extend.
+This (Golang) solver is an extension to [BootNodeDev's Hyperlane7683 (Typescript)](https://github.com/BootNodeDev/intents-framework/tree/main) solver adding support for Starknet. This codebase should be used as a reference for protocols to implement or extend.
 
 ## Overview
 
 The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains, then fills the intents based on configurable rules.
 
 ## Order Lifecycle
+
+There are two actors in this example, __Alice__, who opens the orders and __Solver__, who fills them and settles them.
 
 1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
    - Alice calls `OriginChainHyperlane7683::open(...)`
@@ -34,13 +36,8 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
    cd oif-starknet/solver
    ```
 
-2. **Install Go dependencies:**
 
-   ```bash
-   go mod tidy
-   ```
-
-## Required Dependencies
+### Install Required Dependencies
 
 Verify versioning from inside the `solver/` directory.
 
@@ -95,11 +92,23 @@ make start-networks                   # Start local forked networks (EVMs + Star
 
 ```bash
 cd solver
-make rebuild                          # Rebuild the solver and ensure a clean starting state (do not do this to let the solver backfill from where it left off if stopped and restarted)
-make register-starknet-on-evm-local   # Register Starknet domain on EVM contracts
-make fund-accounts-local              # Fund accounts with test ERC-20 tokens
-make run-local                        # Start the solver
-# This runs continuously...
+# Rebuild the solver and ensure a clean starting state 
+# (do not do this to let the solver backfill from where it left off if stopped and restarted)
+make rebuild                          
+
+# Register Starknet domain on EVM contracts
+make register-starknet-on-evm-local   
+
+# Fund accounts with test ERC-20 tokens. It will fund `Alice` and `Solver` account on each network:
+# Arbitrum, Base, Ethereum, Optimism and Starknet
+make fund-accounts-local
+
+# Start the code defined in the solver pkg, to listen for opened order events and then fill and
+# settle them.
+make run-local                        
+
+# This terminal will run continuosly, and will poll the networks to detect for order events 
+# being opened in any of them
 ```
 
 **Terminal 3: Create test orders**
@@ -113,16 +122,22 @@ make open-random-sn-order-local       # Starknet → EVM order
 
 # First you'll see the order being created in the network logs. 
 # Shortly after this you'll see the solver detect the order and begin completing it.
+# You know an order is completed once you get a log on the second terminal which says
+# something like for the `make open-random-evm-order-local`:
+# `[ETH] → [ARB] ✅ Order processing completed (Order: 0x4b4053...)`
 ```
 
 ## Running the Solver Live
 
 For live Sepolia testing, ensure you have funded accounts with testnet ETH. For live runs, you'll need 2 terminals.
 
-**Terminal 1: Setup and run solver**
+> **Note**: If coming from the previous example, make sure to kill all the process running since they cannot be re-used. 
+
+**Terminal 1: Setup and run the solver**
 
 ```bash
 cd solver
+make rebuild                          # Make sure the state is clean, important if exeucted the previous example before
 make fund-accounts-live               # Fund your (deployer & alice) accounts with test ERC-20 tokens
 make run-live                         # Start the solver
 # This runs continuously...
@@ -143,16 +158,16 @@ make open-random-sn-order-live        # Starknet → EVM order
 ### Troubleshooting
 
 ```bash
-make kill-all        # kills all solver & network processes that might be running in the background
-
-make clean-solver    # cleans the solver's state so that the next time it starts it uses the starting block from the .env (instead of picking up where it left off)
+# cleans the solver's state so that the next time it starts it uses the starting block 
+# from the .env (instead of picking up where it left off)
+make clean-solver    
 
 make help            # for all other targets
 ```
 
 
 
-## Testing
+## Testing (for developers)
 
 ### Unit Tests (No RPC Required)
 
