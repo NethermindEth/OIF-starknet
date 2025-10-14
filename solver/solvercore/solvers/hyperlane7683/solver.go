@@ -259,8 +259,6 @@ func (f *Hyperlane7683Solver) getEVMHandler(chainID *big.Int) (ChainHandler, err
 
 	handler := NewHyperlaneEVM(client, signer, chainIDUint)
 	f.evmHandlers[chainIDUint] = handler
-	// networkName := logutil.NetworkNameByChainID(chainIDUint)
-	// logutil.LogWithNetworkTag(networkName, "   🔧 Created new EVM handler\n")
 	return handler, nil
 }
 

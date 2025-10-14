@@ -476,7 +476,7 @@ func executeStarknetOrder(order *StarknetOrderConfig, networks []StarknetNetwork
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildStarknetOrderData(order *StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
+func buildStarknetOrderData(order *StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
 	// Get the actual user address for the specified user
 	var userAddr string
 	for _, user := range starknetTestUsers {
@@ -688,12 +688,6 @@ func encodeStarknetOrderData(orderData *StarknetOrderData) []*felt.Felt {
 	)
 	bytesStruct = append(bytesStruct, words...)
 
-	//	for i := 0; i < len(words) && i < 5; i++ {
-	//		fmt.Printf("     • word[%d]: %s\n", i, words[i].String())
-	//	}
-	//	if len(words) > 5 {
-	//		fmt.Printf("     • ... and %d more words\n", len(words)-5)
-	//	}
 
 	return bytesStruct
 }
