@@ -49,7 +49,7 @@ var StarknetERC20ABI = map[string]string{
 }
 
 // ERC20Balance gets the ERC20 token balance for a given address on Starknet
-func ERC20Balance(provider rpc.RpcProvider, tokenAddress, ownerAddress string) (*big.Int, error) {
+func ERC20Balance(provider *rpc.Provider, tokenAddress, ownerAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -86,7 +86,7 @@ func ERC20Balance(provider rpc.RpcProvider, tokenAddress, ownerAddress string) (
 }
 
 // ERC20Allowance gets the ERC20 token allowance for a given owner and spender on Starknet
-func ERC20Allowance(provider rpc.RpcProvider, tokenAddress, ownerAddress, spenderAddress string) (*big.Int, error) {
+func ERC20Allowance(provider *rpc.Provider, tokenAddress, ownerAddress, spenderAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {

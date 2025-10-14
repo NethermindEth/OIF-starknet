@@ -144,7 +144,7 @@ func getStarknetRecipients() []StarknetRecipient {
 	var recipients []StarknetRecipient
 
 	// Alice and Solver
-	recipients = append(recipients, 
+	recipients = append(recipients,
 		StarknetRecipient{
 			Name:    "Alice",
 			Address: envutil.GetStarknetAliceAddress(),

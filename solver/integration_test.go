@@ -382,7 +382,7 @@ func waitForEVMTransaction(t *testing.T, client *ethclient.Client, txHash common
 }
 
 // waitForStarknetTransaction waits for a Starknet transaction to be confirmed with L2 status checking
-func waitForStarknetTransaction(t *testing.T, provider rpc.RpcProvider, txHash string, timeout time.Duration) error {
+func waitForStarknetTransaction(t *testing.T, provider *rpc.Provider, txHash string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 
@@ -394,13 +394,13 @@ func waitForStarknetTransaction(t *testing.T, provider rpc.RpcProvider, txHash s
 		return fmt.Errorf("failed to convert hash to felt: %w", err)
 	}
 
-	// Poll for transaction status using GetTransactionStatus
+	// Poll for transaction status using TransactionStatus
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for Starknet transaction: %w", ctx.Err())
 		default:
-			status, err := provider.GetTransactionStatus(ctx, hashFelt)
+			status, err := provider.TransactionStatus(ctx, hashFelt)
 			if err == nil && status != nil {
 				// Check if transaction is accepted on L2
 				if status.FinalityStatus == "ACCEPTED_ON_L2" {
@@ -583,11 +583,11 @@ func parseOrderCreationOutput(output string) (*OrderInfo, error) {
 
 	// Shared regex components to avoid repetition
 	const (
-		alphanumMatch = `[a-zA-Z0-9_]+`            // Alphanumeric with underscore pattern
-		numberMatch   = `\d+`                      // Number pattern
-		floatMatch    = `[\d.]+`                   // Float number pattern
+		alphanumMatch = `[a-zA-Z0-9_]+` // Alphanumeric with underscore pattern
+		numberMatch   = `\d+`           // Number pattern
+		floatMatch    = `[\d.]+`        // Float number pattern
 	)
-	
+
 	// Composed regex patterns
 	orderExecutionPattern := `Executing Order:\s*(\w+)\s*→\s*(\w+)`
 	orderIDOffPattern := `Order ID \(off\): (0x` + alphanumMatch + `)`

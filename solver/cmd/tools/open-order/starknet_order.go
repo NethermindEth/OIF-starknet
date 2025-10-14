@@ -145,7 +145,6 @@ func loadStarknetNetworks() []StarknetNetworkConfig {
 			log.Fatalf("missing STARKNET_HYPERLANE_ADDRESS or STARKNET_DOG_COIN_ADDRESS in .env")
 		}
 
-
 		networks = append(networks, StarknetNetworkConfig{
 			name:             networkConfig.Name,
 			url:              networkConfig.RPCURL,
@@ -202,8 +201,8 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 
 	// Random amounts
 	inputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount)+minTokenAmount), 18) // 100-10000 tokens
-	delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount)+minDeltaAmount), 18)           // 1-10 tokens
-	outputAmount := new(big.Int).Sub(inputAmount, delta)             // slightly less to ensure it's fillable
+	delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount)+minDeltaAmount), 18)       // 1-10 tokens
+	outputAmount := new(big.Int).Sub(inputAmount, delta)                                                       // slightly less to ensure it's fillable
 
 	order := StarknetOrderConfig{
 		OriginChain:      originChain,
@@ -682,12 +681,11 @@ func encodeStarknetOrderData(orderData *StarknetOrderData) []*felt.Felt {
 	}
 
 	bytesStruct := make([]*felt.Felt, 0, 2+len(words))
-	bytesStruct = append(bytesStruct, 
+	bytesStruct = append(bytesStruct,
 		utils.Uint64ToFelt(uint64(len(raw))),
 		utils.Uint64ToFelt(uint64(len(words))),
 	)
 	bytesStruct = append(bytesStruct, words...)
-
 
 	return bytesStruct
 }
@@ -727,4 +725,3 @@ func isStarknetNetwork(networkName string) bool {
 func getEnvWithDefault(key, defaultValue string) string {
 	return envutil.GetEnvWithDefault(key, defaultValue)
 }
-
