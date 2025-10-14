@@ -110,7 +110,7 @@ func main() {
 	}
 
 	// Get class hash from declaration file or environment variable
-	classHash, err := getClassHash(networkName)
+	classHash, err := getClassHash()
 	if err != nil {
 		panic(fmt.Sprintf("❌ Failed to get class hash: %s", err))
 	}
@@ -123,7 +123,7 @@ func main() {
 
 	// Deploy DogCoin (destination chain token)
 	fmt.Println("\n🪙 Deploying DogCoin...")
-	dogCoinAddress, err := deployMockERC20(accnt, classHashFelt, "DogCoin", "DOG", networkName)
+	dogCoinAddress, err := deployMockERC20(accnt, classHashFelt, "DogCoin", "DOG")
 	if err != nil {
 		panic(fmt.Sprintf("❌ Failed to deploy DogCoin: %s", err))
 	}
@@ -143,7 +143,7 @@ func main() {
 }
 
 // deployMockERC20 deploys a single mock ERC20 token
-func deployMockERC20(accnt *account.Account, classHashFelt *felt.Felt, tokenName, tokenSymbol, networkName string) (string, error) {
+func deployMockERC20(accnt *account.Account, classHashFelt *felt.Felt, tokenName, tokenSymbol string) (string, error) {
 	fmt.Printf("   📝 Deploying %s (%s)...\n", tokenName, tokenSymbol)
 
 	// MockERC20 constructor takes: name, symbol
@@ -197,7 +197,7 @@ func deployMockERC20(accnt *account.Account, classHashFelt *felt.Felt, tokenName
 }
 
 // getClassHash retrieves the class hash from declaration file or environment variable
-func getClassHash(networkName string) (string, error) {
+func getClassHash() (string, error) {
 	// First try to get from environment variable
 	if envClassHash := os.Getenv("MOCK_ERC20_CLASS_HASH"); envClassHash != "" {
 		fmt.Printf("📋 Using class hash from environment variable: %s\n", envClassHash)

@@ -181,7 +181,7 @@ make test-solver-live          # Full solver integration tests
 ## Architecture
 
 ```js
-go/
+solver/
 ├── cmd/                              # CLI entry points
 │   ├── open-order/                   # Create orders (EVM & Starknet)
 │   ├── setup-forks/                  # Setup local testnet forks

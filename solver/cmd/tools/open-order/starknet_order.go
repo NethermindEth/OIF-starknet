@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -25,20 +24,25 @@ import (
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 )
 
+const (
+	// Data offset for Cairo bytes
+	dataOffset = 384
+)
+
 // getAliceAddressForNetwork gets Alice's address for a specific network using IS_DEVNET logic
 func getAliceAddressForNetwork(networkName string) (string, error) {
 	if strings.Contains(strings.ToLower(networkName), "starknet") {
 		// Use conditional environment variable for Starknet
 		address := envutil.GetStarknetAliceAddress()
 		if address == "" {
-			return "", fmt.Errorf("Starknet Alice address not set")
+			return "", fmt.Errorf("starknet Alice address not set")
 		}
 		return address, nil
 	} else {
 		// Use conditional environment variable for EVM networks
 		address := envutil.GetAlicePublicKey()
 		if address == "" {
-			return "", fmt.Errorf("Alice public key not set")
+			return "", fmt.Errorf("alice public key not set")
 		}
 		return address, nil
 	}
@@ -141,7 +145,6 @@ func loadStarknetNetworks() []StarknetNetworkConfig {
 			log.Fatalf("missing STARKNET_HYPERLANE_ADDRESS or STARKNET_DOG_COIN_ADDRESS in .env")
 		}
 
-		// fmt.Printf("   🔍 Loaded %s DogCoin from env: %s\n", networkName, dogAddr)
 
 		networks = append(networks, StarknetNetworkConfig{
 			name:             networkConfig.Name,
@@ -198,8 +201,8 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 	}
 
 	// Random amounts
-	inputAmount := CreateTokenAmount(int64(rand.Intn(9901)+100), 18) // 100-10000 tokens
-	delta := CreateTokenAmount(int64(rand.Intn(10)+1), 18)           // 1-10 tokens
+	inputAmount := CreateTokenAmount(int64(secureRandomInt(maxTokenAmount-minTokenAmount)+minTokenAmount), 18) // 100-10000 tokens
+	delta := CreateTokenAmount(int64(secureRandomInt(maxDeltaAmount-minDeltaAmount)+minDeltaAmount), 18)           // 1-10 tokens
 	outputAmount := new(big.Int).Sub(inputAmount, delta)             // slightly less to ensure it's fillable
 
 	order := StarknetOrderConfig{
@@ -214,7 +217,7 @@ func openRandomStarknetOrder(networks []StarknetNetworkConfig) {
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
 	}
 
-	executeStarknetOrder(order, networks)
+	executeStarknetOrder(&order, networks)
 }
 
 func openDefaultStarknetToEvm(networks []StarknetNetworkConfig) {
@@ -242,10 +245,10 @@ func openDefaultStarknetToEvm(networks []StarknetNetworkConfig) {
 		FillDeadline:     uint64(time.Now().Add(24 * time.Hour).Unix()),
 	}
 
-	executeStarknetOrder(order, networks)
+	executeStarknetOrder(&order, networks)
 }
 
-func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkConfig) {
+func executeStarknetOrder(order *StarknetOrderConfig, networks []StarknetNetworkConfig) {
 	fmt.Printf("\n📋 Executing Order: %s → %s\n", order.OriginChain, order.DestinationChain)
 
 	// Find origin network (should be Starknet)
@@ -416,7 +419,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 		FillDeadline:      order.FillDeadline,
 		OrderDataTypeLow:  lowHash,
 		OrderDataTypeHigh: highHash,
-		OrderData:         encodeStarknetOrderData(orderData),
+		OrderData:         encodeStarknetOrderData(&orderData),
 	}
 
 	// Use generated bindings for open()
@@ -473,7 +476,7 @@ func executeStarknetOrder(order StarknetOrderConfig, networks []StarknetNetworkC
 	fmt.Printf("   Destination Chain: %s\n", order.DestinationChain)
 }
 
-func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain uint32, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
+func buildStarknetOrderData(order *StarknetOrderConfig, originNetwork *StarknetNetworkConfig, originDomain, destinationDomain uint32, senderNonce *big.Int, destChainName string) StarknetOrderData {
 	// Get the actual user address for the specified user
 	var userAddr string
 	for _, user := range starknetTestUsers {
@@ -500,7 +503,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	evmAddr := common.HexToAddress(evmUserAddr)
 	paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 	recipientFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-	// fmt.Printf("   🔍 EVM recipient address for %s: %s (padded to 32 bytes: %s)\n", order.User, evmUserAddr, hex.EncodeToString(paddedAddr))
 
 	// Output token should be from the destination network, not origin
 	var outputTokenFelt *felt.Felt
@@ -516,7 +518,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 				evmAddr := common.HexToAddress(dogCoinAddr)
 				paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 				outputTokenFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-				// fmt.Printf("   🔍 EVM output token address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 			} else {
 				// Last resort - use origin network (this is wrong but prevents crash)
 				outputTokenFelt, _ = utils.HexToFelt(originNetwork.dogCoinAddress)
@@ -552,7 +553,6 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 		evmAddr := common.HexToAddress(destSettlerHex)
 		paddedAddr := common.LeftPadBytes(evmAddr.Bytes(), 32)
 		destSettlerFelt, _ = utils.HexToFelt(hex.EncodeToString(paddedAddr))
-		// fmt.Printf("   🔍 EVM destination settler address padded to 32 bytes: %s\n", hex.EncodeToString(paddedAddr))
 	}
 
 	return StarknetOrderData{
@@ -572,7 +572,7 @@ func buildStarknetOrderData(order StarknetOrderConfig, originNetwork *StarknetNe
 	}
 }
 
-func getOrderDataTypeHashU256() (low *felt.Felt, high *felt.Felt) {
+func getOrderDataTypeHashU256() (low, high *felt.Felt) {
 	// Solidity ORDER_DATA_TYPE_HASH (32 bytes)
 	hashHex := getEnvWithDefault("ORDER_DATA_TYPE_HASH", "0x08d75650babf4de09c9273d48ef647876057ed91d4323f8a2e3ebc2cd8a63b5e")
 	bi, ok := new(big.Int).SetString(hashHex, 0)
@@ -586,7 +586,7 @@ func getOrderDataTypeHashU256() (low *felt.Felt, high *felt.Felt) {
 	return utils.BigIntToFelt(lowBI), utils.BigIntToFelt(highBI)
 }
 
-func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
+func encodeStarknetOrderData(orderData *StarknetOrderData) []*felt.Felt {
 	leftPad := func(src []byte, size int) []byte {
 		if len(src) >= size {
 			return src[len(src)-size:]
@@ -662,7 +662,7 @@ func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
 	fill32 := uint32(orderData.FillDeadline)
 	writeWord(&raw, u32Word(fill32))
 	// 7) data offset (32 * 12 = 384)
-	writeWord(&raw, u32Word(384))
+	writeWord(&raw, u32Word(dataOffset))
 
 	// Tail: data length (32 bytes) then data padded to 32
 	writeWord(&raw, make([]byte, 0)) // length = 0 -> becomes 32 zero bytes
@@ -682,17 +682,12 @@ func encodeStarknetOrderData(orderData StarknetOrderData) []*felt.Felt {
 	}
 
 	bytesStruct := make([]*felt.Felt, 0, 2+len(words))
-	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(raw))))
-	bytesStruct = append(bytesStruct, utils.Uint64ToFelt(uint64(len(words))))
+	bytesStruct = append(bytesStruct, 
+		utils.Uint64ToFelt(uint64(len(raw))),
+		utils.Uint64ToFelt(uint64(len(words))),
+	)
 	bytesStruct = append(bytesStruct, words...)
 
-	//	// Log the first few words to see the structure
-	//	for i := 0; i < len(words) && i < 5; i++ {
-	//		fmt.Printf("     • word[%d]: %s\n", i, words[i].String())
-	//	}
-	//	if len(words) > 5 {
-	//		fmt.Printf("     • ... and %d more words\n", len(words)-5)
-	//	}
 
 	return bytesStruct
 }
@@ -717,7 +712,7 @@ func getRandomDestinationChain(originChain string) string {
 	}
 
 	// Select random destination
-	destIdx := rand.Intn(len(evmDestinations))
+	destIdx := secureRandomInt(len(evmDestinations))
 	return evmDestinations[destIdx]
 }
 
@@ -732,3 +727,4 @@ func isStarknetNetwork(networkName string) bool {
 func getEnvWithDefault(key, defaultValue string) string {
 	return envutil.GetEnvWithDefault(key, defaultValue)
 }
+

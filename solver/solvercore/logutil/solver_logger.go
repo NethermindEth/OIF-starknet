@@ -56,7 +56,7 @@ func removeColorCodes(s string) string {
 }
 
 // LogOrderProcessing logs order processing with cross-chain context
-func LogOrderProcessing(args types.ParsedArgs, operation string) {
+func LogOrderProcessing(args *types.ParsedArgs, operation string) {
 	if args.ResolvedOrder.OriginChainID != nil && len(args.ResolvedOrder.FillInstructions) > 0 {
 		destChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID
 		if destChainID != nil {
@@ -120,7 +120,7 @@ func LogRetryWait(networkName string, attempt, maxAttempts int, delay string) {
 }
 
 // LogOperationComplete logs the completion of an operation with cross-chain context
-func LogOperationComplete(args types.ParsedArgs, operation string, success bool) {
+func LogOperationComplete(args *types.ParsedArgs, operation string, success bool) {
 	if args.ResolvedOrder.OriginChainID != nil && len(args.ResolvedOrder.FillInstructions) > 0 {
 		destChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID
 		if destChainID != nil {
@@ -151,8 +151,8 @@ func LogOperationComplete(args types.ParsedArgs, operation string, success bool)
 	}
 }
 
-// LogWithNetworkTag adds a network tag to any log message
-func LogWithNetworkTag(networkName, format string, args ...interface{}) {
+// LogWithNetworkTagf adds a network tag to any log message
+func LogWithNetworkTagf(networkName, format string, args ...interface{}) {
 	tag := Prefix(networkName)
 	fmt.Printf(tag+format, args...)
 }

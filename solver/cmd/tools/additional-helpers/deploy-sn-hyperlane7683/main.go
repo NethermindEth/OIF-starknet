@@ -18,6 +18,12 @@ import (
 	"github.com/NethermindEth/oif-starknet/solver/solvercore/config"
 )
 
+const (
+	// File permissions
+	deploymentDirPerms = 0700
+	deploymentFilePerms = 0600
+)
+
 // DeclarationInfo represents the structure of the declaration file
 type DeclarationInfo struct {
 	ClassHash       string `json:"classHash"`
@@ -161,7 +167,7 @@ func main() {
 	// Note: .env file updates removed - addresses should be set manually after live deployment
 
 	// Save deployment info
-	saveDeploymentInfo(classHash, deployedAddress.String(), txHash.String(), salt.String(), networkName)
+	saveDeploymentInfo(classHash, deployedAddress.String(), txHash.String(), salt.String())
 }
 
 // getClassHash retrieves the class hash from declaration file or environment variable
@@ -196,7 +202,7 @@ func getClassHash() (string, error) {
 }
 
 // saveDeploymentInfo saves deployment information to a file
-func saveDeploymentInfo(classHash, deployedAddress, txHash, salt, networkName string) {
+func saveDeploymentInfo(classHash, deployedAddress, txHash, salt string) {
 	deploymentInfo := map[string]string{
 		"classHash":       classHash,
 		"deployedAddress": deployedAddress,
@@ -213,13 +219,13 @@ func saveDeploymentInfo(classHash, deployedAddress, txHash, salt, networkName st
 
 	// Ensure deployment directory exists
 	deploymentDir := filepath.Clean(filepath.Join("state", "deployment"))
-	if err := os.MkdirAll(deploymentDir, 0700); err != nil {
+	if err := os.MkdirAll(deploymentDir, deploymentDirPerms); err != nil {
 		fmt.Printf("⚠️  Failed to create deployment directory: %s\n", err)
 		return
 	}
 
 	filename := filepath.Join(deploymentDir, "starknet-hyperlane7683-deployment.json")
-	if err := os.WriteFile(filename, data, 0600); err != nil {
+	if err := os.WriteFile(filename, data, deploymentFilePerms); err != nil {
 		fmt.Printf("⚠️  Failed to save deployment info: %s\n", err)
 		return
 	}

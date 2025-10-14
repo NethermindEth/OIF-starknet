@@ -75,7 +75,7 @@ func TestRulesEngine(t *testing.T) {
 			},
 		}
 
-		result := engine.EvaluateAll(context.Background(), args)
+		result := engine.EvaluateAll(context.Background(), &args)
 		// Should pass if no rules or all rules pass
 		assert.True(t, result.Passed)
 	})
@@ -115,7 +115,7 @@ func TestRulesEngine(t *testing.T) {
 			},
 		}
 
-		result := engine.EvaluateAll(context.Background(), args)
+		result := engine.EvaluateAll(context.Background(), &args)
 		assert.True(t, result.Passed)
 	})
 }
@@ -134,7 +134,7 @@ func TestBalanceRule(t *testing.T) {
 			},
 		}
 
-		result := rule.Evaluate(context.Background(), args)
+		result := rule.Evaluate(context.Background(), &args)
 		assert.True(t, result.Passed)
 		assert.Equal(t, "No tokens to spend", result.Reason)
 	})
@@ -164,7 +164,7 @@ func TestBalanceRule(t *testing.T) {
 
 		// This would normally check actual balances, but for unit tests
 		// we'll test the structure and basic logic
-		result := rule.Evaluate(context.Background(), args)
+		result := rule.Evaluate(context.Background(), &args)
 		// The actual result depends on the implementation
 		// For now, we just ensure it doesn't panic
 		assert.NotNil(t, result)
@@ -193,7 +193,7 @@ func TestProfitabilityRule(t *testing.T) {
 			},
 		}
 
-		result := rule.Evaluate(context.Background(), args)
+		result := rule.Evaluate(context.Background(), &args)
 		assert.False(t, result.Passed)
 		assert.Equal(t, "Missing MaxSpent or MinReceived data", result.Reason)
 	})
@@ -224,7 +224,7 @@ func TestProfitabilityRule(t *testing.T) {
 			},
 		}
 
-		result := rule.Evaluate(context.Background(), args)
+		result := rule.Evaluate(context.Background(), &args)
 		// The actual result depends on the implementation
 		// For now, we just ensure it doesn't panic
 		assert.NotNil(t, result)
@@ -263,7 +263,7 @@ func (m *MockRule) Name() string {
 	return m.name
 }
 
-func (m *MockRule) Evaluate(ctx context.Context, args types.ParsedArgs) RuleResult {
+func (m *MockRule) Evaluate(ctx context.Context, args *types.ParsedArgs) RuleResult {
 	if m.shouldPass {
 		return RuleResult{Passed: true, Reason: "Mock rule passed"}
 	}

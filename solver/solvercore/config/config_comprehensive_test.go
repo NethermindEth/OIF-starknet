@@ -147,10 +147,9 @@ SOLVER_NEWSOLVER_ENABLED=true`
 		// Change to temp directory
 		oldDir, err := os.Getwd()
 		require.NoError(t, err)
-		defer os.Chdir(oldDir)
+		defer t.Chdir(oldDir)
 
-		err = os.Chdir(tempDir)
-		require.NoError(t, err)
+		t.Chdir(tempDir)
 
 		// Load config
 		config, err := LoadConfig()

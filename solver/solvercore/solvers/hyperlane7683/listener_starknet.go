@@ -37,6 +37,7 @@ type starknetListener struct {
 	lastProcessedBlock uint64
 	stopChan           chan struct{}
 	mu                 sync.RWMutex
+	baseListener       *BaseListener
 }
 
 // NewStarknetListener creates a new Starknet listener
@@ -51,75 +52,23 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 		return nil, fmt.Errorf("invalid Starknet contract address: %w", err)
 	}
 
-	// Use the start block from config, but check if deployment state has a higher value
-	var lastProcessedBlock uint64
-	configStartBlock := listenerConfig.InitialBlock.Int64()
-
-	// Handle different start block scenarios
-	var resolvedStartBlock uint64
-	if configStartBlock >= 0 {
-		// Positive number or zero - use as-is
-		resolvedStartBlock = uint64(configStartBlock)
-		if configStartBlock == 0 {
-			// Zero means start at current block
-			ctx := context.Background()
-			currentBlock, err := provider.BlockNumber(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
-			}
-			resolvedStartBlock = currentBlock
-			fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
-				logutil.Prefix(listenerConfig.ChainName), resolvedStartBlock)
-		}
-	} else {
-		// Negative number - start N blocks before current block
-		ctx := context.Background()
-		currentBlock, err := provider.BlockNumber(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current block for negative start block: %w", err)
-		}
-
-		// Calculate start block: current - abs(configStartBlock)
-		resolvedStartBlock = currentBlock - uint64(-configStartBlock)
-
-		// Ensure we don't go below block 0
-		if resolvedStartBlock > currentBlock {
-			resolvedStartBlock = 0
-		}
-
-		fmt.Printf("%s📚 Start block was %d, using current block %d - %d = %d\n",
-			logutil.Prefix(listenerConfig.ChainName), configStartBlock, currentBlock, -configStartBlock, resolvedStartBlock)
-	}
-
-	state, err := config.GetSolverState()
+	ctx := context.Background()
+	commonConfig, err := ResolveCommonListenerConfig(ctx, listenerConfig, provider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get solver state: %w", err)
+		return nil, err
 	}
 
-	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
-		deploymentStateBlock := networkState.LastIndexedBlock
-
-		// Use the HIGHER of the two values - this respects updated .env values
-		// while also respecting any actual progress that's been saved
-		if deploymentStateBlock > resolvedStartBlock {
-			lastProcessedBlock = deploymentStateBlock
-			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, resolvedStartBlock)
-		} else {
-			lastProcessedBlock = resolvedStartBlock
-			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, deploymentStateBlock)
-		}
-	} else {
-		return nil, fmt.Errorf("network %s not found in solver state", listenerConfig.ChainName)
-	}
-
+	baseListener := NewBaseListener(*listenerConfig, provider, "Starknet")
+	baseListener.SetLastProcessedBlock(commonConfig.LastProcessedBlock)
+	
 	return &starknetListener{
 		config:             listenerConfig,
 		provider:           provider,
 		contractAddress:    addrFelt,
-		lastProcessedBlock: lastProcessedBlock,
+		lastProcessedBlock: commonConfig.LastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		mu:                 sync.RWMutex{},
+		baseListener:       baseListener,
 	}, nil
 }
 
@@ -162,46 +111,7 @@ func (l *starknetListener) startEventLoop(ctx context.Context, handler base.Even
 }
 
 func (l *starknetListener) catchUpHistoricalBlocks(ctx context.Context, handler base.EventHandler) error {
-	p := logutil.Prefix(l.config.ChainName)
-	fmt.Printf("%s🔄 Catching up on historical blocks...\n", p)
-
-	currentBlock, err := l.provider.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("%sfailed to get current block number: %v", p, err)
-	}
-	// Apply confirmations during backfill as well
-	safeBlock := currentBlock
-	if l.config.ConfirmationBlocks > 0 && currentBlock > l.config.ConfirmationBlocks {
-		safeBlock = currentBlock - l.config.ConfirmationBlocks
-	}
-
-	// Start from the last processed block + 1 (which should be the solver start block)
-	fromBlock := l.lastProcessedBlock + 1
-	toBlock := safeBlock
-	if fromBlock >= toBlock {
-		fmt.Printf("%s✅ Already up to date, no historical blocks to process\n", p)
-		return nil
-	}
-
-	chunkSize := l.config.MaxBlockRange
-	for start := fromBlock; start < toBlock; start += chunkSize {
-		end := start + chunkSize
-		if end > toBlock {
-			end = toBlock
-		}
-		newLast, err := l.processBlockRange(ctx, start, end, handler)
-		if err != nil {
-			return fmt.Errorf("%sfailed to process historical blocks %d-%d: %v", p, start, end, err)
-		}
-		l.lastProcessedBlock = newLast
-		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
-			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
-		} else {
-			// fmt.Printf("%s💾 Persisted LastIndexedBlock=%d\n", p, newLast)
-		}
-	}
-	fmt.Printf("%s✅ Historical block processing complete\n", p)
-	return nil
+	return l.baseListener.CatchUpHistoricalBlocks(ctx, handler, l.processBlockRange)
 }
 
 func (l *starknetListener) startPolling(ctx context.Context, handler base.EventHandler) {
@@ -224,13 +134,6 @@ func (l *starknetListener) startPolling(ctx context.Context, handler base.EventH
 }
 
 // getMapKeys returns the keys of a map as a slice
-func getMapKeys(m map[string]config.SolverNetworkState) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
 
 func (l *starknetListener) processCurrentBlockRange(ctx context.Context, handler base.EventHandler) error {
 	l.mu.Lock()
@@ -247,10 +150,18 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 	// Fetch events for the block range
 	filter := rpc.EventFilter{
-		FromBlock: rpc.BlockID{Number: &fromBlock},
-		ToBlock:   rpc.BlockID{Number: &toBlock},
-		Address:   l.contractAddress,
-		Keys:      [][]*felt.Felt{{openEventSelector}},
+		FromBlock: rpc.BlockID{
+			Number: &fromBlock,
+			Hash:   nil,
+			Tag:    "",
+		},
+		ToBlock: rpc.BlockID{
+			Number: &toBlock,
+			Hash:   nil,
+			Tag:    "",
+		},
+		Address: l.contractAddress,
+		Keys:    [][]*felt.Felt{{openEventSelector}},
 	}
 
 	query := rpc.EventsInput{
@@ -263,7 +174,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 		return l.lastProcessedBlock, fmt.Errorf("failed to filter events: %w", err)
 	}
 
-	logutil.LogWithNetworkTag(l.config.ChainName, "📩 events found: %d\n", len(logs.Events))
+	logutil.LogWithNetworkTagf(l.config.ChainName, "📩 events found: %d\n", len(logs.Events))
 	if len(logs.Events) > 0 {
 		fmt.Printf("📩 Found %d Open events on %s\n", len(logs.Events), l.config.ChainName)
 	}
@@ -295,11 +206,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 			}
 
 			// Parse Open event
-			ro, derr := decodeResolvedOrderFromFelts(event.Event.Data)
-			if derr != nil {
-				fmt.Printf("❌ Failed to decode ResolvedCrossChainOrder: %v\n", derr)
-				continue
-			}
+			ro := decodeResolvedOrderFromFelts(event.Event.Data)
 			parsedArgs := types.ParsedArgs{
 				OrderID:       common.BytesToHash(ro.OrderID[:]).Hex(),
 				SenderAddress: ro.User,
@@ -319,7 +226,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 		newLast = b
 		// Only log individual blocks if there are events
 		if len(events) > 0 {
-			logutil.LogWithNetworkTag(l.config.ChainName, "   ✅ Block %d processed: %d events\n", b, len(events))
+			logutil.LogWithNetworkTagf(l.config.ChainName, "   ✅ Block %d processed: %d events\n", b, len(events))
 		}
 	}
 
@@ -328,154 +235,191 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 // --- Decoders ---
 
-func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOrder, error) {
-	idx := 0
-	readFelt := func() *felt.Felt {
-		f := data[idx]
-		idx++
-		return f
+func decodeResolvedOrderFromFelts(data []*felt.Felt) types.ResolvedCrossChainOrder {
+	decoder := newFeltDecoder(data)
+	
+	ro := types.ResolvedCrossChainOrder{
+		User:             "",
+		OriginChainID:    nil,
+		OpenDeadline:     0,
+		FillDeadline:     0,
+		OrderID:          [32]byte{},
+		MaxSpent:         nil,
+		MinReceived:      nil,
+		FillInstructions: nil,
 	}
-	readU32 := func() uint32 {
-		bi := utils.FeltToBigInt(readFelt())
-		return uint32(bi.Uint64())
-	}
-	readU64 := func() uint64 {
-		bi := utils.FeltToBigInt(readFelt())
-		return bi.Uint64()
-	}
-	readU256 := func() *big.Int {
-		low := utils.FeltToBigInt(readFelt())
-		high := utils.FeltToBigInt(readFelt())
-		return new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
-	}
-	readAddress := func() string {
-		feltBytes := readFelt().Bytes()
-		// Convert to slice to handle consistently
-		b := feltBytes[:]
-		// Pad to 32 bytes if shorter (for consistent bytes32 format)
-		if len(b) < 32 {
-			padded := make([]byte, 32)
-			copy(padded[32-len(b):], b)
-			return "0x" + hex.EncodeToString(padded)
-		}
-		return "0x" + hex.EncodeToString(b)
-	}
+	ro.User = decoder.readAddress()
+	ro.OriginChainID = new(big.Int).SetUint64(uint64(decoder.readU32()))
+	ro.OpenDeadline = uint32(decoder.readU64())
+	ro.FillDeadline = uint32(decoder.readU64())
 
-	readOutput := func() types.Output {
-		out := types.Output{}
-		out.Token = readAddress()
-		out.Amount = readU256()
-		out.Recipient = readAddress()
-		chainDomain := readU32()
-		// Map domain to actual chain ID using config
-		if chainID, err := domainToChainID(chainDomain); err == nil {
-			out.ChainID = chainID
-		} else {
-			fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID for output, using domain as chain ID\n", chainDomain)
-			out.ChainID = new(big.Int).SetUint64(uint64(chainDomain))
-		}
-		return out
-	}
-	readOutputs := func() []types.Output {
-		length := utils.FeltToBigInt(readFelt()).Uint64()
-		outs := make([]types.Output, 0, length)
-		for i := uint64(0); i < length; i++ {
-			outs = append(outs, readOutput())
-		}
-		return outs
-	}
-	readFillInstruction := func() types.FillInstruction {
-		fi := types.FillInstruction{}
-		destinationDomain := readU32()
-		// Map destination domain to actual chain ID using config
-		if chainID, err := domainToChainID(destinationDomain); err == nil {
-			fi.DestinationChainID = chainID
-		} else {
-			fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID, using domain as chain ID\n", destinationDomain)
-			fi.DestinationChainID = new(big.Int).SetUint64(uint64(destinationDomain))
-		}
-		fi.DestinationSettler = readAddress()
-
-		// Parsing Cairo event data
-
-		// Parse the origin_data bytes (OrderData struct) from the event data
-
-		// Read size and u128 array length from the event data (absolute indices)
-		size := utils.FeltToBigInt(data[21]).Uint64()
-		u128ArrayLength := utils.FeltToBigInt(data[22]).Uint64()
-		_ = size
-		_ = u128ArrayLength
-
-		// Parse each bytes32 field from the u128 array
-		orderDataFields := make([][]byte, 0)
-		for i := uint64(0); i < u128ArrayLength && (23+int(i)+1) < len(data); i += 2 {
-			// Read two u128 felts and combine into bytes32
-			lowFelt := data[23+int(i)]
-			highFelt := data[23+int(i)+1]
-			lowBytes := lowFelt.Bytes()
-			highBytes := highFelt.Bytes()
-			lowU128 := lowBytes[16:]
-			highU128 := highBytes[16:]
-			bytes32 := make([]byte, 32)
-			copy(bytes32[0:16], lowU128)
-			copy(bytes32[16:32], highU128)
-			orderDataFields = append(orderDataFields, bytes32)
-		}
-
-		// Build EVM origin_data bytes (ABI-compatible, 448 bytes total)
-		evmOriginData := make([]byte, 0, evmOriginDataSize)
-		firstWord := make([]byte, 32)
-		firstWord[31] = 0x20
-		evmOriginData = append(evmOriginData, firstWord...)
-		evmOriginData = append(evmOriginData, orderDataFields[1]...)  // sender
-		evmOriginData = append(evmOriginData, orderDataFields[2]...)  // recipient
-		evmOriginData = append(evmOriginData, orderDataFields[3]...)  // input_token
-		evmOriginData = append(evmOriginData, orderDataFields[4]...)  // output_token
-		evmOriginData = append(evmOriginData, orderDataFields[5]...)  // amount_in
-		evmOriginData = append(evmOriginData, orderDataFields[6]...)  // amount_out
-		evmOriginData = append(evmOriginData, orderDataFields[7]...)  // sender_nonce
-		evmOriginData = append(evmOriginData, orderDataFields[8]...)  // origin_domain
-		evmOriginData = append(evmOriginData, orderDataFields[9]...)  // destination_domain
-		evmOriginData = append(evmOriginData, orderDataFields[10]...) // destination_settler
-		evmOriginData = append(evmOriginData, orderDataFields[11]...) // fill_deadline
-		dataOffset := make([]byte, 32)
-		dataOffset[31] = 0x80
-		dataOffset[30] = 0x01
-		evmOriginData = append(evmOriginData, dataOffset...)
-		dataSize := make([]byte, 32)
-		dataSize[31] = 0x00
-		evmOriginData = append(evmOriginData, dataSize...)
-		if len(evmOriginData) != evmOriginDataSize {
-			fmt.Printf("   ⚠️  origin_data unexpected length: %d\n", len(evmOriginData))
-		}
-		fi.OriginData = evmOriginData
-		return fi
-	}
-	readFillInstructions := func() []types.FillInstruction {
-		length := utils.FeltToBigInt(readFelt()).Uint64()
-		arr := make([]types.FillInstruction, 0, length)
-		for i := uint64(0); i < length; i++ {
-			arr = append(arr, readFillInstruction())
-		}
-		return arr
-	}
-
-	ro := types.ResolvedCrossChainOrder{}
-	ro.User = readAddress()
-	ro.OriginChainID = new(big.Int).SetUint64(uint64(readU32()))
-	ro.OpenDeadline = uint32(readU64())
-	ro.FillDeadline = uint32(readU64())
-
-	orderID := readU256()
+	orderID := decoder.readU256()
 	var orderArr [32]byte
 	orderBytes := orderID.Bytes()
 	copy(orderArr[32-len(orderBytes):], orderBytes)
 
 	ro.OrderID = orderArr
-	ro.MaxSpent = readOutputs()
-	ro.MinReceived = readOutputs()
-	ro.FillInstructions = readFillInstructions()
-	return ro, nil
+	ro.MaxSpent = decoder.readOutputs()
+	ro.MinReceived = decoder.readOutputs()
+	ro.FillInstructions = decoder.readFillInstructions()
+	return ro
+}
+
+// feltDecoder handles decoding of felt data
+type feltDecoder struct {
+	data []*felt.Felt
+	idx  int
+}
+
+func newFeltDecoder(data []*felt.Felt) *feltDecoder {
+	return &feltDecoder{data: data, idx: 0}
+}
+
+func (d *feltDecoder) readFelt() *felt.Felt {
+	f := d.data[d.idx]
+	d.idx++
+	return f
+}
+
+func (d *feltDecoder) readU32() uint32 {
+	bi := utils.FeltToBigInt(d.readFelt())
+	return uint32(bi.Uint64())
+}
+
+func (d *feltDecoder) readU64() uint64 {
+	bi := utils.FeltToBigInt(d.readFelt())
+	return bi.Uint64()
+}
+
+func (d *feltDecoder) readU256() *big.Int {
+	low := utils.FeltToBigInt(d.readFelt())
+	high := utils.FeltToBigInt(d.readFelt())
+	return new(big.Int).Add(low, new(big.Int).Lsh(high, 128))
+}
+
+func (d *feltDecoder) readAddress() string {
+	feltBytes := d.readFelt().Bytes()
+	// Convert to slice to handle consistently
+	b := feltBytes[:]
+	// Pad to 32 bytes if shorter (for consistent bytes32 format)
+	if len(b) < 32 {
+		padded := make([]byte, 32)
+		copy(padded[32-len(b):], b)
+		return "0x" + hex.EncodeToString(padded)
+	}
+	return "0x" + hex.EncodeToString(b)
+}
+
+func (d *feltDecoder) readOutput() types.Output {
+	out := types.Output{
+		Token:    "",
+		Amount:   nil,
+		Recipient: "",
+		ChainID:  nil,
+	}
+	out.Token = d.readAddress()
+	out.Amount = d.readU256()
+	out.Recipient = d.readAddress()
+	chainDomain := d.readU32()
+	// Map domain to actual chain ID using config
+	if chainID, err := domainToChainID(chainDomain); err == nil {
+		out.ChainID = chainID
+	} else {
+		fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID for output, using domain as chain ID\n", chainDomain)
+		out.ChainID = new(big.Int).SetUint64(uint64(chainDomain))
+	}
+	return out
+}
+
+func (d *feltDecoder) readOutputs() []types.Output {
+	length := utils.FeltToBigInt(d.readFelt()).Uint64()
+	outs := make([]types.Output, 0, length)
+	for i := uint64(0); i < length; i++ {
+		outs = append(outs, d.readOutput())
+	}
+	return outs
+}
+
+func (d *feltDecoder) readFillInstruction() types.FillInstruction {
+	fi := types.FillInstruction{
+		DestinationChainID:  nil,
+		DestinationSettler:  "",
+		OriginData:          nil,
+	}
+	destinationDomain := d.readU32()
+	// Map destination domain to actual chain ID using config
+	if chainID, err := domainToChainID(destinationDomain); err == nil {
+		fi.DestinationChainID = chainID
+	} else {
+		fmt.Printf("   ⚠️  Warning: Could not map domain %d to chain ID, using domain as chain ID\n", destinationDomain)
+		fi.DestinationChainID = new(big.Int).SetUint64(uint64(destinationDomain))
+	}
+	fi.DestinationSettler = d.readAddress()
+
+	// Parse the origin_data bytes (OrderData struct) from the event data
+	fi.OriginData = d.parseOriginData()
+	return fi
+}
+
+func (d *feltDecoder) parseOriginData() []byte {
+	// Read size and u128 array length from the event data (absolute indices)
+	size := utils.FeltToBigInt(d.data[21]).Uint64()
+	u128ArrayLength := utils.FeltToBigInt(d.data[22]).Uint64()
+	_ = size
+	_ = u128ArrayLength
+
+	// Parse each bytes32 field from the u128 array
+	orderDataFields := make([][]byte, 0)
+	for i := uint64(0); i < u128ArrayLength && (23+int(i)+1) < len(d.data); i += 2 {
+		// Read two u128 felts and combine into bytes32
+		lowFelt := d.data[23+int(i)]
+		highFelt := d.data[23+int(i)+1]
+		lowBytes := lowFelt.Bytes()
+		highBytes := highFelt.Bytes()
+		lowU128 := lowBytes[16:]
+		highU128 := highBytes[16:]
+		bytes32 := make([]byte, 32)
+		copy(bytes32[0:16], lowU128)
+		copy(bytes32[16:32], highU128)
+		orderDataFields = append(orderDataFields, bytes32)
+	}
+
+	// Build EVM origin_data bytes (ABI-compatible, 448 bytes total)
+	evmOriginData := make([]byte, 0, evmOriginDataSize)
+	firstWord := make([]byte, 32)
+	firstWord[31] = 0x20
+	evmOriginData = append(evmOriginData, firstWord...)
+	evmOriginData = append(evmOriginData, orderDataFields[1]...)  // sender
+	evmOriginData = append(evmOriginData, orderDataFields[2]...)  // recipient
+	evmOriginData = append(evmOriginData, orderDataFields[3]...)  // input_token
+	evmOriginData = append(evmOriginData, orderDataFields[4]...)  // output_token
+	evmOriginData = append(evmOriginData, orderDataFields[5]...)  // amount_in
+	evmOriginData = append(evmOriginData, orderDataFields[6]...)  // amount_out
+	evmOriginData = append(evmOriginData, orderDataFields[7]...)  // sender_nonce
+	evmOriginData = append(evmOriginData, orderDataFields[8]...)  // origin_domain
+	evmOriginData = append(evmOriginData, orderDataFields[9]...)  // destination_domain
+	evmOriginData = append(evmOriginData, orderDataFields[10]...) // destination_settler
+	evmOriginData = append(evmOriginData, orderDataFields[11]...) // fill_deadline
+	dataOffset := make([]byte, 32)
+	dataOffset[31] = 0x80
+	dataOffset[30] = 0x01
+	evmOriginData = append(evmOriginData, dataOffset...)
+	dataSize := make([]byte, 32)
+	dataSize[31] = 0x00
+	evmOriginData = append(evmOriginData, dataSize...)
+	if len(evmOriginData) != evmOriginDataSize {
+		fmt.Printf("   ⚠️  origin_data unexpected length: %d\n", len(evmOriginData))
+	}
+	return evmOriginData
+}
+
+func (d *feltDecoder) readFillInstructions() []types.FillInstruction {
+	length := utils.FeltToBigInt(d.readFelt()).Uint64()
+	arr := make([]types.FillInstruction, 0, length)
+	for i := uint64(0); i < length; i++ {
+		arr = append(arr, d.readFillInstruction())
+	}
+	return arr
 }
 
 // domainToChainID maps a Hyperlane domain ID to its corresponding chain ID

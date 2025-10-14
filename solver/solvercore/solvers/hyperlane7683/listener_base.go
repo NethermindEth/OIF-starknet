@@ -26,9 +26,10 @@ type BaseListener struct {
 // NewBaseListener creates a new base listener with common functionality
 func NewBaseListener(config base.ListenerConfig, blockProvider BlockNumberProvider, networkType string) *BaseListener {
 	return &BaseListener{
-		config:        config,
-		blockProvider: blockProvider,
-		networkType:   networkType,
+		config:             config,
+		lastProcessedBlock: 0,
+		blockProvider:      blockProvider,
+		networkType:        networkType,
 	}
 }
 
@@ -67,7 +68,15 @@ func ResolveSolverStartBlock(ctx context.Context, solverStartBlock int64, blockP
 
 // ProcessCurrentBlockRangeCommon processes the current block range using the common algorithm
 // This eliminates duplication between EVM and Starknet listeners
-func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandler, blockProvider BlockNumberProvider, listenerConfig *base.ListenerConfig, lastProcessedBlock *uint64, networkType string, processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error)) error {
+func ProcessCurrentBlockRangeCommon(
+	ctx context.Context,
+	handler base.EventHandler,
+	blockProvider BlockNumberProvider,
+	listenerConfig *base.ListenerConfig,
+	lastProcessedBlock *uint64,
+	networkType string,
+	processBlockRange func(context.Context, uint64, uint64, base.EventHandler) (uint64, error),
+) error {
 	currentBlock, err := blockProvider.BlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get current block number: %v", err)
@@ -98,7 +107,7 @@ func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandl
 			end = toBlock
 		}
 
-		logutil.LogWithNetworkTag(listenerConfig.ChainName, "🧭 %s range: from=%d to=%d (current=%d, conf=%d)\n",
+		logutil.LogWithNetworkTagf(listenerConfig.ChainName, "🧭 %s range: from=%d to=%d (current=%d, conf=%d)\n",
 			networkType, start, end, currentBlock, listenerConfig.ConfirmationBlocks)
 
 		chunkLast, err := processBlockRange(ctx, start, end, handler)
@@ -109,8 +118,6 @@ func ProcessCurrentBlockRangeCommon(ctx context.Context, handler base.EventHandl
 		newLast = chunkLast
 		if err := config.UpdateLastIndexedBlock(listenerConfig.ChainName, newLast); err != nil {
 			fmt.Printf("⚠️  Failed to persist LastIndexedBlock for %s: %v\n", listenerConfig.ChainName, err)
-		} else {
-			// fmt.Printf("💾 Persisted LastIndexedBlock=%d for %s\n", newLast, listenerConfig.ChainName)
 		}
 	}
 

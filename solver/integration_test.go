@@ -245,7 +245,7 @@ func TestOrderCreationCommandsIntegration(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -285,12 +285,12 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 
 	// Step 2: Execute order creation command
 	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, command...)
+	cmd := exec.CommandContext(context.Background(), solverPath, command...)
 	cmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()
 	outputStr := string(output)
 
 	// Log the command output
@@ -488,10 +488,7 @@ func getAliceDogCoinBalance(networkName string) (*big.Int, error) {
 	}
 
 	// Get Alice's address
-	aliceAddress, err := getAliceAddress(networkName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Alice address: %w", err)
-	}
+	aliceAddress := getAliceAddress(networkName)
 
 	// Get DogCoin token address
 	tokenAddress, err := getDogCoinAddress(networkName)
@@ -562,11 +559,11 @@ func getHyperlaneDogCoinBalance(networkName string) (*big.Int, error) {
 }
 
 // getAliceAddress gets Alice's address for a specific network
-func getAliceAddress(networkName string) (string, error) {
+func getAliceAddress(networkName string) string {
 	if networkName == "Starknet" {
-		return envutil.GetStarknetAliceAddress(), nil
+		return envutil.GetStarknetAliceAddress()
 	} else {
-		return envutil.GetAlicePublicKey(), nil
+		return envutil.GetAlicePublicKey()
 	}
 }
 
@@ -782,7 +779,7 @@ func TestOrderCreationOnly(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -828,7 +825,7 @@ func TestSolverIntegration(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -862,10 +859,8 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	t.Logf("🔍 Debug: IS_DEVNET=%t, checking balances for:", isDevnet)
 	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
-		aliceAddr, err := getAliceAddress(networkName)
-		if err != nil {
-			t.Logf("   %s Alice: ERROR - %v", networkName, err)
-		} else {
+		aliceAddr := getAliceAddress(networkName)
+		if aliceAddr != "" {
 			t.Logf("   %s Alice: %s", networkName, aliceAddr)
 		}
 	}
@@ -883,12 +878,12 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 2: Execute order creation command
 	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, orderCommand...)
+	cmd := exec.CommandContext(context.Background(), solverPath, orderCommand...)
 	cmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
-	output, err := cmd.CombinedOutput()
+	output, _ := cmd.CombinedOutput()
 	outputStr := string(output)
 
 	// Log the command output
@@ -959,18 +954,18 @@ func cleanSolverStateOnce(t *testing.T) {
 
 	// Set all solver start blocks to -1 (one block before current) for integration tests
 	// This prevents the solver from processing historical orders while still detecting new orders
-	os.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
 	// Also set LOCAL_ versions for forking mode
-	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
 
 	t.Log("✅ Solver state cleaned once and start blocks set to -1 (one block before current)")
 }
@@ -996,18 +991,18 @@ func cleanSolverState(t *testing.T) {
 
 	// Set all solver start blocks to -1 (one block before current) for integration tests
 	// This prevents the solver from processing historical orders while still detecting new orders
-	os.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
 	// Also set LOCAL_ versions for forking mode
-	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
 
 	t.Log("✅ Solver state cleaned and start blocks set to -1 (one block before current)")
 }
@@ -1018,7 +1013,7 @@ type SolverBalances struct {
 }
 
 // getSolverBalances gets the solver's DogCoin balance for all networks
-func getSolverBalances() (*SolverBalances, error) {
+func getSolverBalances() *SolverBalances {
 	balances := &SolverBalances{
 		Balances: make(map[string]*big.Int),
 	}
@@ -1036,7 +1031,7 @@ func getSolverBalances() (*SolverBalances, error) {
 		balances.Balances[networkName] = solverBalance
 	}
 
-	return balances, nil
+	return balances
 }
 
 // getSolverDogCoinBalance gets the solver's DogCoin balance for a specific network
@@ -1192,10 +1187,8 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	isDevnet := os.Getenv("IS_DEVNET") == "true"
 	t.Logf("🔍 Debug: IS_DEVNET=%t, checking balances for:", isDevnet)
 	for _, networkName := range []string{"Ethereum", "Optimism", "Arbitrum", "Base", "Starknet"} {
-		aliceAddr, err := getAliceAddress(networkName)
-		if err != nil {
-			t.Logf("   %s Alice: ERROR - %v", networkName, err)
-		} else {
+		aliceAddr := getAliceAddress(networkName)
+		if aliceAddr != "" {
 			t.Logf("   %s Alice: %s", networkName, aliceAddr)
 		}
 	}
@@ -1213,8 +1206,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 
 	// Step 1.5: Get solver balances BEFORE any orders are created
 	t.Log("📊 Step 1.5: Getting solver balances BEFORE any orders are created...")
-	beforeSolverBalances, err := getSolverBalances()
-	require.NoError(t, err)
+	beforeSolverBalances := getSolverBalances()
 
 	// Log solver balances
 	t.Log("📋 Before order creation solver balances:")
@@ -1225,7 +1217,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	// Step 2: Start solver as background process BEFORE opening any orders
 	t.Log("🤖 Step 2: Starting solver as background process...")
 
-	solverCmd := exec.Command(solverPath, "solver")
+	solverCmd := exec.CommandContext(context.Background(), solverPath, "solver")
 	solverCmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	solverCmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -1235,7 +1227,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	solverCmd.Stderr = &bytes.Buffer{}
 
 	// Start solver process in background
-	err = solverCmd.Start()
+	err := solverCmd.Start()
 	if err != nil {
 		t.Fatalf("Failed to start solver: %v", err)
 	}
@@ -1244,19 +1236,19 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	shutdownTimer := time.AfterFunc(5*time.Minute, func() {
 		if solverCmd.Process != nil {
 			t.Log("⏰ Sending graceful shutdown signal to solver...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 		}
 	})
 	defer func() {
 		shutdownTimer.Stop()
 		if solverCmd.Process != nil {
 			t.Log("🧹 Cleaning up solver process...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	}()
@@ -1272,15 +1264,15 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	}
 
 	// Execute all order creation commands
-	var orderInfos []*OrderInfo
+	orderInfos := make([]*OrderInfo, 0, len(orderCommands))
 	for i, orderCommand := range orderCommands {
 		t.Logf("📝 Creating order %d: %s", i+1, strings.Join(orderCommand, " "))
 
-		cmd := exec.Command(solverPath, orderCommand...)
+		cmd := exec.CommandContext(context.Background(), solverPath, orderCommand...)
 		cmd.Dir = "."
 		cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
-		output, err := cmd.CombinedOutput()
+		output, _ := cmd.CombinedOutput()
 		outputStr := string(output)
 
 		// Log the command output
@@ -1327,7 +1319,6 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 			}
 		} else {
 			t.Errorf("❌ Order %d has no transaction hash, cannot wait for confirmation", i+1)
-
 		}
 
 		orderInfos = append(orderInfos, orderInfo)
@@ -1359,12 +1350,12 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		// Terminate solver immediately since all orders are processed
 		if solverCmd.Process != nil {
 			t.Log("🛑 Terminating solver process since all orders are processed...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	} else {
@@ -1372,9 +1363,9 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	}
 
 	// Collect solver output for logging
-	//stdout := solverCmd.Stdout.(*bytes.Buffer).String()
-	//stderr := solverCmd.Stderr.(*bytes.Buffer).String()
-	//solverOutputStr := stdout + stderr
+	// stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	// stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	// solverOutputStr := stdout + stderr
 	//	// Log solver output
 	//	t.Logf("📝 Solver output:\n%s", solverOutputStr)
 
@@ -1384,8 +1375,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	t.Log("📊 Step 6: Getting final balances AFTER all orders are processed...")
 	finalAliceBalances := getAllNetworkBalances()
 
-	finalSolverBalances, err := getSolverBalances()
-	require.NoError(t, err)
+	finalSolverBalances := getSolverBalances()
 
 	// Log final balances
 	t.Log("📋 Final Alice balances:")
@@ -1597,7 +1587,7 @@ func waitForAllOrdersProcessed(t *testing.T, solverCmd *exec.Cmd, orderInfos []*
 			output := stdout + stderr
 
 			// Debug: Log the current output length and any completion patterns found
-			if len(output) > 0 {
+			if output != "" {
 				completionCount := strings.Count(output, OrderProcessingPattern)
 				if completionCount > 0 {
 					t.Logf("🔍 Found %d completion patterns in solver output", completionCount)
