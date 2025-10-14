@@ -77,7 +77,7 @@ The solver is configured via environment variables. First, copy `example.env` to
 cp example.env .env
 ```
 
-### Running the Solver Locally
+## Running the Solver Locally
 
 For local runs, you'll need 3 terminals. All commands should be run from the `solver/` directory.
 
@@ -137,6 +137,18 @@ make open-random-sn-order-live        # Starknet → EVM order
 
 # You'll see the solver detect the order and begin completing it shortly after creation.
 ```
+
+### Troubleshooting
+
+```bash
+make kill-all        # kills all solver & network processes that might be running in the background
+
+make clean-solver    # cleans the solver's state so that the next time it starts it uses the starting block from the .env (instead of picking up where it left off)
+
+make help            # for all other targets
+```
+
+
 
 ## Testing
 
