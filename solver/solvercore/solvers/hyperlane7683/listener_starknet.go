@@ -37,6 +37,7 @@ type starknetListener struct {
 	lastProcessedBlock uint64
 	stopChan           chan struct{}
 	mu                 sync.RWMutex
+	baseListener       *BaseListener
 }
 
 // NewStarknetListener creates a new Starknet listener
@@ -51,75 +52,23 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 		return nil, fmt.Errorf("invalid Starknet contract address: %w", err)
 	}
 
-	// Use the start block from config, but check if deployment state has a higher value
-	var lastProcessedBlock uint64
-	configStartBlock := listenerConfig.InitialBlock.Int64()
-
-	// Handle different start block scenarios
-	var resolvedStartBlock uint64
-	if configStartBlock >= 0 {
-		// Positive number or zero - use as-is
-		resolvedStartBlock = uint64(configStartBlock)
-		if configStartBlock == 0 {
-			// Zero means start at current block
-			ctx := context.Background()
-			currentBlock, err := provider.BlockNumber(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get current block for start block 0: %w", err)
-			}
-			resolvedStartBlock = currentBlock
-			fmt.Printf("%s📚 Start block was 0, using current block: %d\n",
-				logutil.Prefix(listenerConfig.ChainName), resolvedStartBlock)
-		}
-	} else {
-		// Negative number - start N blocks before current block
-		ctx := context.Background()
-		currentBlock, err := provider.BlockNumber(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current block for negative start block: %w", err)
-		}
-
-		// Calculate start block: current - abs(configStartBlock)
-		resolvedStartBlock = currentBlock - uint64(-configStartBlock)
-
-		// Ensure we don't go below block 0
-		if resolvedStartBlock > currentBlock {
-			resolvedStartBlock = 0
-		}
-
-		fmt.Printf("%s📚 Start block was %d, using current block %d - %d = %d\n",
-			logutil.Prefix(listenerConfig.ChainName), configStartBlock, currentBlock, -configStartBlock, resolvedStartBlock)
-	}
-
-	state, err := config.GetSolverState()
+	ctx := context.Background()
+	commonConfig, err := ResolveCommonListenerConfig(ctx, listenerConfig, provider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get solver state: %w", err)
+		return nil, err
 	}
 
-	if networkState, exists := state.Networks[listenerConfig.ChainName]; exists {
-		deploymentStateBlock := networkState.LastIndexedBlock
-
-		// Use the HIGHER of the two values - this respects updated .env values
-		// while also respecting any actual progress that's been saved
-		if deploymentStateBlock > resolvedStartBlock {
-			lastProcessedBlock = deploymentStateBlock
-			fmt.Printf("%s📚 Using saved progress LastIndexedBlock: %d (config wants %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, resolvedStartBlock)
-		} else {
-			lastProcessedBlock = resolvedStartBlock
-			fmt.Printf("%s📚 Using config SolverStartBlock: %d (saved state was %d)\n",
-				logutil.Prefix(listenerConfig.ChainName), lastProcessedBlock, deploymentStateBlock)
-		}
-	} else {
-		return nil, fmt.Errorf("network %s not found in solver state", listenerConfig.ChainName)
-	}
-
+	baseListener := NewBaseListener(*listenerConfig, provider, "Starknet")
+	baseListener.SetLastProcessedBlock(commonConfig.LastProcessedBlock)
+	
 	return &starknetListener{
 		config:             listenerConfig,
 		provider:           provider,
 		contractAddress:    addrFelt,
-		lastProcessedBlock: lastProcessedBlock,
+		lastProcessedBlock: commonConfig.LastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		mu:                 sync.RWMutex{},
+		baseListener:       baseListener,
 	}, nil
 }
 
@@ -162,44 +111,7 @@ func (l *starknetListener) startEventLoop(ctx context.Context, handler base.Even
 }
 
 func (l *starknetListener) catchUpHistoricalBlocks(ctx context.Context, handler base.EventHandler) error {
-	p := logutil.Prefix(l.config.ChainName)
-	fmt.Printf("%s🔄 Catching up on historical blocks...\n", p)
-
-	currentBlock, err := l.provider.BlockNumber(ctx)
-	if err != nil {
-		return fmt.Errorf("%sfailed to get current block number: %v", p, err)
-	}
-	// Apply confirmations during backfill as well
-	safeBlock := currentBlock
-	if l.config.ConfirmationBlocks > 0 && currentBlock > l.config.ConfirmationBlocks {
-		safeBlock = currentBlock - l.config.ConfirmationBlocks
-	}
-
-	// Start from the last processed block + 1 (which should be the solver start block)
-	fromBlock := l.lastProcessedBlock + 1
-	toBlock := safeBlock
-	if fromBlock >= toBlock {
-		fmt.Printf("%s✅ Already up to date, no historical blocks to process\n", p)
-		return nil
-	}
-
-	chunkSize := l.config.MaxBlockRange
-	for start := fromBlock; start < toBlock; start += chunkSize {
-		end := start + chunkSize
-		if end > toBlock {
-			end = toBlock
-		}
-		newLast, err := l.processBlockRange(ctx, start, end, handler)
-		if err != nil {
-			return fmt.Errorf("%sfailed to process historical blocks %d-%d: %v", p, start, end, err)
-		}
-		l.lastProcessedBlock = newLast
-		if err := config.UpdateLastIndexedBlock(l.config.ChainName, newLast); err != nil {
-			fmt.Printf("%s⚠️  Failed to persist LastIndexedBlock: %v\n", p, err)
-		}
-	}
-	fmt.Printf("%s✅ Historical block processing complete\n", p)
-	return nil
+	return l.baseListener.CatchUpHistoricalBlocks(ctx, handler, l.processBlockRange)
 }
 
 func (l *starknetListener) startPolling(ctx context.Context, handler base.EventHandler) {
@@ -238,10 +150,18 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 	// Fetch events for the block range
 	filter := rpc.EventFilter{
-		FromBlock: rpc.BlockID{Number: &fromBlock},
-		ToBlock:   rpc.BlockID{Number: &toBlock},
-		Address:   l.contractAddress,
-		Keys:      [][]*felt.Felt{{openEventSelector}},
+		FromBlock: rpc.BlockID{
+			Number: &fromBlock,
+			Hash:   nil,
+			Tag:    "",
+		},
+		ToBlock: rpc.BlockID{
+			Number: &toBlock,
+			Hash:   nil,
+			Tag:    "",
+		},
+		Address: l.contractAddress,
+		Keys:    [][]*felt.Felt{{openEventSelector}},
 	}
 
 	query := rpc.EventsInput{
@@ -286,11 +206,7 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 			}
 
 			// Parse Open event
-			ro, derr := decodeResolvedOrderFromFelts(event.Event.Data)
-			if derr != nil {
-				fmt.Printf("❌ Failed to decode ResolvedCrossChainOrder: %v\n", derr)
-				continue
-			}
+			ro := decodeResolvedOrderFromFelts(event.Event.Data)
 			parsedArgs := types.ParsedArgs{
 				OrderID:       common.BytesToHash(ro.OrderID[:]).Hex(),
 				SenderAddress: ro.User,
@@ -319,10 +235,19 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 // --- Decoders ---
 
-func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOrder, error) {
+func decodeResolvedOrderFromFelts(data []*felt.Felt) types.ResolvedCrossChainOrder {
 	decoder := newFeltDecoder(data)
 	
-	ro := types.ResolvedCrossChainOrder{}
+	ro := types.ResolvedCrossChainOrder{
+		User:             "",
+		OriginChainID:    nil,
+		OpenDeadline:     0,
+		FillDeadline:     0,
+		OrderID:          [32]byte{},
+		MaxSpent:         nil,
+		MinReceived:      nil,
+		FillInstructions: nil,
+	}
 	ro.User = decoder.readAddress()
 	ro.OriginChainID = new(big.Int).SetUint64(uint64(decoder.readU32()))
 	ro.OpenDeadline = uint32(decoder.readU64())
@@ -337,7 +262,7 @@ func decodeResolvedOrderFromFelts(data []*felt.Felt) (types.ResolvedCrossChainOr
 	ro.MaxSpent = decoder.readOutputs()
 	ro.MinReceived = decoder.readOutputs()
 	ro.FillInstructions = decoder.readFillInstructions()
-	return ro, nil
+	return ro
 }
 
 // feltDecoder handles decoding of felt data
@@ -386,7 +311,12 @@ func (d *feltDecoder) readAddress() string {
 }
 
 func (d *feltDecoder) readOutput() types.Output {
-	out := types.Output{}
+	out := types.Output{
+		Token:    "",
+		Amount:   nil,
+		Recipient: "",
+		ChainID:  nil,
+	}
 	out.Token = d.readAddress()
 	out.Amount = d.readU256()
 	out.Recipient = d.readAddress()
@@ -411,7 +341,11 @@ func (d *feltDecoder) readOutputs() []types.Output {
 }
 
 func (d *feltDecoder) readFillInstruction() types.FillInstruction {
-	fi := types.FillInstruction{}
+	fi := types.FillInstruction{
+		DestinationChainID:  nil,
+		DestinationSettler:  "",
+		OriginData:          nil,
+	}
 	destinationDomain := d.readU32()
 	// Map destination domain to actual chain ID using config
 	if chainID, err := domainToChainID(destinationDomain); err == nil {

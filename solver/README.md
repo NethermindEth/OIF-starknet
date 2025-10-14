@@ -69,7 +69,7 @@ make open-random-sn-order     # Starknet → EVM order
 ## Architecture
 
 ```js
-go/
+solver/
 ├── cmd/                              # CLI entry points
 │   ├── open-order/                   # Create orders (EVM & Starknet)
 │   ├── setup-forks/                  # Setup local testnet forks

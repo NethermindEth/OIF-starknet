@@ -29,6 +29,13 @@ import (
 	"time"
 )
 
+const (
+	// File permissions
+	defaultDirPerms  = 0755
+	// Retry delays
+	retryDelayMs = 25
+)
+
 // SolverState holds only the solver persistence data across all networks
 type SolverState struct {
 	Networks map[string]SolverNetworkState `json:"networks"`
@@ -164,7 +171,7 @@ func readSolverStateLocked() (*SolverState, error) {
 		data, err := os.ReadFile(stateFile)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to read solver state file: %w", err)
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(retryDelayMs * time.Millisecond)
 			continue
 		}
 
@@ -190,7 +197,7 @@ func readSolverStateLocked() (*SolverState, error) {
 				return &defaultState, nil
 			}
 			lastErr = fmt.Errorf("failed to parse solver state file: %w", err)
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(retryDelayMs * time.Millisecond)
 			continue
 		}
 
@@ -203,7 +210,7 @@ func readSolverStateLocked() (*SolverState, error) {
 func saveSolverStateLocked(state *SolverState) error {
 	stateFile := getSolverStateFilePath()
 	dir := filepath.Dir(stateFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create solver state directory: %w", err)
 	}
 

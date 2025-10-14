@@ -244,7 +244,7 @@ func TestNewTransactor(t *testing.T) {
 
 		// This will panic, so we expect it to panic
 		assert.Panics(t, func() {
-			NewTransactor(chainID, nil)
+			_, _ = NewTransactor(chainID, nil)
 		})
 	})
 }
@@ -503,7 +503,7 @@ func TestBigIntUtilityFunctions(t *testing.T) {
 
 		assert.Equal(t, -1, small.Cmp(large))
 		assert.Equal(t, 1, large.Cmp(small))
-		assert.Equal(t, 0, small.Cmp(small))
+		assert.Equal(t, 0, small.Cmp(new(big.Int).Set(small)))
 	})
 
 	t.Run("big.Int bit operations", func(t *testing.T) {
