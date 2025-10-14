@@ -68,7 +68,7 @@ func NewHyperlane7683Solver(
 	}
 }
 
-func (f *Hyperlane7683Solver) ProcessIntent(ctx context.Context, args types.ParsedArgs) (bool, error) {
+func (f *Hyperlane7683Solver) ProcessIntent(ctx context.Context, args *types.ParsedArgs) (bool, error) {
 	// Log the cross-chain operation
 	logutil.LogOrderProcessing(args, "Processing Order")
 
@@ -115,7 +115,7 @@ func (f *Hyperlane7683Solver) ProcessIntent(ctx context.Context, args types.Pars
 	return true, nil
 }
 
-func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (f *Hyperlane7683Solver) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	logutil.LogOrderProcessing(args, "Filling Order")
 
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
@@ -124,7 +124,7 @@ func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs) (
 
 	// Process all fill instructions (supports both single and multiple instructions)
 	for i, instruction := range args.ResolvedOrder.FillInstructions {
-		logutil.LogWithNetworkTag("", "Processing fill instruction %d/%d for chain %s",
+		logutil.LogWithNetworkTagf("", "Processing fill instruction %d/%d for chain %s",
 			i+1, len(args.ResolvedOrder.FillInstructions), instruction.DestinationChainID.String())
 
 		action, err := f.executeChainOperation(ctx, args, instruction.DestinationChainID, "fill", func(handler ChainHandler) (OrderAction, error) {
@@ -141,14 +141,14 @@ func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs) (
 
 		// If this instruction needs settlement, return that action
 		if action == OrderActionSettle {
-			logutil.LogWithNetworkTag("", "Fill instruction %d completed, needs settlement", i+1)
+			logutil.LogWithNetworkTagf("", "Fill instruction %d completed, needs settlement", i+1)
 			return OrderActionSettle, nil
 		}
 
 		// If this instruction completed successfully, continue to next
 		// (In most cases there will only be one instruction, but this supports multiple)
 		if action == OrderActionComplete {
-			logutil.LogWithNetworkTag("", "Fill instruction %d completed successfully", i+1)
+			logutil.LogWithNetworkTagf("", "Fill instruction %d completed successfully", i+1)
 		}
 	}
 
@@ -156,7 +156,7 @@ func (f *Hyperlane7683Solver) Fill(ctx context.Context, args types.ParsedArgs) (
 	return OrderActionComplete, nil
 }
 
-func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.ParsedArgs) error {
+func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args *types.ParsedArgs) error {
 	logutil.LogOrderProcessing(args, "Settling Order")
 
 	// Settlement happens on the destination chain - same as fill
@@ -166,7 +166,7 @@ func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.Parsed
 
 	// Process all settlement instructions (supports both single and multiple instructions)
 	for i, instruction := range args.ResolvedOrder.FillInstructions {
-		logutil.LogWithNetworkTag("", "Processing settlement instruction %d/%d for chain %s",
+		logutil.LogWithNetworkTagf("", "Processing settlement instruction %d/%d for chain %s",
 			i+1, len(args.ResolvedOrder.FillInstructions), instruction.DestinationChainID.String())
 
 		_, err := f.executeChainOperation(ctx, args, instruction.DestinationChainID, "settle", func(handler ChainHandler) (OrderAction, error) {
@@ -177,7 +177,7 @@ func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.Parsed
 			return fmt.Errorf("settlement instruction %d failed: %w", i+1, err)
 		}
 
-		logutil.LogWithNetworkTag("", "Settlement instruction %d completed successfully", i+1)
+		logutil.LogWithNetworkTagf("", "Settlement instruction %d completed successfully", i+1)
 	}
 
 	logutil.LogOperationComplete(args, "Settlement", true)
@@ -188,7 +188,7 @@ func (f *Hyperlane7683Solver) SettleOrder(ctx context.Context, args types.Parsed
 // This eliminates duplication between Fill, Settle, and other chain operations
 func (f *Hyperlane7683Solver) executeChainOperation(
 	_ context.Context,
-	args types.ParsedArgs,
+	_ *types.ParsedArgs,
 	chainID *big.Int,
 	operation string,
 	operationFunc func(ChainHandler) (OrderAction, error),
@@ -259,8 +259,6 @@ func (f *Hyperlane7683Solver) getEVMHandler(chainID *big.Int) (ChainHandler, err
 
 	handler := NewHyperlaneEVM(client, signer, chainIDUint)
 	f.evmHandlers[chainIDUint] = handler
-	// networkName := logutil.NetworkNameByChainID(chainIDUint)
-	//logutil.LogWithNetworkTag(networkName, "   🔧 Created new EVM handler\n")
 	return handler, nil
 }
 
@@ -317,7 +315,7 @@ func (f *Hyperlane7683Solver) isEVMChain(chainID *big.Int) bool {
 }
 
 // isAllowedIntent checks if an intent is allowed based on allow/block lists
-func (f *Hyperlane7683Solver) isAllowedIntent(args types.ParsedArgs) bool {
+func (f *Hyperlane7683Solver) isAllowedIntent(args *types.ParsedArgs) bool {
 	// Check block list first
 	for _, blockItem := range f.allowBlockLists.BlockList {
 		if f.matchesAllowBlockItem(blockItem, args) {
@@ -341,7 +339,7 @@ func (f *Hyperlane7683Solver) isAllowedIntent(args types.ParsedArgs) bool {
 }
 
 // matchesAllowBlockItem checks if args match an allow/block list item
-func (f *Hyperlane7683Solver) matchesAllowBlockItem(item types.AllowBlockListItem, args types.ParsedArgs) bool {
+func (f *Hyperlane7683Solver) matchesAllowBlockItem(item types.AllowBlockListItem, args *types.ParsedArgs) bool {
 	// Check sender address
 	if item.SenderAddress != "*" && item.SenderAddress != args.SenderAddress {
 		return false
@@ -379,3 +377,4 @@ func (f *Hyperlane7683Solver) getNetworkConfigByChainID(chainID *big.Int) (confi
 	}
 	return config.NetworkConfig{}, fmt.Errorf("network config not found for chain ID %d", chainIDUint)
 }
+

@@ -478,6 +478,6 @@ func TestUint256Operations(t *testing.T) {
 
 		assert.Equal(t, -1, small.Cmp(large))
 		assert.Equal(t, 1, large.Cmp(small))
-		assert.Equal(t, 0, small.Cmp(small))
+		assert.Equal(t, 0, small.Cmp(new(uint256.Int).Set(small)))
 	})
 }

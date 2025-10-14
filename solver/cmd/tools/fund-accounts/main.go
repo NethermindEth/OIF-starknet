@@ -116,16 +116,6 @@ func fundNetwork(networkName string, amount *big.Int) {
 		log.Fatalf("MockERC20 address not found in environment: %s", envVarName)
 	}
 
-	// Connect to network
-	client, err := ethclient.Dial(networkConfig.RPCURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to %s: %v", networkName, err)
-	}
-	defer client.Close()
-
-	fmt.Printf("   📍 Network: %s (Chain ID: %d)\n", networkConfig.Name, networkConfig.ChainID)
-	fmt.Printf("   🪙 MockERC20: %s\n", tokenAddress)
-
 	// Get funding account (the one that can mint tokens)
 	// Use Alice's account as the minter for simplicity
 	var minterPrivateKey string
@@ -137,7 +127,7 @@ func fundNetwork(networkName string, amount *big.Int) {
 	}
 
 	if minterPrivateKey == "" {
-		log.Fatalf("Minter private key not found (Alice's key)")
+		log.Fatal("Minter private key not found (Alice's key)")
 	}
 
 	// Parse private key and create auth
@@ -151,12 +141,24 @@ func fundNetwork(networkName string, amount *big.Int) {
 		log.Fatalf("Failed to create transactor: %v", err)
 	}
 
+	// Connect to network
+	client, err := ethclient.Dial(networkConfig.RPCURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to %s: %v", networkName, err)
+	}
+
 	// Set gas price
 	gasPrice, err := ethutil.SuggestGas(client)
 	if err != nil {
+		client.Close()
 		log.Fatalf("Failed to get gas price: %v", err)
 	}
 	auth.GasPrice = gasPrice
+
+	defer client.Close()
+
+	fmt.Printf("   📍 Network: %s (Chain ID: %d)\n", networkConfig.Name, networkConfig.ChainID)
+	fmt.Printf("   🪙 MockERC20: %s\n", tokenAddress)
 
 	// Get recipient addresses
 	recipients := getRecipients(isDevnet)

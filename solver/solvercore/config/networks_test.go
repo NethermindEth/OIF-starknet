@@ -89,9 +89,7 @@ func TestUtilityFunctions(t *testing.T) {
 	t.Run("getEnvUint64", func(t *testing.T) {
 		// Set up environment
 		t.Setenv("TEST_UINT", "123")
-		defer func() {
-			os.Unsetenv("TEST_UINT")
-		}()
+		defer os.Unsetenv("TEST_UINT")
 
 		result := envutil.GetEnvUint64("TEST_UINT", 456)
 		assert.Equal(t, uint64(123), result)
@@ -105,9 +103,7 @@ func TestUtilityFunctions(t *testing.T) {
 	t.Run("getEnvUint64 with invalid value", func(t *testing.T) {
 		// Set up environment
 		t.Setenv("INVALID_UINT", "not_a_number")
-		defer func() {
-			os.Unsetenv("INVALID_UINT")
-		}()
+		defer os.Unsetenv("INVALID_UINT")
 
 		result := envutil.GetEnvUint64("INVALID_UINT", 456)
 		assert.Equal(t, uint64(456), result)
@@ -134,9 +130,7 @@ func TestUtilityFunctions(t *testing.T) {
 	t.Run("getEnvInt", func(t *testing.T) {
 		// Set up environment
 		t.Setenv("TEST_INT", "123")
-		defer func() {
-			os.Unsetenv("TEST_INT")
-		}()
+		defer os.Unsetenv("TEST_INT")
 
 		result := envutil.GetEnvInt("TEST_INT", 456)
 		assert.Equal(t, 123, result)
@@ -150,9 +144,7 @@ func TestUtilityFunctions(t *testing.T) {
 	t.Run("getEnvInt with invalid value", func(t *testing.T) {
 		// Set up environment
 		t.Setenv("INVALID_INT", "not_a_number")
-		defer func() {
-			os.Unsetenv("INVALID_INT")
-		}()
+		defer os.Unsetenv("INVALID_INT")
 
 		result := envutil.GetEnvInt("INVALID_INT", 456)
 		assert.Equal(t, 456, result)

@@ -49,7 +49,7 @@ var StarknetERC20ABI = map[string]string{
 }
 
 // ERC20Balance gets the ERC20 token balance for a given address on Starknet
-func ERC20Balance(provider rpc.RpcProvider, tokenAddress string, ownerAddress string) (*big.Int, error) {
+func ERC20Balance(provider rpc.RpcProvider, tokenAddress, ownerAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -86,7 +86,7 @@ func ERC20Balance(provider rpc.RpcProvider, tokenAddress string, ownerAddress st
 }
 
 // ERC20Allowance gets the ERC20 token allowance for a given owner and spender on Starknet
-func ERC20Allowance(provider rpc.RpcProvider, tokenAddress string, ownerAddress string, spenderAddress string) (*big.Int, error) {
+func ERC20Allowance(provider rpc.RpcProvider, tokenAddress, ownerAddress, spenderAddress string) (*big.Int, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -137,7 +137,7 @@ func ERC20Allowance(provider rpc.RpcProvider, tokenAddress string, ownerAddress 
 }
 
 // ERC20Approve creates an approve transaction for ERC20 tokens on Starknet
-func ERC20Approve(tokenAddress string, spenderAddress string, amount *big.Int) (*rpc.InvokeFunctionCall, error) {
+func ERC20Approve(tokenAddress, spenderAddress string, amount *big.Int) (*rpc.InvokeFunctionCall, error) {
 	// Convert addresses to felt
 	tokenAddrFelt, err := utils.HexToFelt(tokenAddress)
 	if err != nil {
@@ -185,7 +185,7 @@ func FormatTokenAmount(amount *big.Int, decimals int) string {
 }
 
 // ConvertBigIntToU256Felts converts a big.Int to two felts, one for the low 128 bits and one for the high 128 bits
-func ConvertBigIntToU256Felts(value *big.Int) (low *felt.Felt, high *felt.Felt) {
+func ConvertBigIntToU256Felts(value *big.Int) (low, high *felt.Felt) {
 	// Convert to uint256 for better performance
 	u := ToUint256(value)
 
@@ -208,7 +208,7 @@ func ConvertBigIntToU256Felts(value *big.Int) (low *felt.Felt, high *felt.Felt) 
 
 // ConvertSolidityOrderIDForStarknet converts a Solidity-style orderID (bytes32) into the low and high felts of a Starknet u256 orderID
 // Note: Assigns the left 16 bytes to the high felt and the right 16 bytes to the low felt
-func ConvertSolidityOrderIDForStarknet(orderID string) (low *felt.Felt, high *felt.Felt, err error) {
+func ConvertSolidityOrderIDForStarknet(orderID string) (low, high *felt.Felt, err error) {
 	orderBN := utils.HexToBN(orderID)
 	if orderBN == nil {
 		return nil, nil, fmt.Errorf("invalid hex string: %s", orderID)
@@ -216,8 +216,9 @@ func ConvertSolidityOrderIDForStarknet(orderID string) (low *felt.Felt, high *fe
 
 	orderBytes := orderBN.Bytes()
 	if len(orderBytes) < Bytes32Length {
-		pad := make([]byte, 0, Bytes32Length-len(orderBytes))
-		orderBytes = append(pad, orderBytes...)
+		paddedBytes := make([]byte, Bytes32Length)
+		copy(paddedBytes[Bytes32Length-len(orderBytes):], orderBytes)
+		orderBytes = paddedBytes
 	}
 
 	left16 := utils.BigIntToFelt(new(big.Int).SetBytes(orderBytes[0:16]))

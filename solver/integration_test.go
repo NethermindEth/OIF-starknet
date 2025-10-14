@@ -245,7 +245,7 @@ func TestOrderCreationCommandsIntegration(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -285,7 +285,7 @@ func testOrderCreationWithBalanceVerification(t *testing.T, solverPath string, c
 
 	// Step 2: Execute order creation command
 	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, command...)
+	cmd := exec.CommandContext(context.Background(), solverPath, command...)
 	cmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -779,7 +779,7 @@ func TestOrderCreationOnly(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -825,7 +825,7 @@ func TestSolverIntegration(t *testing.T) {
 	solverPath := "./bin/solver"
 	if _, err := os.Stat(solverPath); os.IsNotExist(err) {
 		t.Log("Building solver binary for integration tests...")
-		buildCmd := exec.Command("make", "build")
+		buildCmd := exec.CommandContext(context.Background(), "make", "build")
 		buildCmd.Dir = "."
 		output, err := buildCmd.CombinedOutput()
 		if err != nil {
@@ -878,7 +878,7 @@ func testOrderCreationOnly(t *testing.T, solverPath string, orderCommand []strin
 
 	// Step 2: Execute order creation command
 	t.Log("🚀 Step 2: Executing order creation command...")
-	cmd := exec.Command(solverPath, orderCommand...)
+	cmd := exec.CommandContext(context.Background(), solverPath, orderCommand...)
 	cmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	cmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -957,15 +957,15 @@ func cleanSolverStateOnce(t *testing.T) {
 	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
 	// Also set LOCAL_ versions for forking mode
-	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
 
 	t.Log("✅ Solver state cleaned once and start blocks set to -1 (one block before current)")
 }
@@ -994,15 +994,15 @@ func cleanSolverState(t *testing.T) {
 	t.Setenv("ETHEREUM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("OPTIMISM_SOLVER_START_BLOCK", "-1")
 	t.Setenv("ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("STARKNET_SOLVER_START_BLOCK", "-1")
 
 	// Also set LOCAL_ versions for forking mode
-	os.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
-	os.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ETHEREUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_OPTIMISM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_ARBITRUM_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_BASE_SOLVER_START_BLOCK", "-1")
+	t.Setenv("LOCAL_STARKNET_SOLVER_START_BLOCK", "-1")
 
 	t.Log("✅ Solver state cleaned and start blocks set to -1 (one block before current)")
 }
@@ -1217,7 +1217,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	// Step 2: Start solver as background process BEFORE opening any orders
 	t.Log("🤖 Step 2: Starting solver as background process...")
 
-	solverCmd := exec.Command(solverPath, "solver")
+	solverCmd := exec.CommandContext(context.Background(), solverPath, "solver")
 	solverCmd.Dir = "."
 	// Preserve current environment including IS_DEVNET setting
 	solverCmd.Env = append(os.Environ(), "TEST_MODE=true")
@@ -1236,19 +1236,19 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	shutdownTimer := time.AfterFunc(5*time.Minute, func() {
 		if solverCmd.Process != nil {
 			t.Log("⏰ Sending graceful shutdown signal to solver...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 		}
 	})
 	defer func() {
 		shutdownTimer.Stop()
 		if solverCmd.Process != nil {
 			t.Log("🧹 Cleaning up solver process...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	}()
@@ -1268,7 +1268,7 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	for i, orderCommand := range orderCommands {
 		t.Logf("📝 Creating order %d: %s", i+1, strings.Join(orderCommand, " "))
 
-		cmd := exec.Command(solverPath, orderCommand...)
+		cmd := exec.CommandContext(context.Background(), solverPath, orderCommand...)
 		cmd.Dir = "."
 		cmd.Env = append(os.Environ(), "TEST_MODE=true")
 
@@ -1350,12 +1350,12 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		// Terminate solver immediately since all orders are processed
 		if solverCmd.Process != nil {
 			t.Log("🛑 Terminating solver process since all orders are processed...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	} else {
@@ -1363,9 +1363,9 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	}
 
 	// Collect solver output for logging
-	//stdout := solverCmd.Stdout.(*bytes.Buffer).String()
-	//stderr := solverCmd.Stderr.(*bytes.Buffer).String()
-	//solverOutputStr := stdout + stderr
+	// stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	// stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	// solverOutputStr := stdout + stderr
 	//	// Log solver output
 	//	t.Logf("📝 Solver output:\n%s", solverOutputStr)
 
@@ -1587,7 +1587,7 @@ func waitForAllOrdersProcessed(t *testing.T, solverCmd *exec.Cmd, orderInfos []*
 			output := stdout + stderr
 
 			// Debug: Log the current output length and any completion patterns found
-			if len(output) > 0 {
+			if output != "" {
 				completionCount := strings.Count(output, OrderProcessingPattern)
 				if completionCount > 0 {
 					t.Logf("🔍 Found %d completion patterns in solver output", completionCount)

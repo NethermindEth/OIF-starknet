@@ -18,6 +18,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	// Wait time for transaction receipt
+	receiptWaitMs = 500
+)
+
 // Minimal tool to impersonate owner on each EVM fork and call enrollRemoteRouters and setDestinationGas
 
 func main() {
@@ -112,12 +117,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to dial RPC %s: %v", netCfg.RPCURL, err)
 		}
-		defer rpcClient.Close()
 
 		owner := common.HexToAddress(ownerHex)
 		// Impersonate owner (anvil returns null on success)
 		var dummy any
 		if err := rpcClient.Call(&dummy, "anvil_impersonateAccount", owner.Hex()); err != nil {
+			rpcClient.Close()
 			log.Fatalf("failed to impersonate %s on %s: %v", owner.Hex(), networkName, err)
 		}
 		fmt.Printf("   👤 Impersonating owner %s\n", owner.Hex())
@@ -178,12 +183,15 @@ func main() {
 		// Stop impersonation
 		_ = rpcClient.Call(&dummy, "anvil_stopImpersonatingAccount", owner.Hex())
 		fmt.Printf("   ✅ Routers/gas registered on %s\n", networkName)
+		
+		// Close the RPC connection
+		rpcClient.Close()
 	}
 
 	fmt.Printf("\n✅ EVM router registration complete\n")
 }
 
-func sendImpersonatedTx(c *rpc.Client, from common.Address, to common.Address, data []byte) error {
+func sendImpersonatedTx(c *rpc.Client, from, to common.Address, data []byte) error {
 	params := map[string]interface{}{
 		"from": from.Hex(),
 		"to":   to.Hex(),
@@ -208,7 +216,7 @@ func sendImpersonatedTx(c *rpc.Client, from common.Address, to common.Address, d
 			}
 			return nil
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(receiptWaitMs * time.Millisecond)
 	}
 	return fmt.Errorf("timeout waiting receipt for %s", to.Hex())
 }
