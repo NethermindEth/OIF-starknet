@@ -42,21 +42,21 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
 
 ## Required Dependencies
 
-- [[Golang 1.25.1+]](https://go.dev/) - Repo is tested with 1.25.1
+- [Golang 1.25.1+](https://go.dev/) - Repo is tested with 1.25.1
 
    ```bash
    # Verify installation
    go version  # Should show 1.25.1 or later
    ```
 
-- [[Foundry 1.4.0+]](https://getfoundry.sh/) - Repo is tested with 1.4.0
+- [Foundry 1.4.0+](https://getfoundry.sh/) - Repo is tested with 1.4.0
 
    ```bash
    # Verify installation
    anvil --version  # Should show 1.4.0 or later
    ```
 
-- [[Dojo 1.7.1]](https://book.dojoengine.org/installation) - Repo is tested with 1.7.1
+- [Dojo 1.7.1](https://book.dojoengine.org/installation) - Repo is tested with 1.7.1
    - Comes with Katana v1.7.0
    - [asdf](https://asdf-vm.com/) reccomended
 
