@@ -63,7 +63,7 @@ func NewHyperlaneEVM(client *ethclient.Client, signer *bind.TransactOpts, chainI
 }
 
 // Fill executes a fill operation on an EVM chain
-func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (h *HyperlaneEVM) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -150,7 +150,7 @@ func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAc
 }
 
 // Settle executes settlement on an EVM chain
-func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error {
+func (h *HyperlaneEVM) Settle(ctx context.Context, args *types.ParsedArgs) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -179,9 +179,6 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	if status != orderStatusFilled {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
-	// if err := h.verifyOrderStatus(ctx, orderIDArr, destinationSettler, "FILLED"); err != nil {
-	//	return fmt.Errorf("pre-settle check failed: %w", err)
-	//}
 
 	// Get the contract instance using the EVM address
 	contract, err := contracts.NewHyperlane7683(destinationSettler, h.client)
@@ -236,12 +233,6 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	h.signer.Value = new(big.Int).Set(gasPayment)
 	defer func() { h.signer.Value = originalValue }()
 
-	//// Set gas price if not already set
-	// if h.signer.GasPrice == nil || h.signer.GasPrice.Sign() == 0 {
-	//	if suggested, gerr := h.client.SuggestGasPrice(ctx); gerr == nil {
-	//		h.signer.GasPrice = suggested
-	//	}
-	//}
 
 	tx, err := contract.Settle(h.signer, orderIDs)
 	if err != nil {
@@ -267,7 +258,7 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 }
 
 // GetOrderStatus returns the current status of an order
-func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
+func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args *types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
 		return orderStatusUnknown, fmt.Errorf("no fill instructions found")
 	}
@@ -278,10 +269,6 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	orderIDBytes := common.FromHex(args.OrderID)
 	copy(orderIDArr[:], orderIDBytes)
 
-	//	// Derive orderId from keccak(origin_data)
-	//	var orderIDArr [32]byte
-	//	orderHash := crypto.Keccak256(instruction.OriginData)
-	//	copy(orderIDArr[:], orderHash)
 
 	// Check order status
 	orderStatusABI := `[{
@@ -336,7 +323,7 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 }
 
 // getOriginDomainFromArgs extracts the origin domain using the config system
-func (h *HyperlaneEVM) getOriginDomain(args types.ParsedArgs) (uint32, error) {
+func (h *HyperlaneEVM) getOriginDomain(args *types.ParsedArgs) (uint32, error) {
 	if args.ResolvedOrder.OriginChainID == nil {
 		return 0, fmt.Errorf("no origin chain ID in resolved order")
 	}
@@ -354,7 +341,7 @@ func (h *HyperlaneEVM) getOriginDomain(args types.ParsedArgs) (uint32, error) {
 }
 
 // setupApprovals handles all ERC20 approvals needed for the fill operation
-func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs, destinationSettlerAddr common.Address) error {
+func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args *types.ParsedArgs, destinationSettlerAddr common.Address) error {
 	if len(args.ResolvedOrder.MaxSpent) == 0 {
 		return nil
 	}
@@ -367,7 +354,6 @@ func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs
 
 	// Get origin chain ID for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
-	// logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
@@ -555,7 +541,13 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 }
 
 // waitForOrderStatus waits for the order status to become the expected value with retry logic
-func (h *HyperlaneEVM) waitForOrderStatus(ctx context.Context, args types.ParsedArgs, expectedStatus string, maxRetries int, initialDelay time.Duration) (string, error) {
+func (h *HyperlaneEVM) waitForOrderStatus(
+	ctx context.Context,
+	args *types.ParsedArgs,
+	expectedStatus string,
+	maxRetries int,
+	initialDelay time.Duration,
+) (string, error) {
 	delay := initialDelay
 
 	networkName := logutil.NetworkNameByChainID(h.chainID)

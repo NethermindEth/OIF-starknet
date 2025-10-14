@@ -41,27 +41,27 @@ func TestRuleInterface(t *testing.T) {
 		assert.Nil(t, rule)
 
 		// Test rule execution
-		rule = func(args types.ParsedArgs, context *SolverContext) error {
+		rule = func(args *types.ParsedArgs, context *SolverContext) error {
 			return nil
 		}
 
 		args := types.ParsedArgs{}
 		context := &SolverContext{}
 
-		err := rule(args, context)
+		err := rule(&args, context)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Rule with error", func(t *testing.T) {
 		expectedError := assert.AnError
-		rule := func(_ types.ParsedArgs, _ *SolverContext) error {
+		rule := func(_ *types.ParsedArgs, _ *SolverContext) error {
 			return expectedError
 		}
 
 		args := types.ParsedArgs{}
 		context := &SolverContext{}
 
-		err := rule(args, context)
+		err := rule(&args, context)
 		assert.Error(t, err)
 		assert.Equal(t, expectedError, err)
 	})
@@ -92,7 +92,7 @@ func TestSolverImpl(t *testing.T) {
 
 		initialRuleCount := len(solver.rules)
 
-		rule := func(args types.ParsedArgs, context *SolverContext) error {
+		rule := func(args *types.ParsedArgs, context *SolverContext) error {
 			return nil
 		}
 
@@ -104,10 +104,10 @@ func TestSolverImpl(t *testing.T) {
 		allowBlockLists := types.AllowBlockLists{}
 		solver := NewSolver(allowBlockLists, map[string]interface{}{})
 
-		rule1 := func(args types.ParsedArgs, context *SolverContext) error {
+		rule1 := func(args *types.ParsedArgs, context *SolverContext) error {
 			return nil
 		}
-		rule2 := func(args types.ParsedArgs, context *SolverContext) error {
+		rule2 := func(args *types.ParsedArgs, context *SolverContext) error {
 			return nil
 		}
 
@@ -145,11 +145,11 @@ func TestPrepareIntent(t *testing.T) {
 			},
 		}
 
-		result, err := solver.PrepareIntent(context.Background(), args)
+		result, err := solver.PrepareIntent(context.Background(), &args)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.False(t, result.Success)
-		assert.Contains(t, result.Error, "Intent blocked by allow/block lists")
+		assert.Contains(t, result.Error, "intent blocked by allow/block lists")
 	})
 
 	t.Run("Intent allowed by allow list", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestPrepareIntent(t *testing.T) {
 			},
 		}
 
-		result, err := solver.PrepareIntent(context.Background(), args)
+		result, err := solver.PrepareIntent(context.Background(), &args)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.True(t, result.Success)
@@ -188,13 +188,13 @@ func TestPrepareIntent(t *testing.T) {
 		solver := NewSolver(allowBlockLists, map[string]interface{}{})
 
 		// Add a rule that always fails
-		failingRule := func(args types.ParsedArgs, context *SolverContext) error {
+		failingRule := func(args *types.ParsedArgs, context *SolverContext) error {
 			return assert.AnError
 		}
 		solver.AddRule(failingRule)
 
 		args := types.ParsedArgs{}
-		result, err := solver.PrepareIntent(context.Background(), args)
+		result, err := solver.PrepareIntent(context.Background(), &args)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.False(t, result.Success)
@@ -206,7 +206,7 @@ func TestPrepareIntent(t *testing.T) {
 		solver := NewSolver(allowBlockLists, map[string]interface{}{})
 
 		// Add a rule that always passes
-		passingRule := func(args types.ParsedArgs, context *SolverContext) error {
+		passingRule := func(args *types.ParsedArgs, context *SolverContext) error {
 			return nil
 		}
 		solver.AddRule(passingRule)
@@ -224,7 +224,7 @@ func TestPrepareIntent(t *testing.T) {
 			},
 		}
 
-		result, err := solver.PrepareIntent(context.Background(), args)
+		result, err := solver.PrepareIntent(context.Background(), &args)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.True(t, result.Success)
@@ -248,7 +248,7 @@ func TestIsAllowedIntent(t *testing.T) {
 			},
 		}
 
-		allowed := solver.isAllowedIntent(args)
+		allowed := solver.isAllowedIntent(&args)
 		assert.True(t, allowed)
 	})
 
@@ -275,7 +275,7 @@ func TestIsAllowedIntent(t *testing.T) {
 			},
 		}
 
-		allowed := solver.isAllowedIntent(args)
+		allowed := solver.isAllowedIntent(&args)
 		assert.False(t, allowed)
 	})
 
@@ -302,7 +302,7 @@ func TestIsAllowedIntent(t *testing.T) {
 			},
 		}
 
-		allowed := solver.isAllowedIntent(args)
+		allowed := solver.isAllowedIntent(&args)
 		assert.True(t, allowed)
 	})
 
@@ -329,7 +329,7 @@ func TestIsAllowedIntent(t *testing.T) {
 			},
 		}
 
-		allowed := solver.isAllowedIntent(args)
+		allowed := solver.isAllowedIntent(&args)
 		assert.True(t, allowed)
 	})
 }
@@ -390,11 +390,11 @@ type MockSolver struct {
 	settleError error
 }
 
-func (m *MockSolver) Fill(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error {
+func (m *MockSolver) Fill(ctx context.Context, args *types.ParsedArgs, data types.IntentData, originChainName string, blockNumber uint64) error {
 	return m.fillError
 }
 
-func (m *MockSolver) SettleOrder(ctx context.Context, args types.ParsedArgs, data types.IntentData, originChainName string) error {
+func (m *MockSolver) SettleOrder(ctx context.Context, args *types.ParsedArgs, data types.IntentData, originChainName string) error {
 	return m.settleError
 }
 
@@ -403,7 +403,7 @@ func TestProcessIntent(t *testing.T) {
 		solver := NewSolver(types.AllowBlockLists{}, nil)
 
 		// Add a rule that always fails
-		solver.AddRule(func(args types.ParsedArgs, context *SolverContext) error {
+		solver.AddRule(func(args *types.ParsedArgs, context *SolverContext) error {
 			return assert.AnError
 		})
 
@@ -411,7 +411,7 @@ func TestProcessIntent(t *testing.T) {
 			OrderID: "test-order",
 		}
 
-		success, err := solver.ProcessIntent(context.Background(), args, "Base", 1000)
+		success, err := solver.ProcessIntent(context.Background(), &args, "Base", 1000)
 
 		assert.NoError(t, err)
 		assert.False(t, success) // Should return false when rules fail
@@ -421,7 +421,7 @@ func TestProcessIntent(t *testing.T) {
 		solver := NewSolver(types.AllowBlockLists{}, nil)
 
 		// Add a rule that always passes
-		solver.AddRule(func(args types.ParsedArgs, context *SolverContext) error {
+		solver.AddRule(func(args *types.ParsedArgs, context *SolverContext) error {
 			return nil
 		})
 
@@ -430,7 +430,7 @@ func TestProcessIntent(t *testing.T) {
 		}
 
 		// This will succeed because rules pass and base Fill/SettleOrder return nil
-		success, err := solver.ProcessIntent(context.Background(), args, "Base", 1000)
+		success, err := solver.ProcessIntent(context.Background(), &args, "Base", 1000)
 
 		assert.NoError(t, err)
 		assert.True(t, success)
@@ -448,7 +448,7 @@ func TestFill(t *testing.T) {
 		}
 		data := types.IntentData{}
 
-		err := solver.Fill(context.Background(), args, data, "Base", 1000)
+		err := solver.Fill(context.Background(), &args, data, "Base", 1000)
 
 		// The base implementation returns nil (no error) - it's a placeholder
 		assert.NoError(t, err)
@@ -466,7 +466,7 @@ func TestSettleOrder(t *testing.T) {
 		}
 		data := types.IntentData{}
 
-		err := solver.SettleOrder(context.Background(), args, data, "Base")
+		err := solver.SettleOrder(context.Background(), &args, data, "Base")
 
 		// The base implementation returns nil (no error) - it's a placeholder
 		assert.NoError(t, err)

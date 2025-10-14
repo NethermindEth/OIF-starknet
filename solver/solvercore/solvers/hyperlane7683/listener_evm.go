@@ -163,8 +163,9 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 
 	// Group logs by block
 	byBlock := make(map[uint64][]ethtypes.Log)
-	for _, event := range logs {
-		byBlock[event.BlockNumber] = append(byBlock[event.BlockNumber], event)
+	for i := range logs {
+		event := &logs[i]
+		byBlock[event.BlockNumber] = append(byBlock[event.BlockNumber], *event)
 	}
 
 	// Process blocks in order
@@ -173,7 +174,8 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 		events := byBlock[b]
 
 		// Process each event in this block
-		for _, event := range events {
+		for i := range events {
+			logEvent := &events[i]
 			// Use generated binding to parse Open events
 			filterer, err := contracts.NewHyperlane7683Filterer(l.contractAddress, l.client)
 			if err != nil {
@@ -182,14 +184,14 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 			}
 
 			// Parse Open event
-			event, err := filterer.ParseOpen(event)
+			event, err := filterer.ParseOpen(*logEvent)
 			if err != nil {
 				fmt.Printf("❌ Failed to parse Open event: %v\n", err)
 				continue
 			}
 
 			// Handle the event
-			_, err = l.handleParsedOpenEvent(*event, handler)
+			_, err = l.handleParsedOpenEvent(event, handler)
 			if err != nil {
 				fmt.Printf("❌ Failed to handle Open event: %v\n", err)
 				continue
@@ -209,7 +211,7 @@ func (l *evmListener) processBlockRange(ctx context.Context, fromBlock, toBlock 
 }
 
 // handleParsedOpenEvent converts a typed binding event into our internal ParsedArgs and dispatches the handler
-func (l *evmListener) handleParsedOpenEvent(ev contracts.Hyperlane7683Open, handler base.EventHandler) (bool, error) {
+func (l *evmListener) handleParsedOpenEvent(ev *contracts.Hyperlane7683Open, handler base.EventHandler) (bool, error) {
 	p := logutil.Prefix(l.config.ChainName)
 
 	// Parse to ResolvedCrossChainOrder

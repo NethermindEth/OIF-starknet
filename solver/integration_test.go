@@ -1363,9 +1363,9 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	}
 
 	// Collect solver output for logging
-	//stdout := solverCmd.Stdout.(*bytes.Buffer).String()
-	//stderr := solverCmd.Stderr.(*bytes.Buffer).String()
-	//solverOutputStr := stdout + stderr
+	// stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	// stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	// solverOutputStr := stdout + stderr
 	//	// Log solver output
 	//	t.Logf("📝 Solver output:\n%s", solverOutputStr)
 
@@ -1587,7 +1587,7 @@ func waitForAllOrdersProcessed(t *testing.T, solverCmd *exec.Cmd, orderInfos []*
 			output := stdout + stderr
 
 			// Debug: Log the current output length and any completion patterns found
-			if len(output) > 0 {
+			if output != "" {
 				completionCount := strings.Count(output, OrderProcessingPattern)
 				if completionCount > 0 {
 					t.Logf("🔍 Found %d completion patterns in solver output", completionCount)

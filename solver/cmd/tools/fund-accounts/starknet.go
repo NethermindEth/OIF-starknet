@@ -143,17 +143,17 @@ type StarknetRecipient struct {
 func getStarknetRecipients() []StarknetRecipient {
 	var recipients []StarknetRecipient
 
-	// Alice
-	recipients = append(recipients, StarknetRecipient{
-		Name:    "Alice",
-		Address: envutil.GetStarknetAliceAddress(),
-	})
-
-	// Solver
-	recipients = append(recipients, StarknetRecipient{
-		Name:    "Solver",
-		Address: envutil.GetStarknetSolverAddress(),
-	})
+	// Alice and Solver
+	recipients = append(recipients, 
+		StarknetRecipient{
+			Name:    "Alice",
+			Address: envutil.GetStarknetAliceAddress(),
+		},
+		StarknetRecipient{
+			Name:    "Solver",
+			Address: envutil.GetStarknetSolverAddress(),
+		},
+	)
 
 	return recipients
 }
