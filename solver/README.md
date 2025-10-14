@@ -6,12 +6,6 @@ This (Golang) solver is an extension to BootNodeDev's Hyperlane7683 (Typescript)
 
 The solver listens for `Open` events from Hyperlane7683 contracts on Starknet and multiple EVM chains, then fills the intents based on configurable rules.
 
-## 🚀 Current Status
-
-**🎉 (Local Sepolia Forks) solves all 3 order types**: Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain.
-
-**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: For Starknet-EVM orders, only Opens & Fills can be called. The Settle call needs Hyperlane to register the Starknet domain on each EVM contract.
-
 ## Order Lifecycle
 
 1. **Opened on origin**: Alice locks input tokens into the origin chain's hyperlane contract
@@ -24,6 +18,12 @@ The solver listens for `Open` events from Hyperlane7683 contracts on Starknet an
    - Hyperlane protocol detects the settlement and then routes the settlement throught the `OriginChainHyperlane7683` contract
 
 **Note:** Step 4 is out of scope for this repo (as well as the original BootNodeDev implementation)
+
+## 🚀 Current Status
+
+**🎉 (Local Sepolia Forks) solves all 3 order types**: Opens, Fills, and Settles EVM->EVM, EVM->Starknet & Starknet->EVM orders. Requires spoofing a call to each EVM Hyperlane7683 contract to register the Starknet domain.
+
+**🎉 (Live Sepolia) fully solves 2/3 order types on live Sepolia:**: For Starknet-EVM orders, only Opens & Fills can be called. The Settle call needs Hyperlane to register the Starknet domain on each EVM contract.
 
 ## Initial Setup
 
