@@ -67,6 +67,7 @@ func NewStarknetListener(listenerConfig *base.ListenerConfig, rpcURL string) (ba
 		contractAddress:    addrFelt,
 		lastProcessedBlock: commonConfig.LastProcessedBlock,
 		stopChan:           make(chan struct{}),
+		mu:                 sync.RWMutex{},
 		baseListener:       baseListener,
 	}, nil
 }
@@ -149,10 +150,18 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 
 	// Fetch events for the block range
 	filter := rpc.EventFilter{
-		FromBlock: rpc.BlockID{Number: &fromBlock},
-		ToBlock:   rpc.BlockID{Number: &toBlock},
-		Address:   l.contractAddress,
-		Keys:      [][]*felt.Felt{{openEventSelector}},
+		FromBlock: rpc.BlockID{
+			Number: &fromBlock,
+			Hash:   nil,
+			Tag:    "",
+		},
+		ToBlock: rpc.BlockID{
+			Number: &toBlock,
+			Hash:   nil,
+			Tag:    "",
+		},
+		Address: l.contractAddress,
+		Keys:    [][]*felt.Felt{{openEventSelector}},
 	}
 
 	query := rpc.EventsInput{
@@ -229,7 +238,16 @@ func (l *starknetListener) processBlockRange(ctx context.Context, fromBlock, toB
 func decodeResolvedOrderFromFelts(data []*felt.Felt) types.ResolvedCrossChainOrder {
 	decoder := newFeltDecoder(data)
 	
-	ro := types.ResolvedCrossChainOrder{}
+	ro := types.ResolvedCrossChainOrder{
+		User:             "",
+		OriginChainID:    nil,
+		OpenDeadline:     0,
+		FillDeadline:     0,
+		OrderID:          [32]byte{},
+		MaxSpent:         nil,
+		MinReceived:      nil,
+		FillInstructions: nil,
+	}
 	ro.User = decoder.readAddress()
 	ro.OriginChainID = new(big.Int).SetUint64(uint64(decoder.readU32()))
 	ro.OpenDeadline = uint32(decoder.readU64())
@@ -293,7 +311,12 @@ func (d *feltDecoder) readAddress() string {
 }
 
 func (d *feltDecoder) readOutput() types.Output {
-	out := types.Output{}
+	out := types.Output{
+		Token:    "",
+		Amount:   nil,
+		Recipient: "",
+		ChainID:  nil,
+	}
 	out.Token = d.readAddress()
 	out.Amount = d.readU256()
 	out.Recipient = d.readAddress()
@@ -318,7 +341,11 @@ func (d *feltDecoder) readOutputs() []types.Output {
 }
 
 func (d *feltDecoder) readFillInstruction() types.FillInstruction {
-	fi := types.FillInstruction{}
+	fi := types.FillInstruction{
+		DestinationChainID:  nil,
+		DestinationSettler:  "",
+		OriginData:          nil,
+	}
 	destinationDomain := d.readU32()
 	// Map destination domain to actual chain ID using config
 	if chainID, err := domainToChainID(destinationDomain); err == nil {

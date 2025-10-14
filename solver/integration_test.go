@@ -1236,19 +1236,19 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	shutdownTimer := time.AfterFunc(5*time.Minute, func() {
 		if solverCmd.Process != nil {
 			t.Log("⏰ Sending graceful shutdown signal to solver...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 		}
 	})
 	defer func() {
 		shutdownTimer.Stop()
 		if solverCmd.Process != nil {
 			t.Log("🧹 Cleaning up solver process...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	}()
@@ -1350,12 +1350,12 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 		// Terminate solver immediately since all orders are processed
 		if solverCmd.Process != nil {
 			t.Log("🛑 Terminating solver process since all orders are processed...")
-			solverCmd.Process.Signal(syscall.SIGTERM)
+			_ = solverCmd.Process.Signal(syscall.SIGTERM)
 			// Give it a moment to shut down gracefully
 			time.Sleep(2 * time.Second)
 			if solverCmd.Process != nil {
 				t.Log("🔨 Force killing solver process...")
-				solverCmd.Process.Kill()
+				_ = solverCmd.Process.Kill()
 			}
 		}
 	} else {
@@ -1363,9 +1363,9 @@ func testCompleteOrderLifecycleMultiOrder(t *testing.T, solverPath string) {
 	}
 
 	// Collect solver output for logging
-	//stdout := solverCmd.Stdout.(*bytes.Buffer).String()
-	//stderr := solverCmd.Stderr.(*bytes.Buffer).String()
-	//solverOutputStr := stdout + stderr
+	// stdout := solverCmd.Stdout.(*bytes.Buffer).String()
+	// stderr := solverCmd.Stderr.(*bytes.Buffer).String()
+	// solverOutputStr := stdout + stderr
 	//	// Log solver output
 	//	t.Logf("📝 Solver output:\n%s", solverOutputStr)
 
@@ -1587,7 +1587,7 @@ func waitForAllOrdersProcessed(t *testing.T, solverCmd *exec.Cmd, orderInfos []*
 			output := stdout + stderr
 
 			// Debug: Log the current output length and any completion patterns found
-			if len(output) > 0 {
+			if output != "" {
 				completionCount := strings.Count(output, OrderProcessingPattern)
 				if completionCount > 0 {
 					t.Logf("🔍 Found %d completion patterns in solver output", completionCount)

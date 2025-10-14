@@ -41,7 +41,7 @@ const (
 )
 
 // loadCentralAddresses loads Hyperlane, DogCoin from .env variables
-func loadCentralAddresses(networkName string) (hyperlane string, dog string, err error) {
+func loadCentralAddresses(_ string) (hyperlane, dog string, err error) {
 	// Get addresses from environment variables
 	hyperlane = os.Getenv("STARKNET_HYPERLANE_ADDRESS")
 	dog = os.Getenv("STARKNET_DOG_COIN_ADDRESS")
@@ -410,9 +410,9 @@ func approveUnlimited(accnt *account.Account, tokenAddress string, spenderAddrFe
 	// For u256, we need to pass (low, high) where both are max u128
 	// Max u128 value is 2^128 - 1, so max u256 = (2^128 - 1) << 128 + (2^128 - 1)
 	maxLowFelt := new(felt.Felt)
-	maxLowFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
+	_, _ = maxLowFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
 	maxHighFelt := new(felt.Felt)
-	maxHighFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
+	_, _ = maxHighFelt.SetString("0xffffffffffffffffffffffffffffffff") // Max u128 value (2^128 - 1)
 
 	// Debug: Show what allowance values we're setting
 	fmt.Printf("         🔍 Setting allowance: low=%s, high=%s\n", maxLowFelt.String(), maxHighFelt.String())

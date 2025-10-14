@@ -58,11 +58,12 @@ func NewHyperlaneEVM(client *ethclient.Client, signer *bind.TransactOpts, chainI
 		client:  client,
 		signer:  signer,
 		chainID: chainID,
+		mu:      sync.Mutex{},
 	}
 }
 
 // Fill executes a fill operation on an EVM chain
-func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAction, error) {
+func (h *HyperlaneEVM) Fill(ctx context.Context, args *types.ParsedArgs) (OrderAction, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -149,7 +150,7 @@ func (h *HyperlaneEVM) Fill(ctx context.Context, args types.ParsedArgs) (OrderAc
 }
 
 // Settle executes settlement on an EVM chain
-func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error {
+func (h *HyperlaneEVM) Settle(ctx context.Context, args *types.ParsedArgs) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -178,9 +179,6 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	if status != orderStatusFilled {
 		return fmt.Errorf("order status must be filled in order to settle, got: %s", status)
 	}
-	// if err := h.verifyOrderStatus(ctx, orderIDArr, destinationSettler, "FILLED"); err != nil {
-	//	return fmt.Errorf("pre-settle check failed: %w", err)
-	//}
 
 	// Get the contract instance using the EVM address
 	contract, err := contracts.NewHyperlane7683(destinationSettler, h.client)
@@ -213,7 +211,13 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
 	destChainID := args.ResolvedOrder.FillInstructions[0].DestinationChainID.Uint64()
 	logutil.CrossChainOperation(fmt.Sprintf("Quoting gas payment for origin domain: %d", originDomain), originChainID, destChainID, args.OrderID)
-	gasPayment, err := contract.QuoteGasPayment(&bind.CallOpts{Context: ctx}, originDomain)
+	gasPayment, err := contract.QuoteGasPayment(&bind.CallOpts{
+		Pending:     false,
+		From:        common.Address{},
+		BlockNumber: nil,
+		BlockHash:   common.Hash{},
+		Context:     ctx,
+	}, originDomain)
 	if err != nil {
 		return fmt.Errorf("quoteGasPayment failed on %s: %w", destinationSettler, err)
 	}
@@ -229,12 +233,6 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 	h.signer.Value = new(big.Int).Set(gasPayment)
 	defer func() { h.signer.Value = originalValue }()
 
-	//// Set gas price if not already set
-	// if h.signer.GasPrice == nil || h.signer.GasPrice.Sign() == 0 {
-	//	if suggested, gerr := h.client.SuggestGasPrice(ctx); gerr == nil {
-	//		h.signer.GasPrice = suggested
-	//	}
-	//}
 
 	tx, err := contract.Settle(h.signer, orderIDs)
 	if err != nil {
@@ -252,12 +250,15 @@ func (h *HyperlaneEVM) Settle(ctx context.Context, args types.ParsedArgs) error 
 		return fmt.Errorf("settle transaction failed on %s at block %d", destinationSettler, receipt.BlockNumber)
 	}
 
-	logutil.CrossChainOperation(fmt.Sprintf("Settle transaction confirmed at block %d (gasUsed=%d)", receipt.BlockNumber, receipt.GasUsed), originChainID, destChainID, args.OrderID)
+	logutil.CrossChainOperation(
+		fmt.Sprintf("Settle transaction confirmed at block %d (gasUsed=%d)", receipt.BlockNumber, receipt.GasUsed),
+		originChainID, destChainID, args.OrderID,
+	)
 	return nil
 }
 
 // GetOrderStatus returns the current status of an order
-func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs) (string, error) {
+func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args *types.ParsedArgs) (string, error) {
 	if len(args.ResolvedOrder.FillInstructions) == 0 {
 		return orderStatusUnknown, fmt.Errorf("no fill instructions found")
 	}
@@ -268,13 +269,15 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	orderIDBytes := common.FromHex(args.OrderID)
 	copy(orderIDArr[:], orderIDBytes)
 
-	//	// Derive orderId from keccak(origin_data)
-	//	var orderIDArr [32]byte
-	//	orderHash := crypto.Keccak256(instruction.OriginData)
-	//	copy(orderIDArr[:], orderHash)
 
 	// Check order status
-	orderStatusABI := `[{"type":"function","name":"orderStatus","inputs":[{"type":"bytes32","name":"orderId"}],"outputs":[{"type":"bytes32","name":""}],"stateMutability":"view"}]`
+	orderStatusABI := `[{
+		"type": "function",
+		"name": "orderStatus",
+		"inputs": [{"type": "bytes32", "name": "orderId"}],
+		"outputs": [{"type": "bytes32", "name": ""}],
+		"stateMutability": "view"
+	}]`
 	parsedABI, err := abi.JSON(strings.NewReader(orderStatusABI))
 	if err != nil {
 		return orderStatusUnknown, fmt.Errorf("failed to parse orderStatus ABI: %w", err)
@@ -292,7 +295,20 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 	}
 
 	dummyFrom := common.HexToAddress("0x1000000000000000000000000000000000000000")
-	res, err := h.client.CallContract(ctx, ethereum.CallMsg{From: dummyFrom, To: &destinationSettlerAddr, Data: callData}, nil)
+	res, err := h.client.CallContract(ctx, ethereum.CallMsg{
+		From:            dummyFrom,
+		To:              &destinationSettlerAddr,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            callData,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}, nil)
 	if err != nil {
 		return orderStatusUnknown, fmt.Errorf("orderStatus call failed: %w", err)
 	}
@@ -307,7 +323,7 @@ func (h *HyperlaneEVM) GetOrderStatus(ctx context.Context, args types.ParsedArgs
 }
 
 // getOriginDomainFromArgs extracts the origin domain using the config system
-func (h *HyperlaneEVM) getOriginDomain(args types.ParsedArgs) (uint32, error) {
+func (h *HyperlaneEVM) getOriginDomain(args *types.ParsedArgs) (uint32, error) {
 	if args.ResolvedOrder.OriginChainID == nil {
 		return 0, fmt.Errorf("no origin chain ID in resolved order")
 	}
@@ -325,7 +341,7 @@ func (h *HyperlaneEVM) getOriginDomain(args types.ParsedArgs) (uint32, error) {
 }
 
 // setupApprovals handles all ERC20 approvals needed for the fill operation
-func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs, destinationSettlerAddr common.Address) error {
+func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args *types.ParsedArgs, destinationSettlerAddr common.Address) error {
 	if len(args.ResolvedOrder.MaxSpent) == 0 {
 		return nil
 	}
@@ -338,7 +354,6 @@ func (h *HyperlaneEVM) setupApprovals(ctx context.Context, args types.ParsedArgs
 
 	// Get origin chain ID for cross-chain logging
 	originChainID := args.ResolvedOrder.OriginChainID.Uint64()
-	// logutil.CrossChainOperation("Setting up token approvals", originChainID, destinationChainID, args.OrderID)
 
 	for _, maxSpent := range args.ResolvedOrder.MaxSpent {
 		// Skip native ETH (empty string)
@@ -396,7 +411,16 @@ func (h *HyperlaneEVM) interpretStatusHash(_ context.Context, statusHash common.
 // ensureTokenApproval ensures the solver has approved an arbitrary ERC20 token for the Hyperlane contract
 func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spender common.Address, amount *big.Int) error {
 	// Check current allowance
-	allowanceABI := `[{"type":"function","name":"allowance","inputs":[{"type":"address","name":"owner"},{"type":"address","name":"spender"}],"outputs":[{"type":"uint256","name":""}],"stateMutability":"view"}]`
+	allowanceABI := `[{
+		"type": "function",
+		"name": "allowance",
+		"inputs": [
+			{"type": "address", "name": "owner"},
+			{"type": "address", "name": "spender"}
+		],
+		"outputs": [{"type": "uint256", "name": ""}],
+		"stateMutability": "view"
+	}]`
 	parsedABI, err := abi.JSON(strings.NewReader(allowanceABI))
 	if err != nil {
 		return fmt.Errorf("failed to parse allowance ABI: %w", err)
@@ -407,7 +431,20 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 		return fmt.Errorf("failed to pack allowance call: %w", err)
 	}
 
-	result, err := h.client.CallContract(ctx, ethereum.CallMsg{To: &tokenAddr, Data: callData}, nil)
+	result, err := h.client.CallContract(ctx, ethereum.CallMsg{
+		From:            common.Address{},
+		To:              &tokenAddr,
+		Gas:             0,
+		GasPrice:        nil,
+		GasFeeCap:       nil,
+		GasTipCap:       nil,
+		Value:           nil,
+		Data:            callData,
+		AccessList:      nil,
+		BlobGasFeeCap:   nil,
+		BlobHashes:      nil,
+		AuthorizationList: nil,
+	}, nil)
 	if err != nil {
 		return fmt.Errorf("allowance call failed: %w", err)
 	}
@@ -434,7 +471,16 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 	}
 
 	// Approve exact amount needed
-	approveABI := `[{"type":"function","name":"approve","inputs":[{"type":"address","name":"spender"},{"type":"uint256","name":"amount"}],"outputs":[{"type":"bool","name":""}],"stateMutability":"nonpayable"}]`
+	approveABI := `[{
+		"type": "function",
+		"name": "approve",
+		"inputs": [
+			{"type": "address", "name": "spender"},
+			{"type": "uint256", "name": "amount"}
+		],
+		"outputs": [{"type": "bool", "name": ""}],
+		"stateMutability": "nonpayable"
+	}]`
 	parsedApproveABI, err := abi.JSON(strings.NewReader(approveABI))
 	if err != nil {
 		return fmt.Errorf("failed to parse approve ABI: %w", err)
@@ -495,7 +541,13 @@ func (h *HyperlaneEVM) ensureTokenApproval(ctx context.Context, tokenAddr, spend
 }
 
 // waitForOrderStatus waits for the order status to become the expected value with retry logic
-func (h *HyperlaneEVM) waitForOrderStatus(ctx context.Context, args types.ParsedArgs, expectedStatus string, maxRetries int, initialDelay time.Duration) (string, error) {
+func (h *HyperlaneEVM) waitForOrderStatus(
+	ctx context.Context,
+	args *types.ParsedArgs,
+	expectedStatus string,
+	maxRetries int,
+	initialDelay time.Duration,
+) (string, error) {
 	delay := initialDelay
 
 	networkName := logutil.NetworkNameByChainID(h.chainID)
