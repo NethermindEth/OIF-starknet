@@ -1,5 +1,5 @@
 
-.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks kill-networks open-random-evm-order-local open-random-evm-order-live open-random-evm-sn-order-local open-random-evm-sn-order-live open-random-sn-order-local open-random-sn-order-live
+.PHONY: help build run run-local run-live test test-unit test-rpc-local test-rpc-live test-integration-local test-integration-live test-solver-local test-solver-live test-all test-coverage test-coverage-html test-coverage-check test-coverage-all clean deps dev-deps lint kill-all fund-accounts fund-accounts-local fund-accounts-live register-starknet-on-evm register-starknet-on-evm-local register-starknet-on-evm-live start-networks check-networks-local kill-networks open-random-evm-order-local open-random-evm-order-live open-random-evm-sn-order-local open-random-evm-sn-order-live open-random-sn-order-local open-random-sn-order-live
 
 # Default target
 help:
@@ -132,6 +132,48 @@ lint-pkg:
 
 ### Network Management: ###
 
+# Check if local networks are running (used by test targets)
+check-networks-local:
+	@echo "🔍 Checking if local networks are running..."
+	@failed=0; \
+	if ! curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' http://localhost:8545 >/dev/null 2>&1; then \
+		echo "❌ Ethereum (port 8545) is not accessible"; \
+		failed=1; \
+	fi; \
+	if ! curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' http://localhost:8546 >/dev/null 2>&1; then \
+		echo "❌ Optimism (port 8546) is not accessible"; \
+		failed=1; \
+	fi; \
+	if ! curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' http://localhost:8547 >/dev/null 2>&1; then \
+		echo "❌ Arbitrum (port 8547) is not accessible"; \
+		failed=1; \
+	fi; \
+	if ! curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' http://localhost:8548 >/dev/null 2>&1; then \
+		echo "❌ Base (port 8548) is not accessible"; \
+		failed=1; \
+	fi; \
+	if ! curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"starknet_chainId","params":[],"id":1}' http://localhost:5050 >/dev/null 2>&1; then \
+		echo "❌ Starknet (port 5050) is not accessible"; \
+		failed=1; \
+	fi; \
+	if [ $$failed -eq 1 ]; then \
+		echo ""; \
+		echo "❌ One or more networks are not running!"; \
+		echo ""; \
+		echo "💡 To start all networks, run in a separate terminal:"; \
+		echo "   make start-networks"; \
+		echo ""; \
+		echo "💡 Or check individual network status:"; \
+		echo "   - Ethereum:   curl http://localhost:8545"; \
+		echo "   - Optimism:  curl http://localhost:8546"; \
+		echo "   - Arbitrum:  curl http://localhost:8547"; \
+		echo "   - Base:      curl http://localhost:8548"; \
+		echo "   - Starknet:  curl http://localhost:5050"; \
+		echo ""; \
+		exit 1; \
+	fi; \
+	echo "✅ All networks are running and accessible"
+
 # Start all testnet forks with color-coded logging
 start-networks:
 	./cmd/tools/start-networks.sh
@@ -190,20 +232,12 @@ fund-accounts: build-fund-accounts
 # Fund Alice and Solver accounts with MockERC20 tokens (local devnet)
 fund-accounts-local: build-fund-accounts
 	@echo "Funding Alice & Solver on local devnet (IS_DEVNET=true)..."
-	@if [ -z "$(NETWORK)" ]; then \
-		IS_DEVNET=true ./bin/fund-accounts all $(AMOUNT); \
-	else \
-		IS_DEVNET=true ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
-	fi
+	@IS_DEVNET=true ./bin/fund-accounts all $(AMOUNT)
 
 # Fund Alice and Solver accounts with MockERC20 tokens (live networks)
 fund-accounts-live: build-fund-accounts
 	@echo "Funding Alice & Solver on live networks (IS_DEVNET=false)..."
-	@if [ -z "$(NETWORK)" ]; then \
-		IS_DEVNET=false ./bin/fund-accounts all $(AMOUNT); \
-	else \
-		IS_DEVNET=false ./bin/fund-accounts $(NETWORK) $(AMOUNT); \
-	fi
+	@IS_DEVNET=false ./bin/fund-accounts all $(AMOUNT)
 
 # Essential setup for testing (register Starknet domain on EVM contracts - uses current IS_DEVNET setting)
 register-starknet-on-evm: build-register-evm-routers
@@ -369,7 +403,7 @@ open-random-sn-order-live: build
 # Run unit tests (no RPC required)
 test-unit:
 	@echo "🧪 Running unit tests (no RPC required)..."
-	@go test -v \
+	@SKIP_RPC_TESTS=true go test -v -short \
 		./pkg/envutil \
 		./pkg/starknetutil \
 		./pkg/ethutil \
@@ -378,13 +412,12 @@ test-unit:
 		./solvercore/logutil \
 		./solvercore/types \
 		./solvercore/solvers/hyperlane7683 \
-		-run "Test.*" -timeout 30s \
-		-skip "TestMaintainableWithNetworks|TestRPCCoverageWithNetworks"
+		-run "Test.*" \
+		-timeout 30s
 
 # Run RPC tests with local devnet (requires start-networks)
-test-rpc-local:
-	@echo "🌐 Running RPC tests with local devnet (requires start-networks)..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
+test-rpc-local: check-networks-local
+	@echo "🌐 Running RPC tests with local devnet..."
 	@set -a && . ./.env && set +a && IS_DEVNET=true go test -v -count=1 \
 		./pkg/starknetutil \
 		./pkg/ethutil \
@@ -402,9 +435,8 @@ test-rpc-live:
 		-timeout 60s
 
 # Run basic integration tests with local devnet (order opening only)
-test-integration-local:
+test-integration-local: check-networks-local
 	@echo "🔄 Running basic integration tests with local devnet (order opening only)..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "Funding accounts and setting up contracts..."
 	@make fund-accounts-local
 	@make register-starknet-on-evm-local
@@ -418,9 +450,8 @@ test-integration-live:
 	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_ORDER_COMMANDS=true go test -v -count=1 -run "TestOrderCreationCommandsIntegration" -timeout 300s -p 1
 
 # Run solver integration tests with local devnet (order opening + solving)
-test-solver-local:
+test-solver-local: check-networks-local
 	@echo "🤖 Running solver integration tests with local devnet (multi-order processing)..."
-	@echo "Make sure networks are running in another terminal with: make start-networks"
 	@echo "Funding accounts and setting up contracts..."
 	@make fund-accounts-local
 	@make register-starknet-on-evm-local
@@ -434,7 +465,8 @@ test-solver-live:
 	@set -a && . ./.env && set +a && IS_DEVNET=false EXECUTE_SOLVER_TESTS=true go test -v -count=1 -run "TestSolverIntegration/CompleteOrderLifecycle_MultiOrder" -timeout 400s -p 1
 
 # Run all tests (unit + RPC + integration)
-test-all: test-unit test-rpc-local test-integration-local
+# Check networks first so errors appear early, but also show summary at end if needed
+test-all: check-networks-local test-unit test-rpc-local test-integration-local
 	@echo "✅ All tests completed!"
 
 # Show coverage for maintainable code
