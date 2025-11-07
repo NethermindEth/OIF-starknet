@@ -139,8 +139,113 @@ start_starknet_fork() {
 	echo -e "${color}${id}${RESET} Starknet fork started on port $port (Chain ID: ${STARKNET_CHAIN_ID:-23448591})"
 }
 
-# Function to stop all networks
-cleanup() {
+# Function to validate EVM network is running and accessible
+validate_evm_network() {
+	local port=$1
+	local network_name=$2
+	local color=$3
+	local id=$4
+	local expected_chain_id=$5
+	local pid_file="/tmp/anvil_$port.pid"
+	local rpc_url="http://localhost:$port"
+
+	# Check if PID file exists
+	if [ ! -f "$pid_file" ]; then
+		echo -e "${color}${id}${RESET} ❌ ${network_name} failed to start: PID file not found"
+		return 1
+	fi
+
+	# Check if process is running
+	local pid=$(cat "$pid_file" 2>/dev/null)
+	if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+		echo -e "${color}${id}${RESET} ❌ ${network_name} failed to start: Process not running (PID: ${pid:-none})"
+		return 1
+	fi
+
+	# Check if RPC endpoint is accessible
+	local response
+	response=$(curl -s -X POST \
+		-H "Content-Type: application/json" \
+		--data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+		"$rpc_url" 2>&1)
+
+	if [ $? -ne 0 ] || [ -z "$response" ]; then
+		echo -e "${color}${id}${RESET} ❌ ${network_name} RPC not accessible at $rpc_url"
+		echo -e "${color}${id}${RESET}    Error: $response"
+		return 1
+	fi
+
+	# Check if response contains error
+	if echo "$response" | grep -q '"error"'; then
+		local error_msg=$(echo "$response" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
+		echo -e "${color}${id}${RESET} ❌ ${network_name} RPC returned error: ${error_msg:-unknown error}"
+		return 1
+	fi
+
+	# Verify chain ID matches (optional check)
+	local chain_id_hex=$(echo "$response" | grep -o '"result":"[^"]*"' | cut -d'"' -f4)
+	if [ -n "$chain_id_hex" ] && [ -n "$expected_chain_id" ]; then
+		# Convert hex to decimal (remove 0x prefix if present)
+		chain_id_hex=${chain_id_hex#0x}
+		local chain_id_dec=$((16#$chain_id_hex))
+		if [ "$chain_id_dec" != "$expected_chain_id" ]; then
+			echo -e "${color}${id}${RESET} ⚠️  ${network_name} chain ID mismatch: expected $expected_chain_id, got $chain_id_dec"
+		fi
+	fi
+
+	echo -e "${color}${id}${RESET} ✅ ${network_name} is running and accessible"
+	return 0
+}
+
+# Function to validate Starknet network is running and accessible
+validate_starknet_network() {
+	local port=$1
+	local network_name=$2
+	local color=$3
+	local id=$4
+	local expected_chain_id=$5
+	local pid_file="/tmp/katana_$port.pid"
+	local rpc_url="http://localhost:$port"
+
+	# Check if PID file exists
+	if [ ! -f "$pid_file" ]; then
+		echo -e "${color}${id}${RESET} ❌ ${network_name} failed to start: PID file not found"
+		return 1
+	fi
+
+	# Check if process is running
+	local pid=$(cat "$pid_file" 2>/dev/null)
+	if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+		echo -e "${color}${id}${RESET} ❌ ${network_name} failed to start: Process not running (PID: ${pid:-none})"
+		return 1
+	fi
+
+	# Check if RPC endpoint is accessible (Starknet uses starknet_chainId)
+	local response
+	response=$(curl -s -X POST \
+		-H "Content-Type: application/json" \
+		--data '{"jsonrpc":"2.0","method":"starknet_chainId","params":[],"id":1}' \
+		"$rpc_url" 2>&1)
+
+	if [ $? -ne 0 ] || [ -z "$response" ]; then
+		echo -e "${color}${id}${RESET} ❌ ${network_name} RPC not accessible at $rpc_url"
+		echo -e "${color}${id}${RESET}    Error: $response"
+		return 1
+	fi
+
+	# Check if response contains error
+	if echo "$response" | grep -q '"error"'; then
+		local error_msg=$(echo "$response" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)
+		echo -e "${color}${id}${RESET} ❌ ${network_name} RPC returned error: ${error_msg:-unknown error}"
+		return 1
+	fi
+
+	echo -e "${color}${id}${RESET} ✅ ${network_name} is running and accessible"
+	return 0
+}
+
+# Function to stop all networks (does not exit - caller handles exit)
+cleanup_networks() {
 	echo ""
 	echo "🛑 Stopping all networks..."
 
@@ -165,6 +270,11 @@ cleanup() {
 	pkill -f "katana" 2>/dev/null || true
 
 	echo "✅ All networks stopped"
+}
+
+# Cleanup handler for signals (exits with 0)
+cleanup() {
+	cleanup_networks
 	exit 0
 }
 
@@ -192,6 +302,7 @@ if [ -z "$ALCHEMY_API_KEY" ]; then
 fi
 
 # Start all networks
+# TESTING: Comment out individual lines below to test validation failures
 start_evm_fork 8545 ${ETHEREUM_CHAIN_ID:-11155111} "$ETHEREUM_COLOR" "$ETHEREUM_ID" "sepolia"
 start_evm_fork 8546 ${OPTIMISM_CHAIN_ID:-11155420} "$OPT_COLOR" "$OPT_ID" "optimism-sepolia"
 start_evm_fork 8547 ${ARBITRUM_CHAIN_ID:-421614} "$ARB_COLOR" "$ARB_ID" "arbitrum-sepolia"
@@ -201,6 +312,43 @@ start_starknet_fork 5050 "$STARKNET_COLOR" "$STARKNET_ID"
 echo ""
 echo "⏳ Waiting for networks to be ready..."
 sleep 3
+
+echo ""
+echo "🔍 Validating network connections..."
+echo ""
+
+# Validate all networks
+validation_failed=0
+
+# Validate EVM networks
+if ! validate_evm_network 8545 "Ethereum" "$ETHEREUM_COLOR" "$ETHEREUM_ID" "${ETHEREUM_CHAIN_ID:-11155111}"; then
+	validation_failed=1
+fi
+
+if ! validate_evm_network 8546 "Optimism" "$OPT_COLOR" "$OPT_ID" "${OPTIMISM_CHAIN_ID:-11155420}"; then
+	validation_failed=1
+fi
+
+if ! validate_evm_network 8547 "Arbitrum" "$ARB_COLOR" "$ARB_ID" "${ARBITRUM_CHAIN_ID:-421614}"; then
+	validation_failed=1
+fi
+
+if ! validate_evm_network 8548 "Base" "$BASE_COLOR" "$BASE_ID" "${BASE_CHAIN_ID:-84532}"; then
+	validation_failed=1
+fi
+
+# Validate Starknet network
+if ! validate_starknet_network 5050 "Starknet" "$STARKNET_COLOR" "$STARKNET_ID" "${STARKNET_CHAIN_ID:-23448591}"; then
+	validation_failed=1
+fi
+
+# If any validation failed, cleanup and exit
+if [ $validation_failed -eq 1 ]; then
+	echo ""
+	echo "❌ Network validation failed. Stopping all networks..."
+	cleanup_networks
+	exit 1
+fi
 
 echo ""
 echo "🎉 All network forks are running!"
