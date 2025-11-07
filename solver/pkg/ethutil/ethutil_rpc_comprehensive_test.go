@@ -14,6 +14,15 @@ import (
 
 // TestEthUtilRPCComprehensive tests RPC-dependent ethutil functions
 func TestEthUtilRPCComprehensive(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping RPC tests in short mode")
+	}
+
+	// Check if we should run RPC tests
+	if os.Getenv("SKIP_RPC_TESTS") == "true" {
+		t.Skip("RPC tests disabled via SKIP_RPC_TESTS")
+	}
+
 	// Skip if no RPC URL is available
 	rpcURL := os.Getenv("BASE_RPC_URL")
 	if rpcURL == "" {
@@ -103,6 +112,15 @@ func TestEthUtilERC20Operations(t *testing.T) {
 
 // TestEthUtilErrorHandling tests error handling for RPC functions
 func TestEthUtilErrorHandling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping RPC tests in short mode")
+	}
+
+	// Check if we should run RPC tests
+	if os.Getenv("SKIP_RPC_TESTS") == "true" {
+		t.Skip("RPC tests disabled via SKIP_RPC_TESTS")
+	}
+
 	t.Run("invalid_rpc_url", func(t *testing.T) {
 		// Test with invalid RPC URL
 		_, err := GetChainID("invalid://url")

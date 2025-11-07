@@ -54,6 +54,7 @@ type NetworkConfig struct {
 
 // GetConditionalAccountEnv gets account-related environment variables based on IS_DEVNET flag
 // This is a convenience function for account keys and addresses
+//
 // Deprecated: Use envutil.GetConditionalAccountEnv instead
 func GetConditionalAccountEnv(key string) string {
 	return envutil.GetConditionalAccountEnv(key)
