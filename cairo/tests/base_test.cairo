@@ -211,7 +211,7 @@ pub fn _balances(token: IERC20Dispatcher, users: Array<ContractAddress>) -> Arra
     let mut balances: Array<u256> = array![];
     for user in users.span() {
         balances.append(token.balance_of(*user));
-    }
+    };
     balances
 }
 
@@ -220,7 +220,7 @@ pub fn _eth_balances(users: Array<ContractAddress>) -> Array<u256> {
     let eth = IERC20Dispatcher { contract_address: ETH_ADDRESS() };
     for user in users.span() {
         balances.append(eth.balance_of(*user));
-    }
+    };
     balances
 }
 
@@ -253,7 +253,7 @@ pub fn _get_permit_batch_witness_signature(
     let mut hashed_permissions: Array<felt252> = array![];
     for permission in permit.permitted {
         hashed_permissions.append(permission.hash_struct());
-    }
+    };
 
     let hashed_permit = PoseidonTrait::new()
         .update_with(type_hash)
@@ -281,7 +281,7 @@ pub fn _default_erc20_permit_multiple(
     let mut permitted: Array<TokenPermissions> = array![];
     for token in tokens.span() {
         permitted.append(TokenPermissions { token: *token, amount });
-    }
+    };
 
     PermitBatchTransferFrom { permitted: permitted.span(), nonce, deadline }
 }
