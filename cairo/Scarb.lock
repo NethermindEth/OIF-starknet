@@ -226,7 +226,7 @@ checksum = "sha256:44f32d242af1e43982decc49c563e613a9b67ade552f5c3d5cde504e92f74
 [[package]]
 name = "permit2"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/permit2-starknet.git#476e152c4969037e6d0c62e66d2a8cc0ede56982"
+source = "git+https://github.com/NethermindEth/permit2-starknet.git#0f40f5e2f105d5351de6828cdbc955ad46633d09"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_account",
