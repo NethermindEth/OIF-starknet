@@ -3,67 +3,80 @@ version = 1
 
 [[package]]
 name = "alexandria_bytes"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:59ef1ddc05d533f7e189c29090ec287e487572b2bdd1e7977720518c8ad42d98"
+checksum = "sha256:c09087b8b6d2f49ea1719cc780fa2901852879258ac2a55190187ed5b9e8488e"
 dependencies = [
  "alexandria_data_structures",
  "alexandria_math",
+ "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_data_structures"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:72bdee057923061f6719c82ac9d92c9c9bb39f3fbb9c369f64aa9e6d5b0b2425"
+checksum = "sha256:74cf0a36da91032e1ca5a65a0ce1349b1fcd8623a78f9afa3498fa58858491e1"
+dependencies = [
+ "snforge_std",
+]
 
 [[package]]
 name = "alexandria_encoding"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:aeb4c49cfa9553f8c801b9631961b690056cfa1d24ec9e8566be1bcbf4ef44c1"
+checksum = "sha256:1de969247c55dbb2c2d2cc98e09a12f5c52be12814b9c11899059b16c7edf647"
 dependencies = [
  "alexandria_bytes",
  "alexandria_data_structures",
  "alexandria_math",
  "alexandria_numeric",
+ "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_math"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:0ad256055661ed5b29ccef7bddbb44136995641cf537a6b259b94b6b6df14133"
+checksum = "sha256:b17fd1964c054d8e8a3fde2ee7dfecd5f318767f0bced764a6fa887271432f76"
+dependencies = [
+ "snforge_std",
+]
 
 [[package]]
 name = "alexandria_numeric"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:4404ef7dad3e2c05bc9130802f91869e05d3a9f36dc9e4d2d0e29c1d568258e2"
+checksum = "sha256:02b70ff561c48a97925cb07d183a9aeb53906fed443d6a38341f9bc4062b5768"
 dependencies = [
  "alexandria_math",
  "alexandria_searching",
+ "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_searching"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:d678ddd9a637afeffe0047c5b6ce10268796dd75e2070952e0f6602c538d2fc1"
+checksum = "sha256:70ef2765fa52a109467747601ab6be055295bc05de8ba105bc105437d8e551cd"
 dependencies = [
  "alexandria_data_structures",
+ "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_storage"
-version = "0.4.0"
+version = "0.6.2"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:66df98d459d637273121baad2fe8615c29a7c5d3db2a34b4ce7c3555ebf24725"
+checksum = "sha256:2dc3fced9a8c07ea0b7d110fce5662d2fedfb6dff38b020dc43db81d2fbf785c"
+dependencies = [
+ "snforge_std",
+]
 
 [[package]]
 name = "contracts"
-version = "0.0.6"
-source = "git+https://github.com/hyperlane-xyz/hyperlane-starknet.git#eb57b8d3017d9cbfe47ffbdb3b329b06b4356d1d"
+version = "0.0.1"
+source = "git+https://github.com/NovemberFork/hyperlane-ztarknet.git?rev=97e4d98449d33194af137e52ed259fd39fdaad19#97e4d98449d33194af137e52ed259fd39fdaad19"
 dependencies = [
  "alexandria_bytes",
  "alexandria_data_structures",
@@ -75,8 +88,8 @@ dependencies = [
 
 [[package]]
 name = "mocks"
-version = "0.0.6"
-source = "git+https://github.com/hyperlane-xyz/hyperlane-starknet.git#eb57b8d3017d9cbfe47ffbdb3b329b06b4356d1d"
+version = "0.0.1"
+source = "git+https://github.com/NovemberFork/hyperlane-ztarknet.git?rev=97e4d98449d33194af137e52ed259fd39fdaad19#97e4d98449d33194af137e52ed259fd39fdaad19"
 dependencies = [
  "alexandria_bytes",
  "alexandria_data_structures",
@@ -87,8 +100,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "oif_starknet"
-version = "0.1.0"
+name = "oif_ztarknet"
+version = "0.0.1"
 dependencies = [
  "alexandria_bytes",
  "alexandria_encoding",
@@ -107,9 +120,9 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:05fd9365be85a4a3e878135d5c52229f760b3861ce4ed314cb1e75b178b553da"
+checksum = "sha256:5e4fdecc957cfca7854d95912dc72d9f725517c063b116512900900add29fd77"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_account",
@@ -126,18 +139,18 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin_access"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:7734901a0ca7a7065e69416fea615dd1dc586c8dc9e76c032f25ee62e8b2a06c"
+checksum = "sha256:511681dd26d814ee2bc996d44ff8cb4aaa5ae9d14272130def7eb901cf004850"
 dependencies = [
  "openzeppelin_introspection",
 ]
 
 [[package]]
 name = "openzeppelin_account"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:1aa3a71e2f40f66f98d96aa9bf9f361f53db0fd20fa83ef7df04426a3c3a926a"
+checksum = "sha256:fb3381c50d68b028d3801feb43df378e2bd62137b6884844f8f60aefe796188b"
 dependencies = [
  "openzeppelin_introspection",
  "openzeppelin_utils",
@@ -145,9 +158,9 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin_finance"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:f0c507fbff955e4180ea3fa17949c0ff85518c40101f4948948d9d9a74143d6c"
+checksum = "sha256:e9456ef69502a87c4c99bf50145351b50950f8b11244847d92935c466c4ba787"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_token",
@@ -155,9 +168,9 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin_governance"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:c0fb60fad716413d537fabd5fcbb2c499ca6beb95af5f0d1699955ecec4c6f63"
+checksum = "sha256:056e6d6f3d48193b53f06283884f8a9675f986fc85425f6a40e8c1aeb3b3ecfa"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_account",
@@ -168,21 +181,21 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin_introspection"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:13e04a2190684e6804229a77a6c56de7d033db8b9ef519e5e8dee400a70d8a3d"
+checksum = "sha256:87773ed6cd2318f169283ecbbb161890d1996260a80302d81ec45b70ee5e54c1"
 
 [[package]]
 name = "openzeppelin_merkle_tree"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:039608900e92f3dcf479bf53a49a1fd76452acd97eb86e390d1eb92cacdaf3af"
+checksum = "sha256:47f80c9ce59557774243214f8e75c5e866f30f3d8daa755855f6ffd01c89ca89"
 
 [[package]]
 name = "openzeppelin_presets"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:5c07a8de32e5d9abe33988c7927eaa8b5f83bc29dc77302d9c8c44c898611042"
+checksum = "sha256:36c761ee923f1dc0887c0eab8c224b49ac242dbfe9163fbb0b08562042ab3d98"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_account",
@@ -195,15 +208,15 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin_security"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:27155597019ecf971c48d7bfb07fa58cdc146d5297745570071732abca17f19f"
+checksum = "sha256:902932ec296c2f400e0ac7c579edeaafd6067b6ce6d9854c1191de28e396ffe3"
 
 [[package]]
 name = "openzeppelin_token"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:4452f449dc6c1ea97cf69d1d9182749abd40e85bd826cd79652c06a627eafd91"
+checksum = "sha256:6fe61f63b5a6706018265fb7373b6e5bd3ff829bdc760b2b90296b1e708d180c"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_account",
@@ -213,20 +226,20 @@ dependencies = [
 
 [[package]]
 name = "openzeppelin_upgrades"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:15fdd63f6b50a0fda7b3f8f434120aaf7637bcdfe6fd8d275ad57343d5ede5e1"
+checksum = "sha256:560d57a9c3f3ec5a476e82fec8963c93c8df63a4ff9ff134f64ab8383bde3c61"
 
 [[package]]
 name = "openzeppelin_utils"
-version = "0.20.0"
+version = "2.0.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:44f32d242af1e43982decc49c563e613a9b67ade552f5c3d5cde504e92f74607"
+checksum = "sha256:bf799c794139837f397975ffdf6a7ed5032d198bbf70e87a8f44f144a9dfc505"
 
 [[package]]
 name = "permit2"
-version = "0.1.0"
-source = "git+https://github.com/NethermindEth/permit2-starknet.git#476e152c4969037e6d0c62e66d2a8cc0ede56982"
+version = "0.0.1"
+source = "git+https://github.com/NovemberFork/permit2-ztarknet.git#19be25f3c66cdd8943d671e4acd835674de50c96"
 dependencies = [
  "openzeppelin_access",
  "openzeppelin_account",
@@ -237,15 +250,15 @@ dependencies = [
 
 [[package]]
 name = "snforge_scarb_plugin"
-version = "0.38.3"
+version = "0.49.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:0cd914b547acd96b4cad99a78e95c0eda001d0c280da4969b2161e286079cf46"
+checksum = "sha256:903150f0e9542e4277d417029eea4c03af0db398b581f9f7ae3ebbdac9afc657"
 
 [[package]]
 name = "snforge_std"
-version = "0.38.3"
+version = "0.49.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:d376526fbbe22535ad89ed630b11d6e209f22c50168de6c6430c0591c81c3174"
+checksum = "sha256:73d73653cc4356ec51b92a6bec9d8385b20318170c2f2ade7891e5185a0e7e64"
 dependencies = [
  "snforge_scarb_plugin",
 ]
@@ -253,7 +266,7 @@ dependencies = [
 [[package]]
 name = "token"
 version = "0.0.1"
-source = "git+https://github.com/hyperlane-xyz/hyperlane-starknet.git#eb57b8d3017d9cbfe47ffbdb3b329b06b4356d1d"
+source = "git+https://github.com/NovemberFork/hyperlane-ztarknet.git?rev=97e4d98449d33194af137e52ed259fd39fdaad19#97e4d98449d33194af137e52ed259fd39fdaad19"
 dependencies = [
  "alexandria_bytes",
  "alexandria_storage",
