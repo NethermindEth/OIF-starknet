@@ -3,75 +3,62 @@ version = 1
 
 [[package]]
 name = "alexandria_bytes"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:c09087b8b6d2f49ea1719cc780fa2901852879258ac2a55190187ed5b9e8488e"
+checksum = "sha256:b1a402330fe5356ca0a4f24d2b8dd1fb0a7e2568bf35c349319cadb53f0ed6fd"
 dependencies = [
  "alexandria_data_structures",
  "alexandria_math",
- "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_data_structures"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:74cf0a36da91032e1ca5a65a0ce1349b1fcd8623a78f9afa3498fa58858491e1"
-dependencies = [
- "snforge_std",
-]
+checksum = "sha256:f011951982ca26ce64c212ca5aa739bd16461dae96a4fb9a8f8e360b1c5e7b94"
 
 [[package]]
 name = "alexandria_encoding"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:1de969247c55dbb2c2d2cc98e09a12f5c52be12814b9c11899059b16c7edf647"
+checksum = "sha256:19f58f8007245477972989c673aa5523ea6a711cdbee4d8e290809a550306376"
 dependencies = [
  "alexandria_bytes",
  "alexandria_data_structures",
  "alexandria_math",
  "alexandria_numeric",
- "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_math"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:b17fd1964c054d8e8a3fde2ee7dfecd5f318767f0bced764a6fa887271432f76"
-dependencies = [
- "snforge_std",
-]
+checksum = "sha256:19160f0993a6643e8e71a3bce03e54a37f26b8cad94f21668d7cc9afd08d2047"
 
 [[package]]
 name = "alexandria_numeric"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:02b70ff561c48a97925cb07d183a9aeb53906fed443d6a38341f9bc4062b5768"
+checksum = "sha256:607ceb7572c64cd7b7b8f433604d5cffe3b36d6b4c64f9b3f126e0621df5f4eb"
 dependencies = [
  "alexandria_math",
  "alexandria_searching",
- "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_searching"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:70ef2765fa52a109467747601ab6be055295bc05de8ba105bc105437d8e551cd"
+checksum = "sha256:8a05a9729f886595e5f43df9152a9b58c396faf5962d83c778cce2cb9e8e3d0f"
 dependencies = [
  "alexandria_data_structures",
- "snforge_std",
 ]
 
 [[package]]
 name = "alexandria_storage"
-version = "0.6.2"
+version = "0.6.1"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:2dc3fced9a8c07ea0b7d110fce5662d2fedfb6dff38b020dc43db81d2fbf785c"
-dependencies = [
- "snforge_std",
-]
+checksum = "sha256:f4f71a4964f3fd8e1ea5ef57b15a1ce3586a1f2e7ac93433c75bea19ffab91f0"
 
 [[package]]
 name = "contracts"
@@ -250,15 +237,15 @@ dependencies = [
 
 [[package]]
 name = "snforge_scarb_plugin"
-version = "0.49.0"
+version = "0.52.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:903150f0e9542e4277d417029eea4c03af0db398b581f9f7ae3ebbdac9afc657"
+checksum = "sha256:c33027f8ac078e4bbfc0bd1b7e7849ffe2e6bdd6c24649d0b5ede145095b4743"
 
 [[package]]
 name = "snforge_std"
-version = "0.49.0"
+version = "0.52.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:73d73653cc4356ec51b92a6bec9d8385b20318170c2f2ade7891e5185a0e7e64"
+checksum = "sha256:db8d395191bb2b526c44cee65b10a4044dc59e23a1c1d8009a73c7035760ed6b"
 dependencies = [
  "snforge_scarb_plugin",
 ]
