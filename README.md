@@ -1,6 +1,6 @@
 # OIF-Starknet
 
-A Starknet implementation of the [Open Intents Framework](https://github.com/BootNodeDev/intents-framework/tree/main).
+A Starknet implementation of the [Open Intents Framework](https://github.com/openintentsframework/oif-contracts).
 
 ## Overview
 
@@ -8,7 +8,7 @@ This project extends the above repo to support cross-chain order filling between
 
 ## Project Structure
 
-- `solidity/`: Copy of [Open Intent Framework](https://github.com/BootNodeDev/intents-framework/tree/main) Solidity contracts
+- `solidity/`: Copy of [Open Intent Framework](https://github.com/openintentsframework/oif-contracts) Solidity contracts
 - `cairo/`: Starknet translation of Solidity contracts
 - `solver/`: Hyperlane intent solver implementation - [See detailed README](solver/README.md)
 
