@@ -13,7 +13,7 @@ import (
 func RunOpenOrder(args []string) {
 	if len(args) == 0 {
 		fmt.Println("Usage: open-order <chain> [command]")
-		fmt.Println("Available chains: starknet, evm")
+		fmt.Println("Available chains: starknet, ztarknet, evm")
 		os.Exit(1)
 	}
 
@@ -27,12 +27,15 @@ func RunOpenOrder(args []string) {
 	case "starknet":
 		fmt.Println("🎯 Running Alice's Starknet order creation...")
 		RunStarknetOrder(command)
+	case "ztarknet":
+		fmt.Println("🎯 Running Alice's Ztarknet order creation...")
+		RunZtarknetOrder(command)
 	case "evm":
 		fmt.Println("🎯 Running Alice's EVM order creation...")
 		RunEVMOrder(command)
 	default:
 		fmt.Printf("Unknown chain: %s\n", chain)
-		fmt.Println("Available chains: starknet, evm")
+		fmt.Println("Available chains: starknet, ztarknet, evm")
 		os.Exit(1)
 	}
 }

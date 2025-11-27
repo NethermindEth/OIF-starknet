@@ -15,6 +15,7 @@ const (
 	ArbitrumSepoliaChainID = 421614
 	BaseSepoliaChainID     = 84532
 	StarknetSepoliaChainID = 23448591
+	ZtarknetTestnetChainID = 10066329
 
 	// Default block numbers (0 = latest block for live networks)
 	EthereumDefaultStartBlock = 0
@@ -22,6 +23,7 @@ const (
 	ArbitrumDefaultStartBlock = 0
 	BaseDefaultStartBlock     = 0
 	StarknetDefaultStartBlock = 0
+	ZtarknetDefaultStartBlock = 0
 
 	// Local fork block numbers (latest blocks for local development)
 	EthereumLocalStartBlock = 9121214
@@ -149,6 +151,18 @@ func initializeNetworks() {
 			ConfirmationBlocks: envutil.GetEnvUint64("STARKNET_CONFIRMATION_BLOCKS", 0),
 			MaxBlockRange: envutil.GetEnvUint64("STARKNET_MAX_BLOCK_RANGE",
 				envutil.GetEnvUint64("MAX_BLOCK_RANGE", StarknetDefaultMaxBlockRange)),
+		},
+		"Ztarknet": {
+			Name:               "Ztarknet",
+			RPCURL:             envutil.GetEnvWithDefault("ZTARKNET_RPC_URL", "https://ztarknet-madara.d.karnot.xyz"),
+			ChainID:            envutil.GetEnvUint64("ZTARKNET_CHAIN_ID", ZtarknetTestnetChainID),
+			HyperlaneAddress:   common.HexToAddress(envutil.GetEnvWithDefault("ZTARKNET_HYPERLANE_ADDRESS", "")),
+			HyperlaneDomain:    envutil.GetEnvUint64("ZTARKNET_DOMAIN_ID", ZtarknetTestnetChainID),
+			ForkStartBlock:     envutil.GetEnvUint64("ZTARKNET_SOLVER_START_BLOCK", ZtarknetDefaultStartBlock),
+			SolverStartBlock:   int64(envutil.GetEnvUint64("ZTARKNET_SOLVER_START_BLOCK", ZtarknetDefaultStartBlock)),
+			PollInterval:       envutil.GetEnvInt("ZTARKNET_POLL_INTERVAL_MS", envutil.GetEnvInt("POLL_INTERVAL_MS", StarknetDefaultPollIntervalMs)),
+			ConfirmationBlocks: envutil.GetEnvUint64("ZTARKNET_CONFIRMATION_BLOCKS", 0),
+			MaxBlockRange:      envutil.GetEnvUint64("ZTARKNET_MAX_BLOCK_RANGE", envutil.GetEnvUint64("MAX_BLOCK_RANGE", StarknetDefaultMaxBlockRange)),
 		},
 	}
 	networksInitialized = true

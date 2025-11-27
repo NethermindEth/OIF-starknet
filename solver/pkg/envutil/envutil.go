@@ -196,3 +196,40 @@ func GetSolverPublicKey() string {
 func GetSolverPrivateKey() string {
 	return GetConditionalAccountEnv("SOLVER_PRIVATE_KEY")
 }
+
+// Ztarknet helper functions (testnet-only, no LOCAL_ variants)
+
+// GetZtarknetAliceAddress returns Alice's Ztarknet address (testnet-only)
+func GetZtarknetAliceAddress() string {
+	return os.Getenv("ZTARKNET_ALICE_ADDRESS")
+}
+
+// GetZtarknetAlicePrivateKey returns Alice's Ztarknet private key (testnet-only)
+func GetZtarknetAlicePrivateKey() string {
+	return os.Getenv("ZTARKNET_ALICE_PRIVATE_KEY")
+}
+
+// GetZtarknetAlicePublicKey returns Alice's Ztarknet public key (testnet-only)
+func GetZtarknetAlicePublicKey() string {
+	return os.Getenv("ZTARKNET_ALICE_PUBLIC_KEY")
+}
+
+// GetZtarknetSolverAddress returns solver's Ztarknet address (testnet-only)
+func GetZtarknetSolverAddress() string {
+	return os.Getenv("ZTARKNET_SOLVER_ADDRESS")
+}
+
+// GetZtarknetSolverPrivateKey returns solver's Ztarknet private key (testnet-only)
+func GetZtarknetSolverPrivateKey() string {
+	return os.Getenv("ZTARKNET_SOLVER_PRIVATE_KEY")
+}
+
+// GetZtarknetSolverPublicKey returns solver's Ztarknet public key (testnet-only)
+func GetZtarknetSolverPublicKey() string {
+	return os.Getenv("ZTARKNET_SOLVER_PUBLIC_KEY")
+}
+
+// GetZtarknetRPCURL returns Ztarknet RPC URL (testnet-only)
+func GetZtarknetRPCURL() string {
+	return GetEnvWithDefault("ZTARKNET_RPC_URL", "https://ztarknet-madara.d.karnot.xyz")
+}

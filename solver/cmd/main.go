@@ -48,12 +48,13 @@ func printUsage() {
 	fmt.Println("  help                      Show this help message")
 	fmt.Println()
 	fmt.Println("Development Tools:")
-	fmt.Println("  tools open-order <chain>  Create test orders (starknet|evm)")
+	fmt.Println("  tools open-order <chain>  Create test orders (starknet|ztarknet|evm)")
 	fmt.Println("  tools setup-forks <cmd>   Setup forked networks")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  solver solver                    # Run main solver")
 	fmt.Println("  solver tools open-order starknet # Create Starknet order")
+	fmt.Println("  solver tools open-order ztarknet # Create Ztarknet order")
 	fmt.Println("  solver tools open-order evm      # Create EVM order")
 	fmt.Println("  solver tools setup-forks deploy  # Deploy to forks")
 }
@@ -87,9 +88,10 @@ func runTools() {
 func runOpenOrder() {
 	if len(os.Args) < 4 {
 		fmt.Println("Usage: solver tools open-order <chain> [command]")
-		fmt.Println("Available chains: starknet, evm")
+		fmt.Println("Available chains: starknet, ztarknet, evm")
 		fmt.Println("Available EVM commands: random-to-evm, random-to-sn, default-evm-evm, default-evm-sn")
 		fmt.Println("Available Starknet commands: random, default")
+		fmt.Println("Available Ztarknet commands: to-starknet, default")
 		os.Exit(1)
 	}
 
@@ -104,6 +106,14 @@ func runOpenOrder() {
 		}
 		// Run the real Starknet order creation logic
 		openorder.RunStarknetOrder(command)
+	case "ztarknet":
+		// Get the command (default to default if not provided)
+		command := "default"
+		if len(os.Args) > 4 {
+			command = os.Args[4]
+		}
+		// Run the real Ztarknet order creation logic
+		openorder.RunZtarknetOrder(command)
 	case "evm":
 		// Get the command (default to random-to-evm if not provided)
 		command := "random-to-evm"
@@ -114,7 +124,7 @@ func runOpenOrder() {
 		openorder.RunEVMOrder(command)
 	default:
 		fmt.Printf("Unknown chain: %s\n", chain)
-		fmt.Println("Available chains: starknet, evm")
+		fmt.Println("Available chains: starknet, ztarknet, evm")
 		os.Exit(1)
 	}
 }

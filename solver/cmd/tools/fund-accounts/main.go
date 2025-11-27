@@ -40,9 +40,10 @@ func main() {
 		fmt.Println("  fund-accounts all           # Fund Alice & Solver on all networks with 10000 tokens")
 		fmt.Println("  fund-accounts ethereum      # Fund Alice & Solver on Ethereum with 10000 tokens")
 		fmt.Println("  fund-accounts starknet      # Fund Alice & Solver on Starknet with 10000 tokens")
+		fmt.Println("  fund-accounts ztarknet      # Fund Alice & Solver on Ztarknet with 10000 tokens")
 		fmt.Println("  fund-accounts all 50000     # Fund Alice & Solver on all networks with 50000 tokens")
 		fmt.Println()
-		fmt.Println("Networks: ethereum, optimism, arbitrum, base, starknet, all")
+		fmt.Println("Networks: ethereum, optimism, arbitrum, base, starknet, ztarknet, all")
 		os.Exit(1)
 	}
 
@@ -74,8 +75,12 @@ func main() {
 		fundAllNetworks(fundingAmount)
 		fmt.Println()
 		fundStarknet(fundingAmount)
+		fmt.Println()
+		fundZtarknet(fundingAmount)
 	} else if networkArg == "starknet" {
 		fundStarknet(fundingAmount)
+	} else if networkArg == "ztarknet" {
+		fundZtarknet(fundingAmount)
 	} else {
 		fundNetwork(networkArg, fundingAmount)
 	}
