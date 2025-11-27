@@ -19,10 +19,10 @@ pub mod MockBase7683 {
     use alexandria_bytes::{Bytes, BytesStore};
     use core::keccak::compute_keccak_byte_array;
     use core::num::traits::Bounded;
-    use oif_starknet::base7683::Base7683Component;
-    use oif_starknet::base7683::Base7683Component::{DestinationSettler, OriginSettler};
-    use oif_starknet::basic_swap7683::BasicSwap7683Component;
-    use oif_starknet::erc7683::interface::{
+    use oif_ztarknet::base7683::Base7683Component;
+    use oif_ztarknet::base7683::Base7683Component::{DestinationSettler, OriginSettler};
+    use oif_ztarknet::basic_swap7683::BasicSwap7683Component;
+    use oif_ztarknet::erc7683::interface::{
         FillInstruction, GaslessCrossChainOrder, OnchainCrossChainOrder, Output,
         ResolvedCrossChainOrder,
     };
@@ -137,7 +137,7 @@ pub mod MockBase7683 {
             let mut order_ids: Array<u256> = array![];
             for i in 0..self.settled_order_ids_len.read() {
                 order_ids.append(self.settled_order_ids.entry(i).read());
-            };
+            }
             order_ids
         }
 
@@ -145,7 +145,7 @@ pub mod MockBase7683 {
             let mut orders_origin_data: Array<Bytes> = array![];
             for i in 0..self.settled_orders_origin_data_len.read() {
                 orders_origin_data.append(self.settled_orders_origin_data.entry(i).read());
-            };
+            }
             orders_origin_data
         }
 
@@ -153,7 +153,7 @@ pub mod MockBase7683 {
             let mut orders_filler_data: Array<Bytes> = array![];
             for i in 0..self.settled_orders_filler_data_len.read() {
                 orders_filler_data.append(self.settled_orders_filler_data.entry(i).read());
-            };
+            }
             orders_filler_data
         }
 
@@ -161,7 +161,7 @@ pub mod MockBase7683 {
             let mut order_ids: Array<u256> = array![];
             for i in 0..self.refunded_order_ids_len.read() {
                 order_ids.append(self.refunded_order_ids.entry(i).read());
-            };
+            }
             order_ids
         }
     }
@@ -278,11 +278,11 @@ pub mod MockBase7683 {
 
             for i in 0..order_ids.len() {
                 self.settled_order_ids.entry(i).write(*order_ids[i]);
-            };
+            }
 
             for i in 0..orders_origin_data.len() {
                 self.settled_orders_origin_data.entry(i).write(orders_origin_data[i].clone());
-            };
+            }
 
             for i in 0..orders_filler_data.len() {
                 self.settled_orders_filler_data.entry(i).write(orders_filler_data[i].clone());

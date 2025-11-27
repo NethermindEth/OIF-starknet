@@ -1,4 +1,4 @@
-use alexandria_bytes::{Bytes, BytesTrait, BytesStore};
+use alexandria_bytes::{Bytes, BytesStore, BytesTrait};
 use starknet::ContractAddress;
 
 /// Signals that an order has been opened

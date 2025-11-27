@@ -8,13 +8,13 @@
 pub mod BasicSwap7683Component {
     use alexandria_bytes::{Bytes, BytesStore};
     use core::num::traits::{Bounded, Zero};
-    use oif_starknet::base7683::Base7683Component;
-    use oif_starknet::base7683::Base7683Component::{OPENED, Virtual as BaseVirtual};
-    use oif_starknet::erc7683::interface::{
-        FillInstruction, GaslessCrossChainOrder, OnchainCrossChainOrder, Output,
-        ResolvedCrossChainOrder, IBasicSwapExtra,
+    use oif_ztarknet::base7683::Base7683Component;
+    use oif_ztarknet::base7683::Base7683Component::{OPENED, Virtual as BaseVirtual};
+    use oif_ztarknet::erc7683::interface::{
+        FillInstruction, GaslessCrossChainOrder, IBasicSwapExtra, OnchainCrossChainOrder, Output,
+        ResolvedCrossChainOrder,
     };
-    use oif_starknet::libraries::order_encoder::{OpenOrderEncoder, OrderData, OrderEncoder};
+    use oif_ztarknet::libraries::order_encoder::{OpenOrderEncoder, OrderData, OrderEncoder};
     use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use starknet::storage::{StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};

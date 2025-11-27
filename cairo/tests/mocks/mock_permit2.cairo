@@ -26,12 +26,12 @@ pub trait IMockPermit2<TState> {
 
 #[starknet::contract]
 mod MockPermit2 {
+    use openzeppelin_utils::cryptography::snip12::{
+        SNIP12Metadata, StarknetDomain, StructHash, StructHashStarknetDomainImpl,
+    };
     use permit2::components::allowance_transfer::AllowanceTransferComponent;
     use permit2::components::signature_transfer::SignatureTransferComponent;
     use permit2::components::unordered_nonces::UnorderedNoncesComponent;
-    use openzeppelin_utils::cryptography::snip12::{
-        StarknetDomain, SNIP12Metadata, StructHash, StructHashStarknetDomainImpl,
-    };
     use crate::mocks::interfaces::IDS;
 
 

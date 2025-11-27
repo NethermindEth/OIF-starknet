@@ -26,6 +26,10 @@ pub mod MockERC20 {
         ERC20Event: ERC20Component::Event,
     }
 
+    impl ERC20ImmutableConfigImpl of ERC20Component::ImmutableConfig {
+        const DECIMALS: u8 = 6;
+    }
+
     #[constructor]
     fn constructor(ref self: ContractState, name: ByteArray, symbol: ByteArray) {
         self.erc20.initializer(name, symbol);

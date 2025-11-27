@@ -1,6 +1,6 @@
+use alexandria_bytes::{Bytes, BytesStore};
 use contracts::libs::message::Message;
 use starknet::ContractAddress;
-use alexandria_bytes::{Bytes, BytesStore};
 
 #[derive(Drop, Serde, Clone, starknet::Store, PartialEq)]
 pub struct Call {
@@ -63,7 +63,7 @@ pub trait IMockMailbox<TContractState> {
 
 #[starknet::contract]
 pub mod MockMailbox {
-    use alexandria_bytes::{Bytes, BytesTrait, BytesStore};
+    use alexandria_bytes::{Bytes, BytesStore, BytesTrait};
     use contracts::interfaces::{
         IInterchainSecurityModuleDispatcher, IInterchainSecurityModuleDispatcherTrait,
         IMailboxDispatcher, IMailboxDispatcherTrait, IMessageRecipientDispatcher,
@@ -77,7 +77,8 @@ pub mod MockMailbox {
     };
     use openzeppelin_access::ownable::OwnableComponent;
     use openzeppelin_token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
-    use openzeppelin_upgrades::{interface::IUpgradeable, upgradeable::UpgradeableComponent};
+    use openzeppelin_upgrades::interface::IUpgradeable;
+    use openzeppelin_upgrades::upgradeable::UpgradeableComponent;
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
@@ -86,7 +87,7 @@ pub mod MockMailbox {
         ClassHash, ContractAddress, contract_address_const, get_block_number, get_caller_address,
         get_contract_address,
     };
-    use super::{IMockMailboxDispatcher, IMockMailboxDispatcherTrait, Call, OptionBytesCloneImpl};
+    use super::{Call, IMockMailboxDispatcher, IMockMailboxDispatcherTrait, OptionBytesCloneImpl};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
@@ -124,7 +125,7 @@ pub mod MockMailbox {
         // The required post dispatch hook, used for post processing of ALL dispatches.
         required_hook: ContractAddress,
         // Mapping of message ID to delivery context that processed the message.
-        deliveries: Map::<u256, Delivery>,
+        deliveries: Map<u256, Delivery>,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]

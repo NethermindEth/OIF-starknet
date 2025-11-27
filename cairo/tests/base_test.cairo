@@ -2,39 +2,37 @@ use alexandria_bytes::{Bytes, BytesStore};
 use core::hash::{HashStateExTrait, HashStateTrait};
 use core::num::traits::Pow;
 use core::poseidon::PoseidonTrait;
-use oif_starknet::base7683::{SpanFelt252StructHash, ArrayFelt252StructHash};
-use oif_starknet::erc7683::interface::{
-    Open, Base7683ABIDispatcherTrait, Base7683ABIDispatcher, GaslessCrossChainOrder,
-    OnchainCrossChainOrder, ResolvedCrossChainOrder,
+use mocks::test_interchain_gas_payment::ITestInterchainGasPaymentDispatcher;
+use oif_ztarknet::base7683::{ArrayFelt252StructHash, SpanFelt252StructHash};
+use oif_ztarknet::erc7683::interface::{
+    Base7683ABIDispatcher, Base7683ABIDispatcherTrait, GaslessCrossChainOrder,
+    OnchainCrossChainOrder, Open, ResolvedCrossChainOrder,
 };
-use oif_starknet::libraries::order_encoder::{OpenOrderEncoder, ContractAddressDefault};
+use oif_ztarknet::libraries::order_encoder::{ContractAddressDefault, OpenOrderEncoder};
 use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use openzeppelin_utils::cryptography::snip12::{SNIP12HashSpanImpl, StructHash};
+use permit2::interfaces::permit2::{IPermit2ABIDispatcher, IPermit2ABIDispatcherTrait};
 use permit2::interfaces::signature_transfer::{PermitBatchTransferFrom, TokenPermissions};
-use permit2::interfaces::permit2::{IPermit2Dispatcher, IPermit2DispatcherTrait};
 use permit2::snip12_utils::permits::{
-    PermitBatchStructHash, PermitBatchTransferFromStructHash,
-    PermitBatchTransferFromStructHashWitness, PermitSingleStructHash, PermitTransferFromStructHash,
-    PermitTransferFromStructHashWitness, TokenPermissionsStructHash,
-};
-use permit2::snip12_utils::permits::{
-    U256StructHash, PermitBatchTransferFromOffChainMessageHashWitness,
-    PermitTransferFromOffChainMessageHashWitness,
+    PermitBatchStructHash, PermitBatchTransferFromOffChainMessageHashWitness,
+    PermitBatchTransferFromStructHash, PermitBatchTransferFromStructHashWitness,
+    PermitSingleStructHash, PermitTransferFromOffChainMessageHashWitness,
+    PermitTransferFromStructHash, PermitTransferFromStructHashWitness, TokenPermissionsStructHash,
+    U256StructHash,
 };
 use snforge_std::signature::SignerTrait;
-use snforge_std::start_cheat_block_timestamp_global;
 use snforge_std::signature::stark_curve::{
     StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
 };
+use snforge_std::start_cheat_block_timestamp_global;
 use starknet::ContractAddress;
 use crate::common::{
-    deploy_eth, deal_multiple, ETH_ADDRESS, Account, deploy_permit2, deploy_erc20, generate_account,
+    Account, ETH_ADDRESS, deal_multiple, deploy_erc20, deploy_eth, deploy_permit2, generate_account,
 };
-use crate::mocks::mock_base7683::{IMockBase7683Dispatcher};
-use crate::mocks::mock_basic_swap7683::{IMockBasicSwap7683Dispatcher};
-use crate::mocks::mock_hyperlane7683::{IMockHyperlane7683Dispatcher};
-use mocks::test_interchain_gas_payment::{ITestInterchainGasPaymentDispatcher};
-use crate::mocks::mock_hyperlane_environment::{IMockHyperlaneEnvironmentDispatcher};
+use crate::mocks::mock_base7683::IMockBase7683Dispatcher;
+use crate::mocks::mock_basic_swap7683::IMockBasicSwap7683Dispatcher;
+use crate::mocks::mock_hyperlane7683::IMockHyperlane7683Dispatcher;
+use crate::mocks::mock_hyperlane_environment::IMockHyperlaneEnvironmentDispatcher;
 
 #[derive(Drop, Clone)]
 pub struct Setup {
@@ -101,7 +99,7 @@ pub fn setup() -> Setup {
     let _eth = deploy_eth();
     let input_token = deploy_erc20("Input Token", "IN");
     let output_token = deploy_erc20("Output Token", "OUT");
-    let DOMAIN_SEPARATOR = IPermit2Dispatcher { contract_address: permit2 }.DOMAIN_SEPARATOR();
+    let DOMAIN_SEPARATOR = IPermit2ABIDispatcher { contract_address: permit2 }.DOMAIN_SEPARATOR();
 
     let admin = 'admin'.try_into().unwrap();
     let owner = 'owner'.try_into().unwrap();
@@ -213,7 +211,7 @@ pub fn _balances(token: IERC20Dispatcher, users: Array<ContractAddress>) -> Arra
     let mut balances: Array<u256> = array![];
     for user in users.span() {
         balances.append(token.balance_of(*user));
-    };
+    }
     balances
 }
 
@@ -222,7 +220,7 @@ pub fn _eth_balances(users: Array<ContractAddress>) -> Array<u256> {
     let eth = IERC20Dispatcher { contract_address: ETH_ADDRESS() };
     for user in users.span() {
         balances.append(eth.balance_of(*user));
-    };
+    }
     balances
 }
 
@@ -255,7 +253,7 @@ pub fn _get_permit_batch_witness_signature(
     let mut hashed_permissions: Array<felt252> = array![];
     for permission in permit.permitted {
         hashed_permissions.append(permission.hash_struct());
-    };
+    }
 
     let hashed_permit = PoseidonTrait::new()
         .update_with(type_hash)
@@ -283,7 +281,7 @@ pub fn _default_erc20_permit_multiple(
     let mut permitted: Array<TokenPermissions> = array![];
     for token in tokens.span() {
         permitted.append(TokenPermissions { token: *token, amount });
-    };
+    }
 
     PermitBatchTransferFrom { permitted: permitted.span(), nonce, deadline }
 }

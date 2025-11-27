@@ -1,5 +1,5 @@
+use alexandria_bytes::Bytes;
 use starknet::ContractAddress;
-use alexandria_bytes::{Bytes};
 
 #[starknet::interface]
 pub trait IMockHyperlane7683<TState> {
@@ -31,13 +31,13 @@ pub mod MockHyperlane7683 {
     use contracts::client::mailboxclient_component::MailboxclientComponent;
     use contracts::client::router_component::RouterComponent;
     use contracts::client::router_component::RouterComponent::IMessageRecipientInternalHookTrait;
-    use oif_starknet::base7683::Base7683Component;
-    use oif_starknet::base7683::Base7683Component::{DestinationSettler, OriginSettler};
-    use oif_starknet::basic_swap7683::BasicSwap7683Component;
-    use oif_starknet::erc7683::interface::{
+    use oif_ztarknet::base7683::Base7683Component;
+    use oif_ztarknet::base7683::Base7683Component::{DestinationSettler, OriginSettler};
+    use oif_ztarknet::basic_swap7683::BasicSwap7683Component;
+    use oif_ztarknet::erc7683::interface::{
         GaslessCrossChainOrder, OnchainCrossChainOrder, ResolvedCrossChainOrder,
     };
-    use oif_starknet::libraries::hyperlane7683_message::Hyperlane7683Message;
+    use oif_ztarknet::libraries::hyperlane7683_message::Hyperlane7683Message;
     use openzeppelin_access::ownable::OwnableComponent;
     use openzeppelin_utils::cryptography::snip12::StructHashStarknetDomainImpl;
     use starknet::ContractAddress;
@@ -379,7 +379,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.refunded_message_origin_len.read() {
                 result.append(self.refunded_message_origin.entry(i).read());
-            };
+            }
             result
         }
 
@@ -387,7 +387,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.refunded_message_sender_len.read() {
                 result.append(self.refunded_message_sender.entry(i).read());
-            };
+            }
             result
         }
 
@@ -395,7 +395,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.refunded_order_id_len.read() {
                 result.append(self.refunded_order_id.entry(i).read());
-            };
+            }
             result
         }
 
@@ -403,7 +403,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.settled_order_id_len.read() {
                 result.append(self.settled_order_id.entry(i).read());
-            };
+            }
             result
         }
 
@@ -411,7 +411,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.settled_order_receiver_len.read() {
                 result.append(self.settled_order_receiver.entry(i).read());
-            };
+            }
             result
         }
 
@@ -419,7 +419,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.settled_message_origin_len.read() {
                 result.append(self.settled_message_origin.entry(i).read());
-            };
+            }
             result
         }
 
@@ -427,7 +427,7 @@ pub mod MockHyperlane7683 {
             let mut result = array![];
             for i in 0..self.settled_message_sender_len.read() {
                 result.append(self.settled_message_sender.entry(i).read());
-            };
+            }
             result
         }
 

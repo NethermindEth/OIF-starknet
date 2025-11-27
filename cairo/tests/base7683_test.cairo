@@ -1,29 +1,27 @@
-use alexandria_bytes::{Bytes, BytesTrait, BytesStore};
-use core::num::traits::Bounded;
+use alexandria_bytes::{Bytes, BytesStore, BytesTrait};
 use core::keccak::compute_keccak_byte_array;
+use core::num::traits::Bounded;
+use oif_ztarknet::base7683::{ArrayFelt252StructHash, Base7683Component, SpanFelt252StructHash};
+use oif_ztarknet::erc7683::interface::{
+    Base7683ABIDispatcher, Base7683ABIDispatcherTrait, FilledOrder, GaslessCrossChainOrder, Open,
+};
+use oif_ztarknet::libraries::order_encoder::BytesDefault;
+use openzeppelin_token::erc20::interface::IERC20DispatcherTrait;
+use openzeppelin_utils::cryptography::snip12::SNIP12HashSpanImpl;
+use permit2::snip12_utils::permits::{TokenPermissionsStructHash, U256StructHash};
 use snforge_std::signature::stark_curve::{
     StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
 };
-use crate::common::{pop_event};
-use permit2::snip12_utils::permits::{TokenPermissionsStructHash, U256StructHash};
-use openzeppelin_utils::cryptography::snip12::{SNIP12HashSpanImpl};
-use oif_starknet::base7683::{SpanFelt252StructHash, ArrayFelt252StructHash, Base7683Component};
-use oif_starknet::erc7683::interface::{
-    Base7683ABIDispatcher, Base7683ABIDispatcherTrait, FilledOrder, GaslessCrossChainOrder, Open,
-};
-use oif_starknet::libraries::order_encoder::{BytesDefault};
-use openzeppelin_token::erc20::interface::{IERC20DispatcherTrait};
 use snforge_std::{
-    start_cheat_caller_address, start_cheat_block_timestamp_global,
-    stop_cheat_block_timestamp_global, EventSpyAssertionsTrait, stop_cheat_caller_address,
-    spy_events, EventSpyTrait,
+    EventSpyAssertionsTrait, EventSpyTrait, spy_events, start_cheat_block_timestamp_global,
+    start_cheat_caller_address, stop_cheat_block_timestamp_global, stop_cheat_caller_address,
 };
-use crate::mocks::mock_base7683::{IMockBase7683DispatcherTrait};
 use crate::base_test::{
-    setup as super_setup, Setup, _prepare_onchain_order, _balances, _assert_open_order,
-    _assert_resolved_order, _get_signature,
+    Setup, _assert_open_order, _assert_resolved_order, _balances, _get_signature,
+    _prepare_onchain_order, setup as super_setup,
 };
-use crate::common::{deploy_mock_base7683};
+use crate::common::{deploy_mock_base7683, pop_event};
+use crate::mocks::mock_base7683::IMockBase7683DispatcherTrait;
 
 pub fn setup() -> Setup {
     let mut setup = super_setup();

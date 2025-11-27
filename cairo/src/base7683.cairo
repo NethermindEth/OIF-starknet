@@ -1,9 +1,9 @@
+use alexandria_bytes::{Bytes, BytesTrait};
 use core::hash::{HashStateExTrait, HashStateTrait};
 use core::poseidon::PoseidonTrait;
-use oif_starknet::erc7683::interface::{FillInstruction, Output, ResolvedCrossChainOrder};
+use oif_ztarknet::erc7683::interface::{FillInstruction, Output, ResolvedCrossChainOrder};
 use openzeppelin_utils::cryptography::snip12::{SNIP12HashSpanImpl, StructHash};
 use permit2::snip12_utils::permits::_U256_TYPE_HASH;
-use alexandria_bytes::{Bytes, BytesTrait};
 
 
 /// @title Base7683 (Cairo)
@@ -16,11 +16,11 @@ use alexandria_bytes::{Bytes, BytesTrait};
 #[starknet::component]
 pub mod Base7683Component {
     use alexandria_bytes::{Bytes, BytesStore};
-    use oif_starknet::erc7683::interface::{
+    use oif_ztarknet::erc7683::interface::{
         FilledOrder, GaslessCrossChainOrder, IDestinationSettler, IERC7683Extra, IOriginSettler,
         OnchainCrossChainOrder, Open, ResolvedCrossChainOrder,
     };
-    use oif_starknet::libraries::order_encoder::OpenOrderEncoder;
+    use oif_ztarknet::libraries::order_encoder::OpenOrderEncoder;
     use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
     use permit2::interfaces::signature_transfer::{
         ISignatureTransferDispatcher, ISignatureTransferDispatcherTrait, PermitBatchTransferFrom,
@@ -162,7 +162,7 @@ pub mod Base7683Component {
                     .transfer_from(
                         get_caller_address(), get_contract_address(), *min_received.amount,
                     );
-            };
+            }
 
             self.emit(Open { order_id, resolved_order });
         }
@@ -279,7 +279,7 @@ pub mod Base7683Component {
 
                 orders_origin_data.append(filled_order.origin_data);
                 orders_filler_data.append(filled_order.filler_data);
-            };
+            }
 
             self._settle_orders(@order_ids, @orders_origin_data, @orders_filler_data, value);
 
@@ -304,7 +304,7 @@ pub mod Base7683Component {
                     get_block_timestamp().into() >= *order.fill_deadline,
                     Errors::ORDER_FILL_NOT_EXPIRED,
                 );
-            };
+            }
 
             self._refund_gasless_orders(@orders, @order_ids, value);
 
@@ -330,7 +330,7 @@ pub mod Base7683Component {
                     get_block_timestamp().into() >= *order.fill_deadline,
                     Errors::ORDER_FILL_NOT_EXPIRED,
                 );
-            };
+            }
 
             self._refund_onchain_orders(@orders, @order_ids, value);
 
@@ -532,7 +532,7 @@ pub mod Base7683Component {
                             to: receiver, requested_amount: *min_received.amount,
                         },
                     );
-            };
+            }
 
             let permit = PermitBatchTransferFrom {
                 permitted: permitted.span(),
@@ -581,17 +581,17 @@ pub impl ResolvedCrossChainOrderStructHash of StructHash<ResolvedCrossChainOrder
         let mut hashed_max_spents: Array<felt252> = array![];
         for max_spent in self.max_spent.span() {
             hashed_max_spents.append(max_spent.hash_struct());
-        };
+        }
 
         let mut hashed_min_receiveds: Array<felt252> = array![];
         for min_received in self.min_received.span() {
             hashed_max_spents.append(min_received.hash_struct());
-        };
+        }
 
         let mut hashed_fill_instructions: Array<felt252> = array![];
         for fill_instruction in self.fill_instructions.span() {
             hashed_fill_instructions.append(fill_instruction.hash_struct());
-        };
+        }
 
         PoseidonTrait::new()
             .update_with(RESOLVED_CROSS_CHAIN_ORDER_TYPE_HASH)
@@ -635,7 +635,7 @@ pub impl SpanFelt252StructHash of StructHash<Span<felt252>> {
         let mut state = PoseidonTrait::new();
         for el in (*self) {
             state = state.update_with(*el);
-        };
+        }
         state.finalize()
     }
 }
@@ -645,7 +645,7 @@ pub impl ArrayFelt252StructHash of StructHash<Array<felt252>> {
         let mut state = PoseidonTrait::new();
         for el in self.span() {
             state = state.update_with(*el);
-        };
+        }
         state.finalize()
     }
 }
@@ -673,7 +673,7 @@ pub impl BytesStructHash of StructHash<Bytes> {
         for u128 in data.span() {
             state = state.update_with(*u128);
             u128;
-        };
+        }
 
         state.finalize()
     }

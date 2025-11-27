@@ -1,20 +1,20 @@
 use alexandria_bytes::{Bytes, BytesTrait};
+use mocks::test_interchain_gas_payment::ITestInterchainGasPaymentDispatcher;
+use oif_ztarknet::erc7683::interface::Base7683ABIDispatcher as IHyperlaneDispatcher;
 use openzeppelin_account::interface::AccountABIDispatcher;
-use openzeppelin_token::erc20::interface::{IERC20Dispatcher};
+use openzeppelin_token::erc20::interface::IERC20Dispatcher;
 use snforge_std::signature::stark_curve::{
     StarkCurveKeyPairImpl, StarkCurveSignerImpl, StarkCurveVerifierImpl,
 };
 use snforge_std::signature::{KeyPair, KeyPairTrait};
-use snforge_std::{Event, ContractClassTrait, DeclareResultTrait, declare};
-use starknet::{ContractAddress, ClassHash};
+use snforge_std::{ContractClassTrait, DeclareResultTrait, Event, declare, replace_bytecode};
 use starknet::event::Event as _Event;
-use oif_starknet::erc7683::interface::{Base7683ABIDispatcher as IHyperlaneDispatcher};
-use crate::mocks::mock_base7683::{IMockBase7683Dispatcher};
-use crate::mocks::mock_basic_swap7683::{IMockBasicSwap7683Dispatcher};
-use crate::mocks::mock_hyperlane7683::{IMockHyperlane7683Dispatcher};
+use starknet::{ClassHash, ContractAddress};
 use crate::mocks::interfaces::{IMintableDispatcher, IMintableDispatcherTrait};
+use crate::mocks::mock_base7683::IMockBase7683Dispatcher;
+use crate::mocks::mock_basic_swap7683::IMockBasicSwap7683Dispatcher;
+use crate::mocks::mock_hyperlane7683::IMockHyperlane7683Dispatcher;
 use crate::mocks::mock_hyperlane_environment::IMockHyperlaneEnvironmentDispatcher;
-use mocks::test_interchain_gas_payment::ITestInterchainGasPaymentDispatcher;
 
 
 /// Consts ///
@@ -54,7 +54,7 @@ pub fn deal_multiple(tokens: Array<ContractAddress>, tos: Array<ContractAddress>
         for to in tos.span() {
             deal(*token, *to, i * (amount + j));
             j += 1;
-        };
+        }
         i += 1;
     };
 }
@@ -68,9 +68,8 @@ pub fn deploy_eth() -> IERC20Dispatcher {
     let symbol: ByteArray = "ETH";
     name.serialize(ref ctor_calldata);
     symbol.serialize(ref ctor_calldata);
-
-    let (erc20_address, _) = mock_erc20_contract.deploy_at(@ctor_calldata, ETH_ADDRESS()).unwrap();
-    IERC20Dispatcher { contract_address: erc20_address }
+    replace_bytecode(ETH_ADDRESS(), *mock_erc20_contract.class_hash);
+    IERC20Dispatcher { contract_address: ETH_ADDRESS() }
 }
 
 pub fn deploy_erc20(name: ByteArray, symbol: ByteArray) -> IERC20Dispatcher {
@@ -217,7 +216,7 @@ pub fn pop_event<T, +Drop<T>, +Default<T>, +PartialEq<T>, impl TEvent: starknet:
                     );
             }
         }
-    };
+    }
     popped
 }
 

@@ -38,6 +38,10 @@ pub mod MockERC20 {
         self.erc20.initializer(name, symbol);
     }
 
+    impl ERC20ImmutableConfigImpl of ERC20Component::ImmutableConfig {
+        const DECIMALS: u8 = 6;
+    }
+
     #[abi(embed_v0)]
     impl MintableImpl of IMintable<ContractState> {
         fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {

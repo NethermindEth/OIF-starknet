@@ -70,6 +70,8 @@ pub mod OrderEncoder {
 
 
     /// Encode an OrderData struct into Bytes, matching EVM's abi.encode()
+    #[feature("deprecated-size")]
+    #[feature("deprecated-new_empty")]
     pub fn encode(order: @OrderData) -> Bytes {
         let OrderData {
             sender,
@@ -107,6 +109,9 @@ pub mod OrderEncoder {
     }
 
     /// Decode OrderData struct from Bytes
+    #[feature("deprecated-size")]
+    #[feature("deprecated-read_bytes")]
+    #[feature("deprecated-new_empty")]
     pub fn decode(order_data: @Bytes) -> OrderData {
         let mut offset = 0;
 

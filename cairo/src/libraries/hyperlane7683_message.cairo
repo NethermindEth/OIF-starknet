@@ -1,7 +1,7 @@
 pub mod Hyperlane7683Message {
     use alexandria_bytes::{Bytes, BytesTrait};
-    use alexandria_encoding::sol_abi::encode::SolAbiEncodeTrait as evm_encoder;
     use alexandria_encoding::sol_abi::decode::SolAbiDecodeTrait as evm_decoder;
+    use alexandria_encoding::sol_abi::encode::SolAbiEncodeTrait as evm_encoder;
     use core::byte_array::ByteArrayImpl;
 
     /// Returns formatted Router7683 message
@@ -37,7 +37,7 @@ pub mod Hyperlane7683Message {
         encoded = encoded.encode(order_ids_len);
         for i in 0..order_ids_len {
             encoded = encoded.encode(*order_ids[i]);
-        };
+        }
 
         // Encode orders_filler_data length
         encoded = encoded.encode(orders_filler_data_len);
@@ -47,7 +47,7 @@ pub mod Hyperlane7683Message {
         for i in 0..orders_filler_data_len {
             // Each element's offset is 64 bytes after the previous
             encoded = encoded.encode(base + (i * 0x40));
-        };
+        }
 
         // Encode each order_filler_data size and data
         for i in 0..orders_filler_data_len {
@@ -63,7 +63,7 @@ pub mod Hyperlane7683Message {
                 @encoded.into(), @orders_filler_data[i].clone().into(),
             );
             encoded = encoded_ba.into();
-        };
+        }
 
         encoded
     }
@@ -91,13 +91,13 @@ pub mod Hyperlane7683Message {
         let _order_ids_len: usize = message.decode(ref offset);
         for _ in 0.._order_ids_len {
             order_ids.append(message.decode(ref offset));
-        };
+        }
 
         // Ignore orders_filler_data relative offsets
         let _orders_filler_data_len = message.decode(ref offset);
         for _ in 0.._orders_filler_data_len {
             let _: u256 = message.decode(ref offset);
-        };
+        }
 
         // Decode orders filler data
         for _ in 0_usize.._orders_filler_data_len {
@@ -108,7 +108,7 @@ pub mod Hyperlane7683Message {
             let _: u256 = message.decode(ref offset);
 
             orders_filler_data.append(message.decode(ref offset));
-        };
+        }
 
         (settle, order_ids.span(), orders_filler_data.span())
     }
