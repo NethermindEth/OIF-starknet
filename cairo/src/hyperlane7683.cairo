@@ -96,8 +96,9 @@ pub mod Hyperlane7683 {
     ) {
         self.ownable.initializer(owner);
         self.base7683._initialize(permit2);
-        // self.mailbox_client.initialize(mailbox, Option::Some(hook),
-    // Option::Some(interchain_security_module));
+        self
+            .mailbox_client
+            .initialize(mailbox, Option::Some(hook), Option::Some(interchain_security_module));
     }
 
     /// EVENTS ///
